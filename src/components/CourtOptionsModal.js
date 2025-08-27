@@ -36,11 +36,6 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
               </div>
             </button>
 
-            {/* VS Divider */}
-            <div className="vs-divider">
-              <span className="vs-text">VS</span>
-            </div>
-
             {/* Team 2 */}
             <button
               className={`team-option team-2-option ${

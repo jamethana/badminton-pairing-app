@@ -1627,34 +1627,6 @@ code {
   font-style: italic;
 }
 
-/* VS Divider */
-.vs-divider {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 24px 0;
-  justify-content: center;
-}
-
-.vs-line {
-  flex: 1;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
-  max-width: 80px;
-}
-
-.vs-text {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  padding: 8px 16px;
-  background: var(--bg-primary);
-  border-radius: 20px;
-  border: 2px solid var(--border-color);
-  min-width: 60px;
-  text-align: center;
-}
-
 /* Available Players Section */
 .available-players-section {
   margin-top: 32px;
