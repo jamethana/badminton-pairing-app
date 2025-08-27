@@ -150,72 +150,67 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
           <div className="match-preview">
             <h4 className="preview-title">Match Preview</h4>
             
-            {/* Team 1 */}
-            <div className="team-preview team-1">
-              <div className="team-header">
-                <h5 className="team-name">Team 1</h5>
-                <div className="team-color-indicator team-1-color"></div>
-              </div>
-              <div className="team-players">
-                {assignedPlayers.slice(0, 2).map((player, index) => (
-                  <div 
-                    key={player.id} 
-                    className={`player-slot clickable ${
-                      selectedPlayer?.index === index ? 'selected' : ''
-                    } ${
-                      selectedAvailablePlayer ? 'swap-ready' : ''
-                    }`}
-                    onClick={() => handlePlayerClick(player, index)}
-                  >
-                    <div className="player-info">
-                      <span className="player-name">{player.name}</span>
-                      <span className="player-stats">
-                        {player.wins}W - {player.losses}L
-                      </span>
+            <div className="teams-container">
+              {/* Team 1 */}
+              <div className="team-preview team-1">
+                <div className="team-header">
+                  <h5 className="team-name">Team 1</h5>
+                  <div className="team-color-indicator team-1-color"></div>
+                </div>
+                <div className="team-players">
+                  {assignedPlayers.slice(0, 2).map((player, index) => (
+                    <div 
+                      key={player.id} 
+                      className={`player-slot clickable ${
+                        selectedPlayer?.index === index ? 'selected' : ''
+                      } ${
+                        selectedAvailablePlayer ? 'swap-ready' : ''
+                      }`}
+                      onClick={() => handlePlayerClick(player, index)}
+                    >
+                      <div className="player-info">
+                        <span className="player-name">{player.name}</span>
+                        <span className="player-stats">
+                          {player.wins}W - {player.losses}L
+                        </span>
+                      </div>
+                      <div className="player-actions">
+                        <span className="action-hint">Click to select</span>
+                      </div>
                     </div>
-                    <div className="player-actions">
-                      <span className="action-hint">Click to select</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* VS Divider */}
-            <div className="vs-divider">
-              <div className="vs-line"></div>
-              <span className="vs-text">VS</span>
-              <div className="vs-line"></div>
-            </div>
-
-            {/* Team 2 */}
-            <div className="team-preview team-2">
-              <div className="team-header">
-                <h5 className="team-name">Team 2</h5>
-                <div className="team-color-indicator team-2-color"></div>
-              </div>
-              <div className="team-players">
-                {assignedPlayers.slice(2, 4).map((player, index) => (
-                  <div 
-                    key={player.id} 
-                    className={`player-slot clickable ${
-                      selectedPlayer?.index === index + 2 ? 'selected' : ''
-                    } ${
-                      selectedAvailablePlayer ? 'swap-ready' : ''
-                    }`}
-                    onClick={() => handlePlayerClick(player, index + 2)}
-                  >
-                    <div className="player-info">
-                      <span className="player-name">{player.name}</span>
-                      <span className="player-stats">
-                        {player.wins}W - {player.losses}L
-                      </span>
+              {/* Team 2 */}
+              <div className="team-preview team-2">
+                <div className="team-header">
+                  <h5 className="team-name">Team 2</h5>
+                  <div className="team-color-indicator team-2-color"></div>
+                </div>
+                <div className="team-players">
+                  {assignedPlayers.slice(2, 4).map((player, index) => (
+                    <div 
+                      key={player.id} 
+                      className={`player-slot clickable ${
+                        selectedPlayer?.index === index + 2 ? 'selected' : ''
+                      } ${
+                        selectedAvailablePlayer ? 'swap-ready' : ''
+                      }`}
+                      onClick={() => handlePlayerClick(player, index + 2)}
+                    >
+                      <div className="player-info">
+                        <span className="player-name">{player.name}</span>
+                        <span className="player-stats">
+                          {player.wins}W - {player.losses}L
+                        </span>
+                      </div>
+                      <div className="player-actions">
+                        <span className="action-hint">Click to select</span>
+                      </div>
                     </div>
-                    <div className="player-actions">
-                      <span className="action-hint">Click to select</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>

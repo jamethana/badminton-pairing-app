@@ -1492,8 +1492,14 @@ code {
   border-bottom: 1px solid var(--border-color);
 }
 
+.teams-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 .team-preview {
-  margin-bottom: 12px;
+  margin-bottom: 0;
   padding: 12px;
   border-radius: var(--border-radius);
   background: var(--bg-secondary);
@@ -2106,6 +2112,11 @@ code {
     max-height: 85vh;
   }
   
+  .teams-container {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
   .team-option {
     padding: 16px;
   }
@@ -2134,6 +2145,10 @@ code {
   .select-winner-modal {
     margin: 8px;
     max-height: 90vh;
+  }
+  
+  .teams-container {
+    gap: 10px;
   }
   
   .team-option {
