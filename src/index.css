@@ -1565,24 +1565,24 @@ code {
 }
 
 .team-1 {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .team-1:hover {
-  border-color: var(--success-color);
+  border-color: #ef4444;
 }
 
 .team-2 {
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .team-2:hover {
-  border-color: var(--secondary-color);
+  border-color: #3b82f6;
 }
 
 .team-players {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
@@ -1595,6 +1595,7 @@ code {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  width: 100%;
 }
 
 .player-slot:hover {
@@ -1629,6 +1630,7 @@ code {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  text-align: left;
 }
 
 .player-name {
@@ -2204,11 +2206,11 @@ code {
 }
 
 .match-card .teams .team.team1 .player {
-  border-color: rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .match-card .teams .team.team2 .player {
-  border-color: rgba(139, 92, 246, 0.4);
-  background: rgba(139, 92, 246, 0.05);
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.05);
 } 
