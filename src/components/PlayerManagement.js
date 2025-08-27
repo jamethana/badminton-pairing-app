@@ -140,7 +140,7 @@ const PlayerManagement = ({
               <button className="btn btn-outline" onClick={() => setShowResetConfirmation(false)}>
                 Cancel
               </button>
-              <button className="btn btn-warning" onClick={confirmResetMatchCounts}>
+              <button className="btn btn-warning" onClick={confirmResetMatchCounts} data-testid="confirm-reset-button">
                 Reset All Match Counts
               </button>
             </div>

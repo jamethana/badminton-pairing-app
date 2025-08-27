@@ -31,17 +31,17 @@ jest.mock('./PlayerCard', () => {
 });
 
 jest.mock('./PlayerEditModal', () => {
-  return function MockPlayerEditModal({ player, onUpdate, onRemove, onClose }) {
+  return function MockPlayerEditModal({ playerId, playerName, onSave, onRemove, onClose }) {
     return (
       <div data-testid="player-edit-modal">
-        <h3>Edit {player.name}</h3>
+        <h3>Edit {playerName}</h3>
         <input 
-          defaultValue={player.name} 
+          defaultValue={playerName} 
           data-testid="edit-name-input"
           onChange={(e) => e.target.value}
         />
-        <button onClick={() => onUpdate(player.id, { name: 'Updated Name' })}>Save</button>
-        <button onClick={() => onRemove(player.id)} data-testid="modal-remove">Remove</button>
+        <button onClick={() => onSave(playerId, { name: 'Updated Name' })}>Save</button>
+        <button onClick={() => onRemove(playerId)} data-testid="modal-remove">Remove</button>
         <button onClick={onClose}>Cancel</button>
       </div>
     );
@@ -223,6 +223,15 @@ describe('PlayerManagement', () => {
 
     const resetButton = screen.getByText('Reset All Match Counts');
     fireEvent.click(resetButton);
+
+    // Wait for confirmation modal to appear
+    await waitFor(() => {
+      expect(screen.getByText('Confirm Reset All Match Counts')).toBeInTheDocument();
+    });
+
+    // Click the confirm button in the modal - use a more specific selector
+    const confirmButton = screen.getByTestId('confirm-reset-button');
+    fireEvent.click(confirmButton);
 
     expect(mockProps.onResetMatchCounts).toHaveBeenCalled();
   });
