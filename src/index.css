@@ -267,17 +267,59 @@ code {
   gap: 20px;
 }
 
-.matches-grid {
-  display: grid;
-  gap: 20px;
-}
-
 .grid-2 {
-  grid-template-columns: repeat(2, 1fr) !important;
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .grid-3 {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* Mobile responsiveness for general grids */
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+    gap: var(--mobile-gap);
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-2,
+  .grid-3 {
+    gap: 10px;
+  }
+}
+
+/* Desktop-first matches grid */
+.matches-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+/* Ensure matches grid stays 2 columns on desktop */
+.matches-grid.grid-2 {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+/* Mobile responsiveness for matches grid */
+@media (max-width: 768px) {
+  .matches-grid {
+    grid-template-columns: 1fr;
+    gap: var(--mobile-gap);
+  }
+  
+  /* Override the grid-2 class on mobile */
+  .matches-grid.grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .matches-grid {
+    gap: 10px;
+  }
 }
 
 /* Desktop-first match card styles */
@@ -951,18 +993,18 @@ code {
     align-items: flex-start;
     gap: var(--mobile-gap);
     margin-bottom: 20px;
-  }
-  
+}
+
   .section-title {
     font-size: 20px;
-  }
-  
+}
+
   .section-actions {
     width: 100%;
     justify-content: space-between;
     gap: var(--mobile-gap);
-  }
-  
+}
+
   .grid-2,
   .grid-3 {
     grid-template-columns: 1fr;
@@ -978,8 +1020,8 @@ code {
     padding: var(--mobile-padding);
     margin-bottom: var(--mobile-gap);
     border-radius: var(--mobile-border-radius);
-  }
-  
+}
+
   .match-card {
     padding: var(--mobile-padding);
     border-radius: var(--mobile-border-radius);
@@ -1013,24 +1055,24 @@ code {
   
   .modal-overlay {
     padding: var(--mobile-padding);
-  }
-  
+}
+
   .modal-content {
     border-radius: var(--mobile-border-radius);
     max-height: 95vh;
-  }
-  
+}
+
   .modal-header,
   .modal-body,
   .modal-actions {
     padding: var(--mobile-padding);
-  }
-  
+}
+
   .modal-actions {
     flex-direction: column;
     gap: var(--mobile-gap);
-  }
-  
+}
+
   .modal-actions .btn {
     width: 100%;
   }
@@ -1039,23 +1081,23 @@ code {
     flex-direction: column;
     gap: var(--mobile-gap);
     margin-bottom: 16px;
-  }
-  
+}
+
   .form-input {
     width: 100%;
     padding: 14px 16px;
     font-size: 16px;
     border-radius: var(--mobile-border-radius);
-  }
-  
+}
+
   .btn {
     padding: 14px 20px;
     font-size: 16px;
     min-height: 48px;
     border-radius: var(--mobile-border-radius);
     margin-bottom: 8px;
-  }
-  
+}
+
   .btn-sm {
     padding: 10px 18px;
     min-height: 40px;
@@ -1064,8 +1106,8 @@ code {
   .btn-lg {
     padding: 18px 28px;
     min-height: 52px;
-  }
-  
+}
+
   .player-stats-container,
   .player-stats-container-compact {
     max-height: 400px;
@@ -1077,8 +1119,8 @@ code {
   .player-stats-grid-compact {
     grid-template-columns: 1fr;
     gap: var(--mobile-gap);
-  }
-  
+}
+
   .court-management {
     flex-direction: column;
     align-items: stretch;
@@ -1111,8 +1153,8 @@ code {
   .status-indicators {
     justify-content: center;
     gap: 8px;
-  }
-  
+}
+
   .status-indicator {
     font-size: 13px;
     padding: 8px 12px;
@@ -1126,8 +1168,8 @@ code {
     font-size: 14px;
     padding: 10px 16px;
     min-height: 40px;
-  }
-  
+}
+
   /* Show mobile components on mobile */
   .mobile-fab,
   .mobile-nav {
@@ -1190,8 +1232,8 @@ code {
   .status-indicators {
   flex-direction: column;
     width: 100%;
-  }
-  
+}
+
   .status-indicator {
     width: 100%;
     justify-content: center;
@@ -1730,26 +1772,26 @@ code {
   
   .modal-subtitle {
     font-size: 13px;
-  }
-  
+}
+
   .preview-title {
     font-size: 16px;
     margin-bottom: 20px;
-  }
-  
+}
+
   .team-preview {
     padding: 16px;
     margin-bottom: 16px;
-  }
-  
+}
+
   .team-header {
     margin-bottom: 12px;
-  }
-  
+}
+
   .team-name {
     font-size: 15px;
-  }
-  
+}
+
   .team-players {
     gap: 10px;
   }
@@ -1760,8 +1802,8 @@ code {
   
   .player-name {
     font-size: 14px;
-  }
-  
+}
+
   .player-stats {
     font-size: 11px;
   }
@@ -1769,8 +1811,8 @@ code {
   .vs-divider {
     margin: 20px 0;
     gap: 12px;
-  }
-  
+}
+
   .vs-text {
     font-size: 16px;
     padding: 6px 12px;
