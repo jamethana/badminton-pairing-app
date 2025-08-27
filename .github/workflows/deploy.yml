@@ -10,12 +10,8 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
@@ -46,20 +42,4 @@ jobs:
         path: './build'
     
     - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
-
-  notify:
-    needs: build
-    runs-on: ubuntu-latest
-    if: always()
-    
-    steps:
-    - name: Notify deployment status
-      run: |
-        if [ "${{ needs.build.result }}" == "success" ]; then
-          echo "✅ Deployment successful! Your app is now live at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
-        else
-          echo "❌ Deployment failed. Check the build logs for details."
-          exit 1
-        fi 
+      uses: actions/deploy-pages@v4 
