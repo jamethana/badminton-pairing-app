@@ -1961,4 +1961,406 @@ code {
   .modal-content {
     margin: 20px auto;
   }
+}
+
+/* Select Winner Modal Styles */
+.select-winner-modal {
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+}
+
+/* Match Summary */
+.match-summary {
+  margin-bottom: 24px;
+}
+
+.match-header {
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.match-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.match-time {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Team Options */
+.team-option {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.team-option:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+
+.team-1-option {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.team-1-option:hover {
+  border-color: var(--success-color);
+}
+
+.team-2-option {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.team-2-option:hover {
+  border-color: var(--secondary-color);
+}
+
+.team-option.selected {
+  border-color: var(--primary-color);
+  background: rgba(124, 58, 237, 0.05);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+.team-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.team-color-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: var(--shadow);
+}
+
+.team-1-color {
+  background: var(--success-color);
+}
+
+.team-2-color {
+  background: var(--secondary-color);
+}
+
+.team-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Team Players */
+.team-players {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.player-info {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.player-info:hover {
+  border-color: var(--primary-color);
+  background: rgba(124, 58, 237, 0.05);
+}
+
+.player-name {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.player-stats {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Winner Select Buttons */
+.winner-select-btn {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.winner-select-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: rgba(124, 58, 237, 0.05);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.winner-select-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.winner-select-btn.selected {
+  border-color: var(--primary-color);
+  background: rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+.team-1-btn:hover:not(:disabled) {
+  border-color: var(--success-color);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.team-2-btn:hover:not(:disabled) {
+  border-color: var(--secondary-color);
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.cancel-btn:hover:not(:disabled) {
+  border-color: var(--warning-color);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.btn-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.btn-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* VS Divider */
+.vs-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0;
+  justify-content: center;
+}
+
+.vs-line {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+  max-width: 80px;
+}
+
+.vs-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  background: var(--bg-primary);
+  border-radius: 20px;
+  border: 2px solid var(--border-color);
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Cancel Match Section */
+.cancel-match-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 2px solid var(--border-color);
+}
+
+.cancel-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.cancel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Mobile Responsiveness for Select Winner Modal */
+@media (max-width: 768px) {
+  .select-winner-modal {
+    max-width: none;
+    margin: 16px;
+    max-height: 90vh;
+  }
+  
+  .team-option {
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  
+  .team-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .team-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .team-players {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .player-info {
+    padding: 14px;
+  }
+  
+  .winner-select-btn {
+    padding: 16px;
+  }
+  
+  .btn-icon {
+    font-size: 20px;
+  }
+  
+  .btn-text {
+    font-size: 15px;
+  }
+  
+  .btn-hint {
+    font-size: 11px;
+  }
+  
+  .vs-divider {
+    margin: 20px 0;
+    gap: 12px;
+  }
+  
+  .vs-text {
+    font-size: 16px;
+    padding: 6px 12px;
+    min-width: 50px;
+  }
+  
+  .vs-line {
+    max-width: 60px;
+  }
+  
+  .cancel-match-section {
+    margin-top: 24px;
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .select-winner-modal {
+    margin: 8px;
+    max-height: 95vh;
+  }
+  
+  .team-option {
+    padding: 16px;
+  }
+  
+  .team-players {
+    gap: 10px;
+  }
+  
+  .player-info {
+    padding: 12px;
+  }
+  
+  .winner-select-btn {
+    padding: 14px;
+  }
+  
+  .btn-icon {
+    font-size: 18px;
+  }
+  
+  .btn-text {
+    font-size: 14px;
+  }
+  
+  .vs-divider {
+    margin: 16px 0;
+  }
+  
+  .vs-text {
+    font-size: 14px;
+    padding: 4px 10px;
+    min-width: 40px;
+  }
+  
+  .vs-line {
+    max-width: 40px;
+  }
 } 
