@@ -1528,36 +1528,6 @@ code {
   border-color: var(--secondary-color);
 }
 
-.team-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.team-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.team-color-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: var(--shadow);
-}
-
-.team-1-color {
-  background: var(--success-color);
-}
-
-.team-2-color {
-  background: var(--secondary-color);
-}
-
 .team-players {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1619,18 +1589,6 @@ code {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 500;
-}
-
-.player-actions {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border-color);
-}
-
-.action-hint {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-style: italic;
 }
 
 /* Available Players Section */

@@ -142,7 +142,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
       <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Fill Court {court.id + 1}</h3>
-          <p className="modal-subtitle">Click players to swap positions or replace with available players</p>
         </div>
         
         <div className="modal-body">
@@ -153,10 +152,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
             <div className="teams-container">
               {/* Team 1 */}
               <div className="team-preview team-1">
-                <div className="team-header">
-                  <h5 className="team-name">Team 1</h5>
-                  <div className="team-color-indicator team-1-color"></div>
-                </div>
                 <div className="team-players">
                   {assignedPlayers.slice(0, 2).map((player, index) => (
                     <div 
@@ -174,9 +169,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                           {player.wins}W - {player.losses}L
                         </span>
                       </div>
-                      <div className="player-actions">
-                        <span className="action-hint">Click to select</span>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -184,10 +176,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
 
               {/* Team 2 */}
               <div className="team-preview team-2">
-                <div className="team-header">
-                  <h5 className="team-name">Team 2</h5>
-                  <div className="team-color-indicator team-2-color"></div>
-                </div>
                 <div className="team-players">
                   {assignedPlayers.slice(2, 4).map((player, index) => (
                     <div 
@@ -204,9 +192,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         <span className="player-stats">
                           {player.wins}W - {player.losses}L
                         </span>
-                      </div>
-                      <div className="player-actions">
-                        <span className="action-hint">Click to select</span>
                       </div>
                     </div>
                   ))}
