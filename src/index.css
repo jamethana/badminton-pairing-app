@@ -2215,3 +2215,36 @@ code {
   border-color: rgba(59, 130, 246, 0.4);
   background: rgba(59, 130, 246, 0.05);
 } 
+
+/* Current Matches Dynamic Height Adjustment */
+.CurrentMatches {
+  transition: min-height 0.3s ease;
+}
+
+/* When modals are open, expand the section height */
+.CurrentMatches:has(.modal-overlay),
+.CurrentMatches:has(.select-winner-modal),
+.CurrentMatches:has(.fill-court-modal) {
+  min-height: 100vh;
+}
+
+/* Alternative approach for browsers that don't support :has() */
+.CurrentMatches.expanded {
+  min-height: 100vh;
+}
+
+/* Ensure modals have proper positioning within the expanded section */
+.CurrentMatches .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+/* Adjust modal content positioning for better integration */
+.CurrentMatches .modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+} 

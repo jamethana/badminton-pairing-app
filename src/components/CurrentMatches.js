@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CourtOptionsModal from './CourtOptionsModal';
 import EmptyCourtModal from './EmptyCourtModal';
 
@@ -17,6 +17,23 @@ const CurrentMatches = ({
   const [showCourtOptions, setShowCourtOptions] = useState(null);
   const [showEmptyCourtModal, setShowEmptyCourtModal] = useState(null);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Update expanded state when modals are open
+  useEffect(() => {
+    const hasModalOpen = showCourtOptions || showEmptyCourtModal || showClearConfirmation;
+    setIsExpanded(hasModalOpen);
+    
+    // Add/remove expanded class to the component
+    const currentMatchesElement = document.querySelector('.CurrentMatches');
+    if (currentMatchesElement) {
+      if (hasModalOpen) {
+        currentMatchesElement.classList.add('expanded');
+      } else {
+        currentMatchesElement.classList.remove('expanded');
+      }
+    }
+  }, [showCourtOptions, showEmptyCourtModal, showClearConfirmation]);
 
   const handleCourtClick = (court) => {
     if (court.isOccupied) {
@@ -47,7 +64,7 @@ const CurrentMatches = ({
   };
 
   return (
-    <div className="card">
+    <div className={`card CurrentMatches ${isExpanded ? 'expanded' : ''}`}>
       <div className="section-header">
         <h2 className="section-title">Current Matches</h2>
         <div className="section-actions">
