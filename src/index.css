@@ -676,50 +676,17 @@ code {
   cursor: pointer;
 }
 
-/* Delete Button - Top Right */
-.stat-card .delete-btn {
+/* Top Action Buttons Container */
+.top-actions {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  border-radius: 6px;
-  padding: 4px 6px;
-  min-width: auto;
-  height: 28px;
-  font-size: 12px;
-  color: var(--danger-color);
+  display: flex;
+  gap: 6px;
   z-index: 10;
 }
 
-.stat-card .delete-btn:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.2);
-  border-color: var(--danger-color);
-  transform: scale(1.1);
-}
-
-.stat-card .delete-btn.confirm {
-  background: rgba(220, 38, 38, 0.2);
-  border-color: #dc2626;
-  animation: pulse 1s infinite;
-}
-
-/* Name and Edit Container */
-.name-edit-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.stat-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex: 1;
-}
-
-/* Inline Edit Button */
+/* Edit Button - Top Right */
 .edit-btn-inline {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: 2px solid #667eea;
@@ -749,21 +716,59 @@ code {
   transform: none;
 }
 
-/* Stats Layout */
+/* Delete Button - Top Right */
+.delete-btn {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-width: auto;
+  height: 28px;
+  font-size: 12px;
+  color: var(--danger-color);
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: var(--danger-color);
+  transform: scale(1.1);
+}
+
+.delete-btn.confirm {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: #dc2626;
+  animation: pulse 1s infinite;
+}
+
+/* Header */
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stat-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Stats Layout - Reverted to Previous Format */
 .stat-details {
   display: flex;
-  gap: 16px;
-  margin: 12px 0;
-  flex-wrap: wrap;
-  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
 }
 
 .stat-details small {
-  padding: 4px 8px;
-  background: var(--bg-secondary);
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
+  font-size: 12px;
   font-weight: 500;
+}
+
+.stat-card > small {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 /* Inactive Player Styling */

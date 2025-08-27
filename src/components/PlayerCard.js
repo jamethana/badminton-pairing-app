@@ -35,32 +35,32 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
       className={`stat-card fade-in clickable ${player.isActive ? '' : 'inactive'} ${disabled ? 'disabled' : ''}`}
       onClick={handleToggleActive}
     >
-      {/* Delete Button - Top Right */}
-      <button
-        className={`player-action-btn delete-btn ${showRemoveConfirm ? 'confirm' : ''}`}
-        onClick={handleRemove}
-        title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
-        disabled={disabled}
-      >
-        {showRemoveConfirm ? '🗑️' : '🗑️'}
-      </button>
+      {/* Action Buttons - Top Right */}
+      <div className="top-actions">
+        <button
+          className="player-action-btn edit-btn-inline"
+          onClick={handleEditName}
+          title="Edit player name"
+          disabled={disabled}
+        >
+          Edit
+        </button>
+        <button
+          className={`player-action-btn delete-btn ${showRemoveConfirm ? 'confirm' : ''}`}
+          onClick={handleRemove}
+          title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
+          disabled={disabled}
+        >
+          🗑️
+        </button>
+      </div>
 
-      {/* Header with Name and Edit Button */}
+      {/* Header with Name */}
       <div className="stat-header">
-        <div className="name-edit-container">
-          <span className="stat-name">{player.name}</span>
-          <button
-            className="player-action-btn edit-btn-inline"
-            onClick={handleEditName}
-            title="Edit player name"
-            disabled={disabled}
-          >
-            Edit
-          </button>
-        </div>
+        <span className="stat-name">{player.name}</span>
       </div>
       
-      {/* Stats with Match Count */}
+      {/* Stats */}
       <div className="stat-details">
         <small style={{ color: 'var(--success-color)' }}>
           Wins: {player.wins || 0}
