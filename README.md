@@ -15,6 +15,8 @@ A React-based web application for managing badminton matches, player pairings, a
 
 Visit the live application: [Badminton Pairing App](https://jamethana.github.io/badminton-pairing-app/)
 
+**Status**: 🚧 Currently deploying... (Check GitHub Actions for progress)
+
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 18, CSS3, HTML5
