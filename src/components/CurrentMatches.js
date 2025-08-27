@@ -53,7 +53,7 @@ const CurrentMatches = ({
         <div className="section-actions">
           <div className="court-management">
             <button className="btn btn-outline" onClick={onAddCourt}>
-              Add Court
+              +
             </button>
             <button className="btn btn-outline" onClick={onRemoveCourt}>
               Remove Court

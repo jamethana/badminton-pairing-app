@@ -2001,15 +2001,15 @@ code {
 }
 
 .team-1-option {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(236, 72, 153, 0.3);
 }
 
 .team-1-option:hover:not(:disabled) {
-  border-color: var(--success-color);
+  border-color: #ec4899;
 }
 
 .team-2-option {
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .team-2-option.selected {
