@@ -664,50 +664,106 @@ code {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: var(--shadow);
+  position: relative;
 }
 
-.stat-card:hover {
-  border-color: var(--primary-color);
+.stat-card:hover:not(.disabled) {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.stat-header {
+.stat-card.clickable {
+  cursor: pointer;
+}
+
+/* Delete Button - Top Right */
+.stat-card .delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-width: auto;
+  height: 28px;
+  font-size: 12px;
+  color: var(--danger-color);
+  z-index: 10;
+}
+
+.stat-card .delete-btn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: var(--danger-color);
+  transform: scale(1.1);
+}
+
+.stat-card .delete-btn.confirm {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: #dc2626;
+  animation: pulse 1s infinite;
+}
+
+/* Name and Edit Container */
+.name-edit-container {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .stat-name {
+  font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 16px;
+  flex: 1;
 }
 
-.stat-value {
-  background: var(--primary-color);
-  color: white;
+/* Inline Edit Button */
+.edit-btn-inline {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid #667eea;
+  border-radius: 6px;
   padding: 4px 8px;
-  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 11px;
   font-weight: 600;
-  font-size: 14px;
+  min-width: 50px;
+  height: 28px;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+.edit-btn-inline:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  border-color: #5a6fd8;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.edit-btn-inline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Stats Layout */
 .stat-details {
   display: flex;
-  gap: 15px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .stat-details small {
-  font-size: 12px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
   font-weight: 500;
-}
-
-.stat-card > small {
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 /* Inactive Player Styling */
@@ -2360,6 +2416,11 @@ code {
   border-radius: 6px;
   border: 1px solid rgba(220, 38, 38, 0.3);
   font-weight: 600;
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 5;
 }
 
 @keyframes pulse {

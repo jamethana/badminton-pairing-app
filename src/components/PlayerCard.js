@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disabled }) => {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
-  const handleEditName = () => {
+  const handleEditName = (e) => {
+    e.stopPropagation(); // Prevent card click when editing
     if (!disabled) {
       onEdit(player);
     }
@@ -15,7 +16,8 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = (e) => {
+    e.stopPropagation(); // Prevent card click when removing
     if (!disabled) {
       if (showRemoveConfirm) {
         onRemove(player.id);
@@ -29,18 +31,45 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
   };
 
   return (
-    <div className={`stat-card fade-in ${player.isActive ? '' : 'inactive'} ${disabled ? 'disabled' : ''}`}>
+    <div 
+      className={`stat-card fade-in clickable ${player.isActive ? '' : 'inactive'} ${disabled ? 'disabled' : ''}`}
+      onClick={handleToggleActive}
+    >
+      {/* Delete Button - Top Right */}
+      <button
+        className={`player-action-btn delete-btn ${showRemoveConfirm ? 'confirm' : ''}`}
+        onClick={handleRemove}
+        title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
+        disabled={disabled}
+      >
+        {showRemoveConfirm ? '🗑️' : '🗑️'}
+      </button>
+
+      {/* Header with Name and Edit Button */}
       <div className="stat-header">
-        <span className="stat-name">{player.name}</span>
-        <span className="stat-value">{player.matchCount}</span>
+        <div className="name-edit-container">
+          <span className="stat-name">{player.name}</span>
+          <button
+            className="player-action-btn edit-btn-inline"
+            onClick={handleEditName}
+            title="Edit player name"
+            disabled={disabled}
+          >
+            Edit
+          </button>
+        </div>
       </div>
       
+      {/* Stats with Match Count */}
       <div className="stat-details">
         <small style={{ color: 'var(--success-color)' }}>
           Wins: {player.wins || 0}
         </small>
         <small style={{ color: 'var(--danger-color)' }}>
           Losses: {player.losses || 0}
+        </small>
+        <small style={{ color: 'var(--text-muted)' }}>
+          Matches: {player.matchCount}
         </small>
       </div>
       
@@ -49,44 +78,11 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
         Status: {player.isActive ? 'Active' : 'Inactive'}
       </small>
 
-      {/* Action Buttons */}
-      <div className="player-card-actions">
-        {/* Edit Name Button */}
-        <button
-          className="player-action-btn edit-btn"
-          onClick={handleEditName}
-          title="Edit player name"
-          disabled={disabled}
-        >
-          🍎
-        </button>
-
-        {/* Toggle Active/Inactive Button */}
-        <button
-          className={`player-action-btn toggle-btn ${player.isActive ? 'active' : 'inactive'}`}
-          onClick={handleToggleActive}
-          title={`Set ${player.isActive ? 'inactive' : 'active'}`}
-          disabled={disabled}
-        >
-          {player.isActive ? 'Active' : 'Inactive'}
-        </button>
-
-        {/* Remove Player Button */}
-        <button
-          className={`player-action-btn remove-btn ${showRemoveConfirm ? 'confirm' : ''}`}
-          onClick={handleRemove}
-          title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
-          disabled={disabled}
-        >
-          {showRemoveConfirm ? 'Confirm' : 'Delete'}
-        </button>
-      </div>
-
       {/* Remove Confirmation Message */}
       {showRemoveConfirm && (
         <div className="remove-confirmation">
           <small style={{ color: 'var(--danger-color)', fontWeight: 'bold' }}>
-            Click remove again to confirm
+            Click delete again to confirm
           </small>
         </div>
       )}
