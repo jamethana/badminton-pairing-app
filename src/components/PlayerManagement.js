@@ -48,6 +48,8 @@ const PlayerManagement = ({
 
   const handleToggleActive = (id, updatedPlayer) => {
     onUpdatePlayer(id, updatedPlayer);
+    // Immediately refresh the page to ensure changes are synchronized
+    window.location.reload();
   };
 
   const handleResetMatchCounts = () => {
