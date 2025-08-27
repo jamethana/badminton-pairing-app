@@ -686,56 +686,59 @@ code {
   z-index: 10;
 }
 
-/* Edit Button - Top Right */
-.edit-btn-inline {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: 2px solid #667eea;
+/* Icon Button Base Styles */
+.edit-btn-icon,
+.delete-btn-icon {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 4px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 11px;
-  font-weight: 600;
-  min-width: 50px;
+  transition: all 0.2s ease;
+  min-width: 28px;
   height: 28px;
-  color: white;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  backdrop-filter: blur(10px);
 }
 
-.edit-btn-inline:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-  border-color: #5a6fd8;
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+.edit-btn-icon:hover:not(:disabled),
+.delete-btn-icon:hover:not(:disabled) {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.edit-btn-inline:disabled {
+.edit-btn-icon:disabled,
+.delete-btn-icon:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
-/* Delete Button - Top Right */
-.delete-btn {
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  border-radius: 6px;
-  padding: 4px 6px;
-  min-width: auto;
-  height: 28px;
-  font-size: 12px;
+/* Edit Button Specific */
+.edit-btn-icon {
+  color: var(--primary-color);
+}
+
+.edit-btn-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 1);
+  border-color: var(--primary-color);
+}
+
+/* Delete Button Specific */
+.delete-btn-icon {
   color: var(--danger-color);
 }
 
-.delete-btn:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.2);
+.delete-btn-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 1);
   border-color: var(--danger-color);
-  transform: scale(1.1);
 }
 
-.delete-btn.confirm {
-  background: rgba(220, 38, 38, 0.2);
+.delete-btn-icon.confirm {
+  background: rgba(220, 38, 38, 0.1);
   border-color: #dc2626;
   animation: pulse 1s infinite;
 }

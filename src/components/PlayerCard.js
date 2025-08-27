@@ -38,15 +38,15 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
       {/* Action Buttons - Top Right */}
       <div className="top-actions">
         <button
-          className="player-action-btn edit-btn-inline"
+          className="player-action-btn edit-btn-icon"
           onClick={handleEditName}
           title="Edit player name"
           disabled={disabled}
         >
-          Edit
+          ✏️
         </button>
         <button
-          className={`player-action-btn delete-btn ${showRemoveConfirm ? 'confirm' : ''}`}
+          className={`player-action-btn delete-btn-icon ${showRemoveConfirm ? 'confirm' : ''}`}
           onClick={handleRemove}
           title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
           disabled={disabled}
