@@ -103,6 +103,14 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
     };
     
     onFillCourt(court.id, match);
+    // Refresh page instantly after confirming match
+    window.location.reload();
+  };
+
+  const handleCancel = () => {
+    onClose();
+    // Refresh page instantly after canceling
+    window.location.reload();
   };
 
   if (availablePool.length < 4) {
@@ -214,7 +222,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
             >
               Confirm Match
             </button>
-            <button className="btn btn-outline" onClick={onClose}>
+            <button className="btn btn-outline" onClick={handleCancel}>
               Cancel
             </button>
           </div>

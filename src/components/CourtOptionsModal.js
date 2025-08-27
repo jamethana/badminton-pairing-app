@@ -11,6 +11,8 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
     // Small delay to show selection before closing
     setTimeout(() => {
       onCompleteMatch(court.id, winner);
+      // Refresh page instantly after winner selection
+      window.location.reload();
     }, 300);
   };
 
