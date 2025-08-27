@@ -31,7 +31,6 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
               onClick={() => handleWinnerSelect('team1')}
               disabled={selectedWinner !== null}
             >
-              <div className="team-name">Team 1</div>
               <div className="team-players">
                 {currentMatch.team1.player1.name} & {currentMatch.team1.player2.name}
               </div>
@@ -50,7 +49,6 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
               onClick={() => handleWinnerSelect('team2')}
               disabled={selectedWinner !== null}
             >
-              <div className="team-name">Team 2</div>
               <div className="team-players">
                 {currentMatch.team2.player1.name} & {currentMatch.team2.player2.name}
               </div>

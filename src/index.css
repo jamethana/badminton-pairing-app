@@ -1982,7 +1982,7 @@ code {
   background: var(--bg-secondary);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 20px;
+  padding: 24px 20px;
   text-align: center;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -1990,6 +1990,10 @@ code {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
 }
 
 .team-option:hover:not(:disabled) {
@@ -2028,21 +2032,13 @@ code {
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
-.team-name {
-  font-size: 16px;
+.team-players {
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.team-players {
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 0;
   line-height: 1.4;
+  text-align: center;
+  margin: 0;
 }
 
 /* Winner Select Buttons */
