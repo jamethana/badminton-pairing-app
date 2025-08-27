@@ -2246,3 +2246,90 @@ code {
   max-height: 90vh;
   overflow-y: auto;
 } 
+
+/* Player Card Action Buttons */
+.player-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-action-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.player-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Edit Button */
+.player-action-btn.edit-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: rgba(124, 58, 237, 0.1);
+}
+
+/* Toggle Active/Inactive Button */
+.player-action-btn.toggle-btn.active {
+  border-color: var(--success-color);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.player-action-btn.toggle-btn.inactive {
+  border-color: var(--text-muted);
+  background: rgba(100, 116, 139, 0.1);
+}
+
+.player-action-btn.toggle-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+/* Remove Button */
+.player-action-btn.remove-btn:hover:not(:disabled) {
+  border-color: var(--danger-color);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.player-action-btn.remove-btn.confirm {
+  border-color: var(--danger-color);
+  background: rgba(248, 113, 113, 0.2);
+  animation: pulse 1s infinite;
+}
+
+/* Remove Confirmation Message */
+.remove-confirmation {
+  text-align: center;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+} 

@@ -45,6 +45,10 @@ const PlayerManagement = ({
     setEditingPlayer(null);
   };
 
+  const handleToggleActive = (id, updatedPlayer) => {
+    onUpdatePlayer(id, updatedPlayer);
+  };
+
   const getTimeAgo = (timestamp) => {
     const now = new Date();
     const time = new Date(timestamp);
@@ -95,6 +99,7 @@ const PlayerManagement = ({
               player={player}
               onEdit={handleEditPlayer}
               onRemove={handleRemovePlayer}
+              onToggleActive={handleToggleActive}
               getTimeAgo={getTimeAgo}
               disabled={isAddingPlayer}
             />
