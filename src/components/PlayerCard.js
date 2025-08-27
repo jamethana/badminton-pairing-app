@@ -58,7 +58,7 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
           title="Edit player name"
           disabled={disabled}
         >
-          ✏️
+          🍎
         </button>
 
         {/* Toggle Active/Inactive Button */}
@@ -68,7 +68,7 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
           title={`Set ${player.isActive ? 'inactive' : 'active'}`}
           disabled={disabled}
         >
-          {player.isActive ? '🟢' : '⚪'}
+          {player.isActive ? 'Active' : 'Inactive'}
         </button>
 
         {/* Remove Player Button */}
@@ -78,7 +78,7 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
           title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
           disabled={disabled}
         >
-          {showRemoveConfirm ? '❌' : '🗑️'}
+          {showRemoveConfirm ? 'Confirm' : 'Delete'}
         </button>
       </div>
 

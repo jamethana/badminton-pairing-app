@@ -2250,86 +2250,125 @@ code {
 /* Player Card Action Buttons */
 .player-card-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 16px;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .player-action-btn {
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  min-width: 32px;
-  height: 32px;
+  transition: all 0.3s ease;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 70px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .player-action-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.player-action-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .player-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Edit Button */
+.player-action-btn.edit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  font-size: 16px;
+  min-width: 50px;
+}
+
 .player-action-btn.edit-btn:hover:not(:disabled) {
-  border-color: var(--primary-color);
-  background: rgba(124, 58, 237, 0.1);
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  border-color: #5a6fd8;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 /* Toggle Active/Inactive Button */
 .player-action-btn.toggle-btn.active {
-  border-color: var(--success-color);
-  background: rgba(16, 185, 129, 0.1);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #10b981;
+  color: white;
+}
+
+.player-action-btn.toggle-btn.active:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0ea371 0%, #047857 100%);
+  border-color: #0ea371;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
 }
 
 .player-action-btn.toggle-btn.inactive {
-  border-color: var(--text-muted);
-  background: rgba(100, 116, 139, 0.1);
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  border-color: #6b7280;
+  color: white;
 }
 
-.player-action-btn.toggle-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
+.player-action-btn.toggle-btn.inactive:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5b6368 0%, #3b4148 100%);
+  border-color: #5b6368;
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.4);
 }
 
 /* Remove Button */
+.player-action-btn.remove-btn {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  border-color: #f87171;
+  color: white;
+}
+
 .player-action-btn.remove-btn:hover:not(:disabled) {
-  border-color: var(--danger-color);
-  background: rgba(248, 113, 113, 0.1);
+  background: linear-gradient(135deg, #f56565 0%, #dc2626 100%);
+  border-color: #f56565;
+  box-shadow: 0 4px 15px rgba(248, 113, 113, 0.4);
 }
 
 .player-action-btn.remove-btn.confirm {
-  border-color: var(--danger-color);
-  background: rgba(248, 113, 113, 0.2);
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #dc2626;
   animation: pulse 1s infinite;
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.6);
 }
 
 /* Remove Confirmation Message */
 .remove-confirmation {
   text-align: center;
-  margin-top: 8px;
-  padding: 4px 8px;
-  background: rgba(248, 113, 113, 0.1);
-  border-radius: 4px;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  margin-top: 10px;
+  padding: 6px 12px;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  font-weight: 600;
 }
 
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.7;
+    opacity: 0.8;
+    transform: scale(1.02);
   }
 } 
