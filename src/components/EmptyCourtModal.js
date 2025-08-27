@@ -144,20 +144,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
           <h3 className="modal-title">Fill Court {court.id + 1}</h3>
         </div> */}
         
-        {/* Action Buttons at Top */}
-        <div className="modal-actions-top">
-          <button 
-            className="btn btn-primary" 
-            onClick={handleFillCourt}
-            disabled={selectedPlayer || selectedAvailablePlayer}
-          >
-            Confirm Match
-          </button>
-          <button className="btn btn-outline" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-        
         <div className="modal-body">
           {/* Match Preview */}
           <div className="match-preview">
@@ -212,6 +198,20 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Action Buttons Between Sections */}
+          <div className="modal-actions-middle">
+            <button 
+              className="btn btn-primary" 
+              onClick={handleFillCourt}
+              disabled={selectedPlayer || selectedAvailablePlayer}
+            >
+              Confirm Match
+            </button>
+            <button className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
           </div>
 
           {/* Available Players Section */}
