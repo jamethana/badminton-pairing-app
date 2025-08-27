@@ -463,10 +463,16 @@ code {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  padding-top: 20px;
+  /* Ensure modal is always visible on all operating systems */
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Better cross-platform compatibility */
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-content {
@@ -480,6 +486,21 @@ code {
   backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   animation: modalSlideIn 0.3s ease-out;
+  /* Ensure modal doesn't go out of bounds */
+  position: relative;
+  margin: 20px auto;
+  /* Better positioning for all platforms */
+  top: 0;
+  transform: none;
+}
+
+/* Fill Court Modal specific positioning */
+.fill-court-modal {
+  max-width: 700px;
+  width: 100%;
+  /* Ensure it's always visible */
+  max-height: 85vh;
+  margin: 20px auto;
 }
 
 @keyframes modalSlideIn {
@@ -1770,28 +1791,41 @@ code {
     max-height: 90vh;
   }
   
+  .modal-overlay {
+    padding: 16px;
+    /* Ensure proper positioning on mobile */
+    align-items: flex-start;
+    padding-top: 20px;
+  }
+  
+  .modal-content {
+    max-height: 95vh;
+    /* Ensure modal is visible on mobile */
+    margin: 0;
+  }
+  
   .modal-subtitle {
     font-size: 13px;
-}
-
+  }
+  
   .preview-title {
     font-size: 16px;
     margin-bottom: 20px;
-}
-
+  }
+  
   .team-preview {
     padding: 16px;
     margin-bottom: 16px;
-}
-
+  }
+  
   .team-header {
     margin-bottom: 12px;
-}
-
+  }
+  
   .team-name {
     font-size: 15px;
-}
-
+  }
+  
   .team-players {
     gap: 10px;
   }
@@ -1802,8 +1836,8 @@ code {
   
   .player-name {
     font-size: 14px;
-}
-
+  }
+  
   .player-stats {
     font-size: 11px;
   }
@@ -1811,8 +1845,8 @@ code {
   .vs-divider {
     margin: 20px 0;
     gap: 12px;
-}
-
+  }
+  
   .vs-text {
     font-size: 16px;
     padding: 6px 12px;
@@ -1862,6 +1896,11 @@ code {
     max-height: 95vh;
   }
   
+  .modal-overlay {
+    padding: 8px;
+    padding-top: 16px;
+  }
+  
   .team-players {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -1887,5 +1926,39 @@ code {
   
   .vs-line {
     max-width: 40px;
+  }
+}
+
+/* Windows-specific fixes */
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+  .modal-overlay {
+    /* IE/Edge specific positioning */
+    align-items: flex-start;
+    padding-top: 20px;
+  }
+  
+  .modal-content {
+    margin: 20px auto;
+    /* Ensure proper positioning on Windows */
+    position: relative;
+    top: 0;
+  }
+  
+  .fill-court-modal {
+    margin: 20px auto;
+    max-height: 80vh;
+  }
+}
+
+/* High DPI and Windows scaling fixes */
+@media (-webkit-min-device-pixel-ratio: 1.25), (min-resolution: 120dpi) {
+  .modal-overlay {
+    /* Better positioning for high DPI displays */
+    align-items: flex-start;
+    padding-top: 20px;
+  }
+  
+  .modal-content {
+    margin: 20px auto;
   }
 } 
