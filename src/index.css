@@ -1608,20 +1608,20 @@ code {
 
 /* Available Players Section */
 .available-players-section {
-  margin-top: 32px;
+  margin-top: 20px;
 }
 
 .available-players-section .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 0;
   border: none;
 }
 
 .available-players-section .section-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
@@ -1633,23 +1633,23 @@ code {
 .player-count {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 16px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .available-players-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
 }
 
 .available-player-card {
   background: var(--bg-primary);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 16px;
+  padding: 10px;
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
@@ -1677,7 +1677,7 @@ code {
 
 .no-players-message {
   text-align: center;
-  padding: 32px;
+  padding: 20px;
   color: var(--text-muted);
   font-style: italic;
 }
