@@ -108,7 +108,7 @@ function App() {
     // Set new 2-second delay before refresh
     const newTimer = setTimeout(() => {
       window.location.reload();
-    }, 2000);
+    }, 5);
     
     setRefreshTimer(newTimer);
   }, [players, showNotification, refreshTimer]);
