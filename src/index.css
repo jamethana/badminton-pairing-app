@@ -692,11 +692,11 @@ code {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 3px;
-  padding: 1px;
+  padding: 0;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 16px;
-  height: 16px;
+  min-width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
