@@ -12,6 +12,7 @@ const PlayerManagement = ({
 }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [editingPlayer, setEditingPlayer] = useState(null);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   const handleAddPlayer = (e) => {
     e.preventDefault();
@@ -49,6 +50,15 @@ const PlayerManagement = ({
     onUpdatePlayer(id, updatedPlayer);
   };
 
+  const handleResetMatchCounts = () => {
+    setShowResetConfirmation(true);
+  };
+
+  const confirmResetMatchCounts = () => {
+    onResetMatchCounts();
+    setShowResetConfirmation(false);
+  };
+
   const getTimeAgo = (timestamp) => {
     const now = new Date();
     const time = new Date(timestamp);
@@ -69,7 +79,7 @@ const PlayerManagement = ({
       <div className="section-header">
         <h2 className="section-title">Player Management</h2>
         <div className="section-actions">
-          <button className="btn btn-warning" onClick={onResetMatchCounts}>
+          <button className="btn btn-warning" onClick={handleResetMatchCounts}>
             Reset All Match Counts
           </button>
         </div>
@@ -110,11 +120,32 @@ const PlayerManagement = ({
       {editingPlayer && (
         <PlayerEditModal
           playerId={editingPlayer.id}
-          player={editingPlayer}
-          onUpdate={handleUpdatePlayer}
+          playerName={editingPlayer.name}
+          onSave={handleUpdatePlayer}
           onRemove={handleRemovePlayer}
           onClose={() => setEditingPlayer(null)}
         />
+      )}
+
+      {showResetConfirmation && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 className="modal-title">Confirm Reset All Match Counts</h3>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to reset all match counts, wins, losses, and match history for all players? This action cannot be undone.</p>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowResetConfirmation(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-warning" onClick={confirmResetMatchCounts}>
+                Reset All Match Counts
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

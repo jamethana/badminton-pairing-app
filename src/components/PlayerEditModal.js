@@ -48,16 +48,17 @@ const PlayerEditModal = ({ playerId, player, onUpdate, onRemove, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="modal-title">
+          {/* <h3 className="modal-title">
             Manage Player: {player.name}
             {hasUnsavedChanges && <span className="unsaved-indicator"> *</span>}
-          </h3>
+          </h3> */}
         </div>
         
         <div className="modal-body">
           <div className="player-info-section">
             <div className="info-row">
-              <label>Name:</label>
+              {/* <label>Name:</label> */}
+              
               <input
                 type="text"
                 className="input-field"
@@ -66,7 +67,7 @@ const PlayerEditModal = ({ playerId, player, onUpdate, onRemove, onClose }) => {
               />
             </div>
             
-            <div className="info-row">
+            {/* <div className="info-row">
               <label>Status:</label>
               <div className="status-toggle">
                 <button
@@ -76,9 +77,9 @@ const PlayerEditModal = ({ playerId, player, onUpdate, onRemove, onClose }) => {
                   {isActive ? 'Active' : 'Inactive'}
                 </button>
               </div>
-            </div>
+            </div> */}
             
-            <div className="info-row">
+            {/* <div className="info-row">
               <label>Match Count:</label>
               <span>{player.matchCount}</span>
             </div>
@@ -101,7 +102,7 @@ const PlayerEditModal = ({ playerId, player, onUpdate, onRemove, onClose }) => {
                   : 'Never'
                 }
               </span>
-            </div>
+            </div> */}
           </div>
         </div>
         
@@ -116,9 +117,9 @@ const PlayerEditModal = ({ playerId, player, onUpdate, onRemove, onClose }) => {
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-          <button className="btn btn-danger" onClick={handleRemove}>
+          {/* <button className="btn btn-danger" onClick={handleRemove}>
             Remove Player
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
