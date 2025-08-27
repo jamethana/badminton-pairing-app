@@ -5,7 +5,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   const [assignedPlayers, setAssignedPlayers] = useState([]);
   const [remainingPlayers, setRemainingPlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState(null);
+  const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState([]);
 
   // Initialize with 4 random players when modal opens - only once
   useEffect(() => {
@@ -20,80 +20,69 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
 
   const handlePlayerClick = (player, index) => {
     if (selectedAvailablePlayer) {
-      // If an available player is selected, swap with court player
-      setAssignedPlayers(prevAssigned => {
-        const newAssignedPlayers = [...prevAssigned];
-        newAssignedPlayers[index] = selectedAvailablePlayer;
-        return newAssignedPlayers;
-      });
-      
-      setRemainingPlayers(prevRemaining => {
-        const newRemainingPlayers = [...prevRemaining];
-        // Add current court player to remaining
-        newRemainingPlayers.push(assignedPlayers[index]);
-        // Remove selected available player from remaining
-        const targetIndex = newRemainingPlayers.findIndex(p => p.id === selectedAvailablePlayer.id);
-        if (targetIndex !== -1) {
-          newRemainingPlayers.splice(targetIndex, 1);
-        }
-        return newRemainingPlayers;
-      });
-      
-      setSelectedAvailablePlayer(null);
-    } else if (selectedPlayer === null) {
-      // First click - select the court player
+      // Swap mode: replace court player with available player
+      swapPlayer(index, selectedAvailablePlayer);
+    } else if (!selectedPlayer) {
+      // Swap mode: select court player to replace
       setSelectedPlayer({ player, index });
     } else if (selectedPlayer.index === index) {
-      // Click on same player - deselect
+      // Swap mode: deselect court player
       setSelectedPlayer(null);
     } else {
-      // Second click - swap players within court
-      if (selectedPlayer.index < 4 && index < 4) {
-        setAssignedPlayers(prevAssigned => {
-          const newAssignedPlayers = [...prevAssigned];
-          [newAssignedPlayers[selectedPlayer.index], newAssignedPlayers[index]] = 
-            [newAssignedPlayers[index], newAssignedPlayers[selectedPlayer.index]];
-          return newAssignedPlayers;
-        });
-      }
-      setSelectedPlayer(null);
+      // Swap mode: swap two court players
+      swapCourtPlayers(selectedPlayer.index, index);
     }
   };
 
   const handleAvailablePlayerClick = (player) => {
-    if (selectedAvailablePlayer && selectedAvailablePlayer.id === player.id) {
-      // Click on same available player - deselect
-      setSelectedAvailablePlayer(null);
-    } else if (selectedPlayer) {
-      // If a court player is selected, swap with this available player
-      setAssignedPlayers(prevAssigned => {
-        const newAssignedPlayers = [...prevAssigned];
-        newAssignedPlayers[selectedPlayer.index] = player;
-        return newAssignedPlayers;
-      });
-      
-      setRemainingPlayers(prevRemaining => {
-        const newRemainingPlayers = [...prevRemaining];
-        // Add current court player to remaining
-        newRemainingPlayers.push(assignedPlayers[selectedPlayer.index]);
-        // Remove selected available player from remaining
-        const targetIndex = newRemainingPlayers.findIndex(p => p.id === player.id);
-        if (targetIndex !== -1) {
-          newRemainingPlayers.splice(targetIndex, 1);
-        }
-        return newRemainingPlayers;
-      });
-      
-      setSelectedPlayer(null);
+    if (selectedPlayer) {
+      // Swap mode: replace selected court player
+      swapPlayer(selectedPlayer.index, player);
+    } else if (selectedAvailablePlayer?.id === player.id) {
+      // Swap mode: deselect available player
       setSelectedAvailablePlayer(null);
     } else {
-      // Select this available player for swapping
+      // Swap mode: select available player
       setSelectedAvailablePlayer(player);
     }
   };
 
+  const swapPlayer = (courtIndex, newPlayer) => {
+    const oldPlayer = assignedPlayers[courtIndex];
+    
+    setAssignedPlayers(prev => {
+      const newAssigned = [...prev];
+      newAssigned[courtIndex] = newPlayer;
+      return newAssigned;
+    });
+    
+    setRemainingPlayers(prev => {
+      const newRemaining = [...prev];
+      // Remove new player from available pool
+      const newPlayerIndex = newRemaining.findIndex(p => p.id === newPlayer.id);
+      if (newPlayerIndex !== -1) {
+        newRemaining.splice(newPlayerIndex, 1);
+      }
+      // Add old player back to available pool
+      newRemaining.push(oldPlayer);
+      return newRemaining;
+    });
+    
+    // Reset selection
+    setSelectedPlayer(null);
+    setSelectedAvailablePlayer(null);
+  };
+
+  const swapCourtPlayers = (index1, index2) => {
+    setAssignedPlayers(prev => {
+      const newAssigned = [...prev];
+      [newAssigned[index1], newAssigned[index2]] = [newAssigned[index2], newAssigned[index1]];
+      return newAssigned;
+    });
+    setSelectedPlayer(null);
+  };
+
   const handleFillCourt = () => {
-    // Create match with assigned players
     if (assignedPlayers.length !== 4) {
       return;
     }
@@ -119,15 +108,22 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   if (availablePool.length < 4) {
     return (
       <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h3 className="modal-title">Fill Court {court.id + 1}</h3>
           </div>
           
           <div className="modal-body">
             <div className="warning-message">
-              <p>⚠️ Need at least 4 available players to fill this court.</p>
-              <p>Current available: {availablePool.length}</p>
+              <div className="warning-icon">⚠️</div>
+              <div className="warning-content">
+                <h4>Not Enough Players</h4>
+                <p>You need at least 4 available players to fill this court.</p>
+                <div className="player-count">
+                  <span className="count-label">Available Players:</span>
+                  <span className="count-value">{availablePool.length}</span>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -143,75 +139,134 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Fill Court {court.id + 1}</h3>
+          <p className="modal-subtitle">Click players to swap positions or replace with available players</p>
         </div>
         
         <div className="modal-body">
-          <div className="court-preview">
-            <h4>Match Preview</h4>
+          {/* Match Preview */}
+          <div className="match-preview">
+            <h4 className="preview-title">Match Preview</h4>
             
             {/* Team 1 */}
-            <div className="team-preview">
-              <h5>Team 1</h5>
+            <div className="team-preview team-1">
+              <div className="team-header">
+                <h5 className="team-name">Team 1</h5>
+                <div className="team-color-indicator team-1-color"></div>
+              </div>
               <div className="team-players">
                 {assignedPlayers.slice(0, 2).map((player, index) => (
                   <div 
                     key={player.id} 
                     className={`player-slot clickable ${
                       selectedPlayer?.index === index ? 'selected' : ''
+                    } ${
+                      selectedAvailablePlayer ? 'swap-ready' : ''
                     }`}
                     onClick={() => handlePlayerClick(player, index)}
                   >
-                    {player.name}
+                    <div className="player-info">
+                      <span className="player-name">{player.name}</span>
+                      <span className="player-stats">
+                        {player.wins}W - {player.losses}L
+                      </span>
+                    </div>
+                    <div className="player-actions">
+                      <span className="action-hint">Click to select</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="vs-divider">VS</div>
+            {/* VS Divider */}
+            <div className="vs-divider">
+              <div className="vs-line"></div>
+              <span className="vs-text">VS</span>
+              <div className="vs-line"></div>
+            </div>
 
             {/* Team 2 */}
-            <div className="team-preview">
-              <h5>Team 2</h5>
+            <div className="team-preview team-2">
+              <div className="team-header">
+                <h5 className="team-name">Team 2</h5>
+                <div className="team-color-indicator team-2-color"></div>
+              </div>
               <div className="team-players">
                 {assignedPlayers.slice(2, 4).map((player, index) => (
                   <div 
                     key={player.id} 
                     className={`player-slot clickable ${
                       selectedPlayer?.index === index + 2 ? 'selected' : ''
+                    } ${
+                      selectedAvailablePlayer ? 'swap-ready' : ''
                     }`}
                     onClick={() => handlePlayerClick(player, index + 2)}
                   >
-                    {player.name}
+                    <div className="player-info">
+                      <span className="player-name">{player.name}</span>
+                      <span className="player-stats">
+                        {player.wins}W - {player.losses}L
+                      </span>
+                    </div>
+                    <div className="player-actions">
+                      <span className="action-hint">Click to select</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Available Players for Swapping */}
-            <div className="available-players-section">
-              <h5>Available Players for Swapping</h5>
+          {/* Available Players Section */}
+          <div className="available-players-section">
+            <div className="section-header">
+              <h5 className="section-title">Available Players</h5>
+              <span className="player-count">{remainingPlayers.length} players</span>
+            </div>
+            
+            {remainingPlayers.length > 0 ? (
               <div className="available-players-grid">
                 {remainingPlayers.map(player => (
-                  <span 
+                  <div 
                     key={player.id} 
-                    className={`available-player-tag clickable ${
+                    className={`available-player-card clickable ${
                       selectedAvailablePlayer?.id === player.id ? 'selected' : ''
+                    } ${
+                      selectedPlayer ? 'swap-ready' : ''
                     }`}
                     onClick={() => handleAvailablePlayerClick(player)}
                   >
-                    {player.name}
-                  </span>
+                    <div className="player-info">
+                      <span className="player-name">{player.name}</span>
+                      <span className="player-stats">
+                        {player.wins}W - {player.losses}L
+                      </span>
+                    </div>
+                    <div className="player-actions">
+                      <span className="action-hint">
+                        {selectedPlayer ? 'Click to swap' : 'Click to select'}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="no-players-message">
+                <p>No available players for swapping</p>
+              </div>
+            )}
           </div>
         </div>
         
         <div className="modal-actions">
-          <button className="btn btn-primary" onClick={handleFillCourt}>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleFillCourt}
+            disabled={selectedPlayer || selectedAvailablePlayer}
+          >
             Confirm Match
           </button>
           <button className="btn btn-outline" onClick={onClose}>
