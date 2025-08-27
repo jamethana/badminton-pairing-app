@@ -2039,6 +2039,10 @@ code {
   line-height: 1.4;
   text-align: center;
   margin: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Winner Select Buttons */
@@ -2127,7 +2131,6 @@ code {
   
   .team-players {
     font-size: 16px;
-    margin-bottom: 14px;
   }
   
   .winner-select-btn {
@@ -2158,7 +2161,6 @@ code {
   
   .team-players {
     font-size: 15px;
-    margin-bottom: 12px;
   }
   
   .winner-select-btn {
