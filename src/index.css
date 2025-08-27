@@ -750,8 +750,6 @@ code {
 
 /* Compact Player Stats */
 .player-stats-container-compact {
-  max-height: 400px;
-  overflow-y: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   padding: 10px;
