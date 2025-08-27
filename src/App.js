@@ -162,6 +162,11 @@ function App() {
     })));
     
     showNotification('All match counts and history reset');
+    
+    // Refresh page instantly after resetting match counts
+    setTimeout(() => {
+      window.location.reload();
+    }, 1);
   }, [showNotification]);
 
   const generateMatches = useCallback(() => {
@@ -448,6 +453,11 @@ function App() {
       currentMatch: null
     })));
     showNotification('All matches cleared');
+    
+    // Refresh page instantly after clearing matches
+    setTimeout(() => {
+      window.location.reload();
+    }, 1);
   }, [showNotification]);
 
   return (
