@@ -425,16 +425,18 @@ function App() {
       
       // Remove last court from courtStates
       const newCourtStates = prevStates.slice(0, -1);
+      
+      // Only update court count and show success when removal is successful
+      setCourtCount(prev => Math.max(1, prev - 1));
+      showNotification('Court removed');
+      
+      // Force page refresh to ensure state synchronization
+      setTimeout(() => {
+        window.location.reload();
+      }, 1);
+      
       return newCourtStates;
     });
-    
-    setCourtCount(prev => Math.max(1, prev - 1));
-    showNotification('Court removed');
-
-    // Force page refresh to ensure state synchronization
-    setTimeout(() => {
-      window.location.reload();
-    }, 1);
     
   }, [showNotification]);
 
