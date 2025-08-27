@@ -174,6 +174,11 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                 </div>
               </div>
 
+              {/* Small VS Divider */}
+              <div className="vs-divider-small">
+                <span className="vs-text-small">VS</span>
+              </div>
+
               {/* Team 2 */}
               <div className="team-preview team-2">
                 <div className="team-players">
