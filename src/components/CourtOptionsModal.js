@@ -24,21 +24,18 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
         <div className="modal-body">
           <div className="winner-selection">
             {/* Team 1 */}
-            <div className="team-option team-1-option">
+            <button
+              className={`team-option team-1-option ${
+                selectedWinner === 'team1' ? 'selected' : ''
+              }`}
+              onClick={() => handleWinnerSelect('team1')}
+              disabled={selectedWinner !== null}
+            >
               <div className="team-name">Team 1</div>
               <div className="team-players">
                 {currentMatch.team1.player1.name} & {currentMatch.team1.player2.name}
               </div>
-              <button
-                className={`winner-select-btn team-1-btn ${
-                  selectedWinner === 'team1' ? 'selected' : ''
-                }`}
-                onClick={() => handleWinnerSelect('team1')}
-                disabled={selectedWinner !== null}
-              >
-                Team 1 Won
-              </button>
-            </div>
+            </button>
 
             {/* VS Divider */}
             <div className="vs-divider">
@@ -46,21 +43,18 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
             </div>
 
             {/* Team 2 */}
-            <div className="team-option team-2-option">
+            <button
+              className={`team-option team-2-option ${
+                selectedWinner === 'team2' ? 'selected' : ''
+              }`}
+              onClick={() => handleWinnerSelect('team2')}
+              disabled={selectedWinner !== null}
+            >
               <div className="team-name">Team 2</div>
               <div className="team-players">
                 {currentMatch.team2.player1.name} & {currentMatch.team2.player2.name}
               </div>
-              <button
-                className={`winner-select-btn team-2-btn ${
-                  selectedWinner === 'team2' ? 'selected' : ''
-                }`}
-                onClick={() => handleWinnerSelect('team2')}
-                disabled={selectedWinner !== null}
-              >
-                Team 2 Won
-              </button>
-            </div>
+            </button>
 
             {/* Cancel Match Option */}
             <div className="cancel-match-section">

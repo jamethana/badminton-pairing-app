@@ -1985,19 +1985,30 @@ code {
   padding: 20px;
   text-align: center;
   transition: all 0.3s ease;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
 }
 
-.team-option:hover {
+.team-option:hover:not(:disabled) {
   border-color: var(--primary-color);
   box-shadow: var(--shadow);
   transform: translateY(-2px);
+}
+
+.team-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .team-1-option {
   border-color: rgba(16, 185, 129, 0.3);
 }
 
-.team-1-option:hover {
+.team-1-option:hover:not(:disabled) {
   border-color: var(--success-color);
 }
 
@@ -2005,11 +2016,13 @@ code {
   border-color: rgba(139, 92, 246, 0.3);
 }
 
-.team-2-option:hover {
-  border-color: var(--secondary-color);
+.team-2-option.selected {
+  border-color: var(--primary-color);
+  background: rgba(124, 58, 237, 0.05);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
-.team-option.selected {
+.team-1-option.selected {
   border-color: var(--primary-color);
   background: rgba(124, 58, 237, 0.05);
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
@@ -2028,7 +2041,7 @@ code {
   font-size: 18px;
   font-weight: 500;
   color: var(--text-secondary);
-  margin-bottom: 16px;
+  margin-bottom: 0;
   line-height: 1.4;
 }
 
