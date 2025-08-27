@@ -109,9 +109,9 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header">
+          {/* <div className="modal-header">
             <h3 className="modal-title">Fill Court {court.id + 1}</h3>
-          </div>
+          </div> */}
           
           <div className="modal-body">
             <div className="warning-message">
@@ -140,8 +140,22 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
+        {/* <div className="modal-header">
           <h3 className="modal-title">Fill Court {court.id + 1}</h3>
+        </div> */}
+        
+        {/* Action Buttons at Top */}
+        <div className="modal-actions-top">
+          <button 
+            className="btn btn-primary" 
+            onClick={handleFillCourt}
+            disabled={selectedPlayer || selectedAvailablePlayer}
+          >
+            Confirm Match
+          </button>
+          <button className="btn btn-outline" onClick={onClose}>
+            Cancel
+          </button>
         </div>
         
         <div className="modal-body">
@@ -184,7 +198,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         selectedPlayer?.index === index + 2 ? 'selected' : ''
                       } ${
                         selectedAvailablePlayer ? 'swap-ready' : ''
-                      }`}
+                    }`}
                       onClick={() => handlePlayerClick(player, index + 2)}
                     >
                       <div className="player-info">
@@ -226,9 +240,9 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                       </span>
                     </div>
                     <div className="player-actions">
-                      <span className="action-hint">
+                      {/* <span className="action-hint">
                         {selectedPlayer ? 'Click to swap' : 'Click to select'}
-                      </span>
+                      </span> */}
                     </div>
                   </div>
                 ))}
@@ -239,19 +253,6 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
               </div>
             )}
           </div>
-        </div>
-        
-        <div className="modal-actions">
-          <button 
-            className="btn btn-primary" 
-            onClick={handleFillCourt}
-            disabled={selectedPlayer || selectedAvailablePlayer}
-          >
-            Confirm Match
-          </button>
-          <button className="btn btn-outline" onClick={onClose}>
-            Cancel
-          </button>
         </div>
       </div>
     </div>

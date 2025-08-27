@@ -539,6 +539,21 @@ code {
   margin-top: 20px;
 }
 
+/* Modal Actions at Top */
+.modal-actions-top {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.modal-actions-top .btn {
+  min-width: 120px;
+}
+
 /* Desktop-first notification styles */
 .notification {
   position: fixed;
