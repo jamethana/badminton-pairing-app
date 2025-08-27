@@ -1564,12 +1564,13 @@ code {
   box-shadow: var(--shadow);
 }
 
+/* Team Colors - Pastel Pink and Blue */
 .team-1 {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(236, 72, 153, 0.3);
 }
 
 .team-1:hover {
-  border-color: #ef4444;
+  border-color: #ec4899;
 }
 
 .team-2 {
@@ -2206,8 +2207,8 @@ code {
 }
 
 .match-card .teams .team.team1 .player {
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(236, 72, 153, 0.4);
+  background: rgba(236, 72, 153, 0.05);
 }
 
 .match-card .teams .team.team2 .player {
