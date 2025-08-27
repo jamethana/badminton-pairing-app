@@ -52,20 +52,20 @@ const CurrentMatches = ({
         <h2 className="section-title">Current Matches</h2>
         <div className="section-actions">
           <div className="court-management">
-            <button className="btn btn-outline" onClick={onAddCourt}>
-              +
-            </button>
             <button className="btn btn-outline" onClick={onRemoveCourt}>
-              Remove Court
+              -
             </button>
             <span className="court-count-display">
               {courtCount} Court{courtCount !== 1 ? 's' : ''}
             </span>
+            <button className="btn btn-outline" onClick={onAddCourt}>
+              +
+            </button>
           </div>
           {/* <button className="btn btn-primary btn-lg" onClick={onGenerateMatches}>
             Generate Matches
           </button> */}
-          <button className="btn btn-secondary" onClick={handleClearMatches}>
+          <button className="btn btn-danger" onClick={handleClearMatches}>
             Clear Matches
           </button>
         </div>
