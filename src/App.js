@@ -416,9 +416,10 @@ function App() {
         return prevStates;
       }
       
-      const lastCourt = prevStates[prevStates.length - 1];
-      if (lastCourt && lastCourt.isOccupied) {
-        showNotification('Cannot remove court while it has active players', 'error');
+      // Check if any court has active players
+      const hasActivePlayers = prevStates.some(court => court.isOccupied);
+      if (hasActivePlayers) {
+        showNotification('Cannot remove courts while there are active matches. Please complete or clear all matches first.', 'error');
         return prevStates;
       }
       
