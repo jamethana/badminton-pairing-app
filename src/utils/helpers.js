@@ -52,12 +52,12 @@ export function updateELO(currentELO, isWin) {
 
 // Get ELO tier/rank name based on ELO score
 export function getELOTier(elo) {
-  if (elo >= 300) return { name: 'Legend', color: '#FFD700', icon: '👑' };
-  if (elo >= 250) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
-  if (elo >= 200) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
-  if (elo >= 150) return { name: 'Advanced', color: '#45B7D1', icon: '🎯' };
-  if (elo >= 100) return { name: 'Intermediate', color: '#96CEB4', icon: '🌟' };
-  if (elo >= 50) return { name: 'Beginner', color: '#FFEAA7', icon: '🌱' };
+  if (elo >= 700) return { name: 'Legend', color: '#FFD700', icon: '👑' };
+  if (elo >= 500) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
+  if (elo >= 400) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
+  if (elo >= 300) return { name: 'Advanced', color: '#45B7D1', icon: '🎯' };
+  if (elo >= 200) return { name: 'Intermediate', color: '#96CEB4', icon: '🌟' };
+  if (elo >= 50) return { name: 'Beginner', color: '#F1B40F', icon: '🌱' };
   return { name: 'Novice', color: '#DDA0DD', icon: '🥚' };
 }
 

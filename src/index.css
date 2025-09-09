@@ -782,7 +782,7 @@ code {
   position: relative;
 }
 
-.stat-card.inactive::before {
+/* .stat-card.inactive::before {
   content: "INACTIVE";
   position: absolute;
   top: 8px;
@@ -794,7 +794,7 @@ code {
   padding: 2px 6px;
   border-radius: 4px;
   text-transform: uppercase;
-}
+} */
 
 .stat-card.inactive .stat-name {
   color: var(--text-secondary);
@@ -2624,6 +2624,42 @@ code {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.name-edit-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0; /* Allow text truncation if needed */
+}
+
+.stat-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px; /* Limit name width to prevent overlap */
+}
+
+.player-action-btn.inline-edit {
+  font-size: 12px;
+  padding: 2px 4px;
+  min-width: auto;
+  height: auto;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.player-action-btn.inline-edit:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(124, 58, 237, 0.2);
+  border-color: var(--primary-color);
+  transform: scale(1.1);
 }
 
 .elo-tier-badge {
@@ -2635,6 +2671,10 @@ code {
   border: 1px solid currentColor;
   text-align: center;
   white-space: nowrap;
+  flex-shrink: 0; /* Prevent shrinking */
+  max-width: 80px; /* Limit max width */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Mobile responsiveness */
@@ -2669,8 +2709,22 @@ code {
     font-size: 14px;
   }
   
+  .name-edit-group {
+    gap: 4px;
+  }
+  
+  .stat-name {
+    max-width: 100px; /* Smaller max width on mobile */
+  }
+  
   .elo-tier-badge {
+    max-width: 60px; /* Smaller max width on mobile */
     font-size: 9px;
     padding: 1px 4px;
+  }
+  
+  .player-action-btn.inline-edit {
+    font-size: 11px;
+    padding: 1px 3px;
   }
 } 

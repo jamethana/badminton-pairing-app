@@ -40,29 +40,19 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
       className={`stat-card fade-in clickable ${player.isActive ? '' : 'inactive'} ${disabled ? 'disabled' : ''}`}
       onClick={handleToggleActive}
     >
-      {/* Action Buttons - Top Right */}
-      <div className="top-actions">
-        <button
-          className="player-action-btn edit-btn-icon"
-          onClick={handleEditName}
-          title="Edit player name"
-          disabled={disabled}
-        >
-          ✏️
-        </button>
-        <button
-          className={`player-action-btn delete-btn-icon ${showRemoveConfirm ? 'confirm' : ''}`}
-          onClick={handleRemove}
-          title={showRemoveConfirm ? 'Click again to confirm removal' : 'Remove player'}
-          disabled={disabled}
-        >
-          🗑️
-        </button>
-      </div>
-
-      {/* Header with Name and ELO Tier */}
+      {/* Header with Name, Edit Icon, and ELO Tier */}
       <div className="stat-header">
-        <span className="stat-name">{player.name}</span>
+        <div className="name-edit-group">
+          <span className="stat-name">{player.name}</span>
+          <button
+            className="player-action-btn edit-btn-icon inline-edit"
+            onClick={handleEditName}
+            title="Edit player name"
+            disabled={disabled}
+          >
+            ✏️
+          </button>
+        </div>
         <span className="elo-tier-badge" style={{ color: eloTier.color }}>
           {eloTier.icon} {eloTier.name}
         </span>

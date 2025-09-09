@@ -63,9 +63,9 @@ const PlayerEditModal = ({ playerId, playerName, onSave, onRemove, onClose }) =>
           <button className="btn btn-secondary" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-danger" onClick={handleRemove}>
+          {/* <button className="btn btn-danger" onClick={handleRemove}>
             Remove Player
-          </button>
+          </button> */}
         </div>
       </div>
     </div>

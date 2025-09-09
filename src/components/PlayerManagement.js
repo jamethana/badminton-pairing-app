@@ -81,9 +81,9 @@ const PlayerManagement = ({
       <div className="section-header">
         <h2 className="section-title">Player Management</h2>
         <div className="section-actions">
-          <button className="btn btn-warning" onClick={handleResetMatchCounts}>
+          {/* <button className="btn btn-warning" onClick={handleResetMatchCounts}>
             Reset All Match Counts
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -133,7 +133,7 @@ const PlayerManagement = ({
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3 className="modal-title">Confirm Reset All Match Counts</h3>
+              <h3 className="modal-title" >Confirm Reset All Match Counts</h3>
             </div>
             <div className="modal-body">
               <p>Are you sure you want to reset all match counts, wins, losses, and match history for all players? This action cannot be undone.</p>
