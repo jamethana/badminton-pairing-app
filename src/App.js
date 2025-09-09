@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PlayerManagement from './components/PlayerManagement';
 import CurrentMatches from './components/CurrentMatches';
 import Notification from './components/Notification';
+import Scoreboard from './components/Scoreboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { generateId } from './utils/helpers';
+import { generateId, calculateInitialELO, updateELO } from './utils/helpers';
 
 function App() {
   const [players, setPlayers] = useLocalStorage('badminton-players', []);
@@ -26,6 +27,22 @@ function App() {
   useEffect(() => {
     updateAvailablePool();
   }, [players, currentMatches]);
+
+  // Initialize ELO for existing players who don't have it
+  useEffect(() => {
+    const playersNeedingELO = players.filter(player => !player.hasOwnProperty('elo'));
+    if (playersNeedingELO.length > 0) {
+      setPlayers(prev => prev.map(player => {
+        if (!player.hasOwnProperty('elo')) {
+          return {
+            ...player,
+            elo: calculateInitialELO(player.wins || 0, player.losses || 0)
+          };
+        }
+        return player;
+      }));
+    }
+  }, [players]);
 
   // Cleanup refresh timer on unmount
   useEffect(() => {
@@ -90,7 +107,8 @@ function App() {
       matchCount: 0,
       wins: 0,
       losses: 0,
-      lastMatchTime: null
+      lastMatchTime: null,
+      elo: 100 // Starting ELO
     };
 
     setPlayers(prev => {
@@ -151,7 +169,8 @@ function App() {
       matchCount: 0,
       wins: 0,
       losses: 0,
-      lastMatchTime: null
+      lastMatchTime: null,
+      elo: 100 // Reset to starting ELO
     })));
     
     setCurrentMatches([]);
@@ -312,9 +331,25 @@ function App() {
       
       setPlayers(prev => prev.map(player => {
         if (winningTeam.player1.id === player.id || winningTeam.player2.id === player.id) {
-          return { ...player, wins: (player.wins || 0) + 1, matchCount: player.matchCount + 1, lastMatchTime: new Date().toISOString() };
+          const currentELO = player.elo || calculateInitialELO(player.wins, player.losses);
+          const newELO = updateELO(currentELO, true);
+          return { 
+            ...player, 
+            wins: (player.wins || 0) + 1, 
+            matchCount: player.matchCount + 1, 
+            lastMatchTime: new Date().toISOString(),
+            elo: newELO
+          };
         } else if (losingTeam.player1.id === player.id || losingTeam.player2.id === player.id) {
-          return { ...player, losses: (player.losses || 0) + 1, matchCount: player.matchCount + 1, lastMatchTime: new Date().toISOString() };
+          const currentELO = player.elo || calculateInitialELO(player.wins, player.losses);
+          const newELO = updateELO(currentELO, false);
+          return { 
+            ...player, 
+            losses: (player.losses || 0) + 1, 
+            matchCount: player.matchCount + 1, 
+            lastMatchTime: new Date().toISOString(),
+            elo: newELO
+          };
         }
         return player;
       }));
@@ -496,6 +531,8 @@ function App() {
             onClose={() => setNotification(null)}
           />
         )}
+
+        <Scoreboard players={players} />
       </div>
     </div>
   );

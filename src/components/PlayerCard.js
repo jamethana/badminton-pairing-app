@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
+import { getELOTier, calculateInitialELO } from '../utils/helpers';
 
 const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disabled }) => {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  
+  // Calculate ELO if not present
+  const playerELO = player.elo || calculateInitialELO(player.wins || 0, player.losses || 0);
+  const eloTier = getELOTier(playerELO);
 
   const handleEditName = (e) => {
     e.stopPropagation(); // Prevent card click when editing
@@ -55,13 +60,19 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
         </button>
       </div>
 
-      {/* Header with Name */}
+      {/* Header with Name and ELO Tier */}
       <div className="stat-header">
         <span className="stat-name">{player.name}</span>
+        <span className="elo-tier-badge" style={{ color: eloTier.color }}>
+          {eloTier.icon} {eloTier.name}
+        </span>
       </div>
       
       {/* Stats */}
       <div className="stat-details">
+        <small style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>
+          ELO: {playerELO}
+        </small>
         <small style={{ color: 'var(--success-color)' }}>
           Wins: {player.wins || 0}
         </small>
