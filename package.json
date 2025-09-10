@@ -14,9 +14,12 @@
     "audit:fix": "npm audit fix",
     "security:check": "npm run audit:prod && echo 'Production dependencies are secure'",
     "deploy:db": "cd database && ./deploy.sh",
-    "deploy:db:sample": "cd database && ./deploy.sh --with-sample-data"
+    "deploy:db:sample": "cd database && ./deploy.sh --with-sample-data",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "firebase": "^12.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -40,7 +43,8 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0"
+    "@types/react-dom": "^18.2.0",
+    "gh-pages": "^6.3.0"
   },
   "engines": {
     "node": "22.x",
@@ -49,7 +53,7 @@
   "overrides": {
     "nth-check": "^2.1.1",
     "postcss": "^8.4.31",
-    "webpack-dev-server": "^5.2.1",
-    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15"
+    "webpack-dev-server": "^4.15.2",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.17"
   }
 }

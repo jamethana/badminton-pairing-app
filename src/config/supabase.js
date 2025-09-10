@@ -61,7 +61,7 @@ export const MIGRATION_CONFIG = {
   KEEP_LOCAL_BACKUP: true
 };
 
-// Supabase client factory (will be implemented when adding Supabase)
+// Supabase client factory
 export async function createSupabaseClient() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn('Supabase credentials not found. Running in localStorage mode.');
@@ -69,13 +69,18 @@ export async function createSupabaseClient() {
   }
   
   try {
-    // TODO: Import and initialize Supabase client
-    // const { createClient } = await import('@supabase/supabase-js');
-    // const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
-    // return supabase;
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
     
-    console.log('Supabase client would be created here');
-    return null;
+    // Test the connection
+    const { error } = await supabase.from('players').select('count', { count: 'exact', head: true });
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "table not found" which is expected initially
+      console.error('Supabase connection error:', error);
+      return null;
+    }
+    
+    console.log('Supabase client connected successfully');
+    return supabase;
   } catch (error) {
     console.error('Error creating Supabase client:', error);
     return null;

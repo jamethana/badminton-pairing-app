@@ -4,6 +4,7 @@ import SessionPlayerManagement from './components/SessionPlayerManagement';
 import CurrentMatches from './components/CurrentMatches';
 import Notification from './components/Notification';
 import Scoreboard from './components/Scoreboard';
+import ConnectionStatus from './components/ConnectionStatus';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { 
   generateId, 
@@ -639,6 +640,9 @@ function App() {
         )}
 
         <Scoreboard players={sessionPlayers} />
+        
+        {/* Connection status indicator */}
+        <ConnectionStatus />
       </div>
     </div>
   );
