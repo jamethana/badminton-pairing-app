@@ -106,7 +106,7 @@ export function useSupabaseStorage(key, initialValue) {
 
       if (data && data.length > 0) {
         // Transform and use Supabase data
-        const transformedData = await transformSupabaseToLocal(data, tableName);
+        const transformedData = await transformSupabaseToLocal(data, tableName, client);
         setStoredValue(transformedData);
         
         // Update localStorage to match Supabase (Supabase is source of truth)
@@ -132,7 +132,7 @@ export function useSupabaseStorage(key, initialValue) {
             .order(orderColumn, { ascending: true });
           
           if (migratedData && migratedData.length > 0) {
-            const transformedData = await transformSupabaseToLocal(migratedData, tableName);
+            const transformedData = await transformSupabaseToLocal(migratedData, tableName, client);
             setStoredValue(transformedData);
             window.localStorage.setItem(storageKey, JSON.stringify(transformedData));
           } else {
@@ -208,7 +208,7 @@ export function useSupabaseStorage(key, initialValue) {
   };
 
   // Transform Supabase data to local format
-  const transformSupabaseToLocal = async (data, tableName) => {
+  const transformSupabaseToLocal = async (data, tableName, client = supabaseClient) => {
     if (tableName === TABLES.PLAYERS) {
       return data.map(player => ({
         id: player.id,
@@ -253,11 +253,19 @@ export function useSupabaseStorage(key, initialValue) {
       }));
     } else if (tableName === TABLES.MATCHES) {
       // Get session and player mappings to resolve UUIDs back to names
-      const { data: sessions } = await supabaseClient
+      if (!client) {
+        // Fallback to basic transformation without name resolution
+        return data.map(match => ({
+          ...match,
+          session_name: 'Unknown Session'
+        }));
+      }
+      
+      const { data: sessions } = await client
         .from(TABLES.SESSIONS)
         .select('id, name');
       
-      const { data: players } = await supabaseClient
+      const { data: players } = await client
         .from(TABLES.PLAYERS)
         .select('id, name');
       
@@ -395,8 +403,12 @@ export function useSupabaseStorage(key, initialValue) {
       let cleanedValue = newValue;
       if (key === 'badminton_matches' && Array.isArray(newValue)) {
         cleanedValue = newValue.filter(match => {
-          // Keep only new format matches (with session_name)
-          return match && match.session_name && !match.session_id;
+          // Keep matches that have session_name (new format) OR are cancelled/completed (preserve history)
+          return match && (
+            match.session_name || // New format matches
+            match.cancelled_at || // Keep cancelled matches for history
+            match.completed_at    // Keep completed matches for history
+          );
         });
         if (cleanedValue.length !== newValue.length) {
           console.log(`🧹 Cleaned up ${newValue.length - cleanedValue.length} old format matches`);
@@ -653,6 +665,9 @@ export function useSupabaseStorage(key, initialValue) {
         continue;
       }
       
+      // Check if this is a new match (custom ID) or existing match (UUID)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(match.id);
+      
       const matchData = {
         session_id: sessionsByName[sessionName],
         court_number: match.court_number || 0,
@@ -671,13 +686,26 @@ export function useSupabaseStorage(key, initialValue) {
         notes: match.notes
       };
 
-      // Insert new match (let Supabase generate UUID)
-      const { error } = await supabaseClient
-        .from(TABLES.MATCHES)
-        .insert(matchData);
+      let error;
+      if (isUUID) {
+        // Existing match: UPDATE using UUID
+        console.log(`📝 Updating existing match:`, match.id);
+        ({ error } = await supabaseClient
+          .from(TABLES.MATCHES)
+          .update(matchData)
+          .eq('id', match.id));
+      } else {
+        // New match: INSERT without ID (let Supabase generate UUID)
+        console.log(`➕ Inserting new match:`, match.id);
+        ({ error } = await supabaseClient
+          .from(TABLES.MATCHES)
+          .insert(matchData));
+      }
       
       if (error && error.code !== '23505') {
-        console.error('Error inserting match:', error);
+        console.error('Error saving match:', error);
+      } else {
+        console.log(`✅ Match saved successfully:`, match.id);
       }
     }
   };

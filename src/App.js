@@ -37,6 +37,7 @@ function App() {
   // Ensure arrays are never undefined
   const safeGlobalPlayers = globalPlayers || [];
   const safeSessions = sessions || [];
+  const safeMatches = matches || [];
 
   // Initialize current session if valid session exists
   useEffect(() => {
@@ -157,10 +158,10 @@ function App() {
   useEffect(() => {
     console.log(`🔄 Match reconstruction effect triggered`);
     console.log(`📊 currentSession:`, currentSession);
-    console.log(`📊 matches:`, matches);
+    console.log(`📊 matches:`, safeMatches);
     console.log(`📊 currentSessionId:`, currentSessionId);
     
-    if (!currentSession || !matches || !currentSessionId) {
+    if (!currentSession || !currentSessionId) {
       console.log(`❌ Missing data for reconstruction - aborting`);
       return;
     }
@@ -172,11 +173,22 @@ function App() {
     }
     
     // Find active (incomplete) matches for this session
-    const activeMatches = matches.filter(match => 
-      match.session_name === currentSession.name && 
-      !match.completed_at && 
-      !match.cancelled_at
-    );
+    const activeMatches = safeMatches.filter(match => {
+      const isForThisSession = match && match.session_name === currentSession.name;
+      const isNotCompleted = !match.completed_at;
+      const isNotCancelled = !match.cancelled_at;
+      
+      console.log(`🔍 Checking match ${match?.id}:`, {
+        isForThisSession,
+        isNotCompleted,
+        isNotCancelled,
+        cancelled_at: match?.cancelled_at,
+        completed_at: match?.completed_at,
+        session_name: match?.session_name
+      });
+      
+      return isForThisSession && isNotCompleted && isNotCancelled;
+    });
     
     console.log(`🔍 Found ${activeMatches.length} active matches for session "${currentSession.name}"`);
     console.log(`📋 Active matches:`, activeMatches);
@@ -217,7 +229,7 @@ function App() {
         courtStates
       });
     }
-  }, [matches, currentSessionId, safeGlobalPlayers, updateSession]);
+  }, [safeMatches, currentSessionId, safeGlobalPlayers, updateSession]);
 
   const handleSessionSelect = useCallback((sessionId) => {
     setCurrentSessionId(sessionId);
@@ -399,51 +411,77 @@ function App() {
     console.log(`🏸 Processing match:`, match);
     
     if (winner === 'cancelled') {
-      // Save cancelled match record
-      const cancelledMatch = {
-        id: generateId(),
-        session_name: currentSession.name,
-        court_number: courtId,
-        started_at: match.startTime,
-        cancelled_at: new Date().toISOString(),
-        team1_player1_id: match.team1.player1.id,
-        team1_player2_id: match.team1.player2.id,
-        team2_player1_id: match.team2.player1.id,
-        team2_player2_id: match.team2.player2.id,
-        // Add names for Supabase UUID resolution
-        team1_player1_name: match.team1.player1.name,
-        team1_player2_name: match.team1.player2.name,
-        team2_player1_name: match.team2.player1.name,
-        team2_player2_name: match.team2.player2.name,
-        winning_team: null,
-        match_type: 'doubles'
-      };
+      console.log(`🏸 Cancelling match with ID: ${match.id}`);
       
-      setMatches(prev => [...prev, cancelledMatch]);
+      // Find and update ALL active matches on this court to mark them as cancelled
+      setMatches(prev => prev.map(dbMatch => {
+        if (dbMatch.session_name === currentSession.name && 
+            dbMatch.court_number === courtId && 
+            !dbMatch.completed_at && 
+            !dbMatch.cancelled_at) {
+          console.log(`✅ Marking match as cancelled:`, dbMatch.id);
+          return {
+            ...dbMatch,
+            cancelled_at: new Date().toISOString()
+          };
+        }
+        return dbMatch;
+      }));
+      
       showNotification('Match cancelled - no stats recorded');
     } else {
-      // Create completed match record
-      const completedMatch = {
-        id: generateId(),
-        session_name: currentSession.name,
-        court_number: courtId,
-        started_at: match.startTime,
-        completed_at: new Date().toISOString(),
-        team1_player1_id: match.team1.player1.id,
-        team1_player2_id: match.team1.player2.id,
-        team2_player1_id: match.team2.player1.id,
-        team2_player2_id: match.team2.player2.id,
-        // Add names for Supabase UUID resolution
-        team1_player1_name: match.team1.player1.name,
-        team1_player2_name: match.team1.player2.name,
-        team2_player1_name: match.team2.player1.name,
-        team2_player2_name: match.team2.player2.name,
-        winning_team: winner === 'team1' ? 1 : 2,
-        match_type: 'doubles'
-      };
+      console.log(`🏸 Completing match with ID: ${match.id}, winner: ${winner}`);
       
-      // Save match record
-      setMatches(prev => [...prev, completedMatch]);
+      // Find and update ALL active matches on this court - complete one, cancel others
+      let completedMatch = null;
+      setMatches(prev => prev.map(dbMatch => {
+        if (dbMatch.session_name === currentSession.name && 
+            dbMatch.court_number === courtId && 
+            !dbMatch.completed_at && 
+            !dbMatch.cancelled_at) {
+          
+          // If this is the first match found, complete it; cancel others
+          if (!completedMatch) {
+            console.log(`✅ Marking match as completed:`, dbMatch.id);
+            completedMatch = {
+              ...dbMatch,
+              completed_at: new Date().toISOString(),
+              winning_team: winner === 'team1' ? 1 : 2
+            };
+            return completedMatch;
+          } else {
+            console.log(`🚫 Cancelling duplicate match on same court:`, dbMatch.id);
+            return {
+              ...dbMatch,
+              cancelled_at: new Date().toISOString()
+            };
+          }
+        }
+        return dbMatch;
+      }));
+      
+      if (!completedMatch) {
+        console.log(`⚠️ Could not find match to complete, creating new record`);
+        completedMatch = {
+          id: generateId(),
+          session_name: currentSession.name,
+          court_number: courtId,
+          started_at: match.startTime,
+          completed_at: new Date().toISOString(),
+          team1_player1_id: match.team1.player1.id,
+          team1_player2_id: match.team1.player2.id,
+          team2_player1_id: match.team2.player1.id,
+          team2_player2_id: match.team2.player2.id,
+          // Add names for Supabase UUID resolution
+          team1_player1_name: match.team1.player1.name,
+          team1_player2_name: match.team1.player2.name,
+          team2_player1_name: match.team2.player1.name,
+          team2_player2_name: match.team2.player2.name,
+          winning_team: winner === 'team1' ? 1 : 2,
+          match_type: 'doubles'
+        };
+        setMatches(prev => [...prev, completedMatch]);
+      }
       
       // Update player stats (both global lifetime and session-specific)
       const winningTeam = winner === 'team1' ? match.team1 : match.team2;
@@ -682,8 +720,8 @@ function App() {
     if (!currentSession) return;
     
     // Mark all active matches as cancelled in database
-    const activeMatches = matches.filter(match => 
-      match.session_name === currentSession.name && 
+    const activeMatches = safeMatches.filter(match => 
+      match && match.session_name === currentSession.name && 
       !match.completed_at && 
       !match.cancelled_at
     );
@@ -710,7 +748,7 @@ function App() {
     });
     
     showNotification('All matches cleared');
-  }, [currentSession, currentSessionId, matches, setMatches, updateSession, showNotification]);
+  }, [currentSession, currentSessionId, safeMatches, setMatches, updateSession, showNotification]);
 
   const fillEmptyCourt = useCallback((courtId, matchData = null) => {
     console.log(`🏸 fillEmptyCourt called: courtId=${courtId}, matchData=`, matchData);
