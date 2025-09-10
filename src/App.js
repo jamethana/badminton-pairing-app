@@ -6,6 +6,7 @@ import Notification from './components/Notification';
 import Scoreboard from './components/Scoreboard';
 import ConnectionStatus from './components/ConnectionStatus';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useSupabaseStorage } from './hooks/useSupabaseStorage';
 import { 
   generateId, 
   calculateInitialELO, 
@@ -18,33 +19,47 @@ import {
 } from './utils/helpers';
 
 function App() {
-  // Global storage
-  const [globalPlayers, setGlobalPlayers] = useLocalStorage('badminton-global-players', []);
-  const [sessions, setSessions] = useLocalStorage('badminton-sessions', []);
+  // Global storage with automatic Supabase integration
+  const [globalPlayers, setGlobalPlayers, playersInfo] = useSupabaseStorage('badminton-global-players', []);
+  const [sessions, setSessions, sessionsInfo] = useSupabaseStorage('badminton-sessions', []);
+  const [sessionPlayers, setSessionPlayers] = useSupabaseStorage('badminton_session_players', []);
+  const [matches, setMatches] = useSupabaseStorage('badminton_matches', []);
+  // ELO history - keep Supabase sync but don't auto-load
+  const [eloHistory, setEloHistory] = useSupabaseStorage('badminton_elo_history', []);
   const [currentSessionId, setCurrentSessionId] = useLocalStorage('badminton-current-session', null);
   
   // UI state
   const [notification, setNotification] = useState(null);
+  
+  // Check if data is still loading
+  const isDataLoading = playersInfo?.isLoading || sessionsInfo?.isLoading;
+  const usingSupabase = playersInfo?.useSupabase || sessionsInfo?.useSupabase;
+  
+  // Ensure arrays are never undefined
+  const safeGlobalPlayers = globalPlayers || [];
+  const safeSessions = sessions || [];
+  const safeMatches = matches || [];
 
   // Initialize current session if valid session exists
   useEffect(() => {
-    if (sessions.length > 0) {
-      if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
-        setCurrentSessionId(sessions[0].id);
+    const activeSessions = safeSessions.filter(s => s.isActive !== false);
+    if (activeSessions.length > 0) {
+      if (!currentSessionId || !activeSessions.find(s => s.id === currentSessionId)) {
+        setCurrentSessionId(activeSessions[0].id);
       }
     } else {
       setCurrentSessionId(null);
     }
-  }, [sessions, currentSessionId, setCurrentSessionId]);
+  }, [safeSessions, currentSessionId, setCurrentSessionId]);
 
   // Initialize court states for existing sessions that might not have them
   useEffect(() => {
-    const sessionsNeedingCourtStates = sessions.filter(session => 
+    const sessionsNeedingCourtStates = safeSessions.filter(session => 
       !session.courtStates || session.courtStates.length === 0
     );
     
     if (sessionsNeedingCourtStates.length > 0) {
-      setSessions(prev => prev.map(session => {
+      setSessions(prev => (prev || []).map(session => {
         if (!session.courtStates || session.courtStates.length === 0) {
           const courtStates = [];
           for (let i = 0; i < (session.courtCount || 4); i++) {
@@ -63,13 +78,13 @@ function App() {
         return session;
       }));
     }
-  }, [sessions, setSessions]);
+  }, [safeSessions, setSessions]);
 
   // Initialize ELO for existing global players
   useEffect(() => {
-    const playersNeedingELO = globalPlayers.filter(player => !player.hasOwnProperty('elo'));
+    const playersNeedingELO = safeGlobalPlayers.filter(player => player && !player.hasOwnProperty('elo'));
     if (playersNeedingELO.length > 0) {
-      setGlobalPlayers(prev => prev.map(player => {
+      setGlobalPlayers(prev => (prev || []).map(player => {
         if (!player.hasOwnProperty('elo')) {
           return {
             ...player,
@@ -79,32 +94,63 @@ function App() {
         return player;
       }));
     }
-  }, []);
+  }, [safeGlobalPlayers, setGlobalPlayers]);
 
-  const currentSession = sessions.find(s => s.id === currentSessionId);
+  const currentSession = safeSessions.find(s => s && s.id === currentSessionId && s.isActive !== false);
   
-  // Get session players with their session-specific stats
-  const sessionPlayers = currentSession ? 
-    currentSession.playerIds.map(playerId => {
-      const globalPlayer = globalPlayers.find(p => p.id === playerId);
-      if (!globalPlayer) return null;
-      
-      const sessionStats = getSessionPlayerStats(globalPlayer, currentSessionId);
-      return {
-        ...globalPlayer,
-        ...sessionStats,
-        sessionWins: sessionStats.sessionWins || 0,
-        sessionLosses: sessionStats.sessionLosses || 0,
-        sessionMatchCount: sessionStats.sessionMatchCount || 0,
-        sessionLastMatchTime: sessionStats.sessionLastMatchTime || null,
-        isActive: sessionStats.isActive !== undefined ? sessionStats.isActive : true
-      };
-    }).filter(Boolean) : [];
+  // Get session players with their session-specific stats from session_players table
+  const currentSessionPlayers = sessionPlayers.filter(sp => 
+    sp && sp.session_id === currentSessionId && sp.is_active_in_session
+  );
+  
+  // Clean up duplicate session players (same player name in same session)
+  const uniqueSessionPlayers = currentSessionPlayers.reduce((acc, sp) => {
+    // Find the global player to get the name
+    const globalPlayer = safeGlobalPlayers.find(p => p.id === sp.player_id);
+    if (!globalPlayer) return acc;
+    
+    const key = `${sp.session_id}-${globalPlayer.name}`;
+    if (!acc.has(key)) {
+      acc.set(key, sp);
+    } else {
+      // Keep the one with more stats (more recent)
+      const existing = acc.get(key);
+      if ((sp.session_matches || 0) > (existing.session_matches || 0)) {
+        acc.set(key, sp);
+      }
+    }
+    return acc;
+  }, new Map());
+  
+  const cleanedSessionPlayers = Array.from(uniqueSessionPlayers.values());
+  
+  // Session players cleanup: ${currentSessionPlayers.length} → ${cleanedSessionPlayers.length}
+  
+  const sessionPlayersWithDetails = cleanedSessionPlayers.map(sessionPlayer => {
+    const globalPlayer = safeGlobalPlayers.find(p => p && p.id === sessionPlayer.player_id);
+    if (!globalPlayer) return null;
+    
+    // Session player stats loaded
+    
+    return {
+      ...globalPlayer,
+      // Use session-specific stats from session_players table
+      sessionWins: sessionPlayer.session_wins || 0,
+      sessionLosses: sessionPlayer.session_losses || 0,
+      sessionMatchCount: sessionPlayer.session_matches || 0,
+      sessionLastMatchTime: sessionPlayer.last_match_time || sessionPlayer.joined_at,
+      isActive: sessionPlayer.is_active_in_session !== false,
+      sessionElo: sessionPlayer.session_elo_current || globalPlayer.elo || 100
+    };
+  }).filter(Boolean);
+  
+  // For backward compatibility, maintain the sessionPlayers variable name
+  const sessionPlayersArray = sessionPlayersWithDetails;
 
   // Get occupied player IDs from all active sessions
-  const occupiedPlayerIds = sessions.flatMap(session => {
+  const occupiedPlayerIds = (safeSessions || []).flatMap(session => {
     if (session.id === currentSessionId) return []; // Don't include current session
-    return session.currentMatches?.flatMap(match => {
+    return (session.currentMatches || []).flatMap(match => {
       const playerIds = [
         match.team1?.player1?.id,
         match.team1?.player2?.id,
@@ -112,7 +158,7 @@ function App() {
         match.team2?.player2?.id
       ].filter(Boolean); // Remove null/undefined values
       return playerIds;
-    }) || [];
+    });
   });
 
   const showNotification = useCallback((message, type = 'success') => {
@@ -134,10 +180,71 @@ function App() {
     }));
   }, [currentSessionId, setSessions]);
 
+  // Reconstruct current matches and court states from matches data
+  useEffect(() => {
+    // Match reconstruction triggered
+    
+    if (!currentSession || !currentSessionId) {
+      // Missing data for reconstruction
+      return;
+    }
+    
+    // Prevent infinite loop: only reconstruct if currentMatches is empty
+    if (currentSession.currentMatches && currentSession.currentMatches.length > 0) {
+      // Current matches exist, skipping reconstruction
+      return;
+    }
+    
+    // Find active (incomplete) matches for this session (optimized)
+    const activeMatches = safeMatches.filter(match => 
+      match && 
+      match.session_name === currentSession.name && 
+      !match.completed_at && 
+      !match.cancelled_at
+    );
+    
+    if (activeMatches.length > 0) {
+      // Reconstructing active matches for session
+      
+      // Convert database matches back to UI format using Supabase UUIDs
+      const currentMatches = activeMatches.map(match => ({
+        id: match.id, // Use Supabase UUID directly
+        courtId: match.court_number,
+        team1: {
+          player1: safeGlobalPlayers.find(p => p.name === match.team1_player1_name) || { id: match.team1_player1_id, name: match.team1_player1_name },
+          player2: safeGlobalPlayers.find(p => p.name === match.team1_player2_name) || { id: match.team1_player2_id, name: match.team1_player2_name }
+        },
+        team2: {
+          player1: safeGlobalPlayers.find(p => p.name === match.team2_player1_name) || { id: match.team2_player1_id, name: match.team2_player1_name },
+          player2: safeGlobalPlayers.find(p => p.name === match.team2_player2_name) || { id: match.team2_player2_id, name: match.team2_player2_name }
+        },
+        startTime: match.started_at,
+        completed: false
+      }));
+      
+      // Reconstruct court states
+      const courtStates = [];
+      for (let i = 0; i < currentSession.courtCount; i++) {
+        const matchOnCourt = currentMatches.find(m => m.courtId === i);
+        courtStates.push({
+          id: i,
+          isOccupied: !!matchOnCourt,
+          currentMatch: matchOnCourt || null
+        });
+      }
+      
+      // Update session with reconstructed data (but don't sync to Supabase)
+      updateSession({
+        currentMatches,
+        courtStates
+      });
+    }
+  }, [safeMatches, currentSessionId, safeGlobalPlayers, updateSession]);
+
   const handleSessionSelect = useCallback((sessionId) => {
     setCurrentSessionId(sessionId);
-    showNotification(`Switched to session: ${sessions.find(s => s.id === sessionId)?.name}`);
-  }, [sessions, setCurrentSessionId, showNotification]);
+    showNotification(`Switched to session: ${safeSessions.find(s => s && s.id === sessionId)?.name}`);
+  }, [safeSessions, setCurrentSessionId, showNotification]);
 
   const handleSessionCreate = useCallback((newSession) => {
     setSessions(prev => [...prev, newSession]);
@@ -149,12 +256,22 @@ function App() {
   const handleSessionEnd = useCallback((sessionId) => {
     const targetSessionId = sessionId || currentSessionId;
     
-    // Delete the specified session completely
-    setSessions(prev => prev.filter(s => s.id !== targetSessionId));
+    // Mark the session as ended (don't delete it completely)
+    setSessions(prev => prev.map(session => {
+      if (session.id === targetSessionId) {
+        return {
+          ...session,
+          isActive: false,
+          ended_at: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString()
+        };
+      }
+      return session;
+    }));
     
     // If ending current session, handle navigation
     if (targetSessionId === currentSessionId) {
-      const remainingSessions = sessions.filter(s => s.id !== targetSessionId);
+      const remainingSessions = safeSessions.filter(s => s && s.id !== targetSessionId && s.isActive !== false);
       if (remainingSessions.length > 0) {
         setCurrentSessionId(remainingSessions[0].id);
         showNotification(`Session ended. Switched to: ${remainingSessions[0].name}`);
@@ -165,43 +282,65 @@ function App() {
     } else {
       showNotification('Session ended');
     }
-  }, [currentSessionId, sessions, setSessions, setCurrentSessionId, showNotification]);
+  }, [currentSessionId, safeSessions, setSessions, setCurrentSessionId, showNotification]);
 
   const handleAddPlayerToSession = useCallback((playerId) => {
     if (!currentSession) return;
     
-    setSessions(prev => prev.map(session => {
-      if (session.id === currentSessionId) {
-        return {
-          ...session,
-          playerIds: [...session.playerIds, playerId],
-          lastActiveAt: new Date().toISOString()
-        };
-      }
-      return session;
-    }));
+    // Check if player is already in this session
+    const existingSessionPlayer = sessionPlayers.find(sp => 
+      sp.session_id === currentSessionId && sp.player_id === playerId && sp.is_active_in_session
+    );
     
-    const player = globalPlayers.find(p => p.id === playerId);
-    showNotification(`${player?.name} added to session`);
-  }, [currentSession, currentSessionId, globalPlayers, setSessions, showNotification]);
+    if (existingSessionPlayer) {
+      showNotification('Player is already in this session', 'error');
+      return;
+    }
+    
+    // Get player's current ELO to set as starting ELO
+    const player = safeGlobalPlayers.find(p => p && p.id === playerId);
+    if (!player) return;
+    
+    const currentELO = player.elo || 100;
+    
+    // Create new session player relationship
+    const newSessionPlayer = {
+      id: generateId(),
+      session_id: currentSessionId,
+      player_id: playerId,
+      joined_at: new Date().toISOString(),
+      left_at: null,
+      session_matches: 0,
+      session_wins: 0,
+      session_losses: 0,
+      session_elo_start: currentELO,
+      session_elo_current: currentELO,
+      session_elo_peak: currentELO,
+      is_active_in_session: true
+    };
+    
+    setSessionPlayers(prev => [...prev, newSessionPlayer]);
+    showNotification(`${player.name} added to session`);
+  }, [currentSession, currentSessionId, sessionPlayers, safeGlobalPlayers, setSessionPlayers, showNotification]);
 
   const handleRemovePlayerFromSession = useCallback((playerId) => {
     if (!currentSession) return;
     
-    setSessions(prev => prev.map(session => {
-      if (session.id === currentSessionId) {
+    // Mark player as inactive in session (don't delete the record for historical purposes)
+    setSessionPlayers(prev => prev.map(sessionPlayer => {
+      if (sessionPlayer.session_id === currentSessionId && sessionPlayer.player_id === playerId) {
         return {
-          ...session,
-          playerIds: session.playerIds.filter(id => id !== playerId),
-          lastActiveAt: new Date().toISOString()
+          ...sessionPlayer,
+          is_active_in_session: false,
+          left_at: new Date().toISOString()
         };
       }
-      return session;
+      return sessionPlayer;
     }));
     
-    const player = globalPlayers.find(p => p.id === playerId);
+    const player = safeGlobalPlayers.find(p => p && p.id === playerId);
     showNotification(`${player?.name} removed from session`);
-  }, [currentSession, currentSessionId, globalPlayers, setSessions, showNotification]);
+  }, [currentSession, currentSessionId, safeGlobalPlayers, setSessionPlayers, showNotification]);
 
   const handleCreateNewPlayer = useCallback((name) => {
     const newPlayer = {
@@ -217,20 +356,26 @@ function App() {
 
     setGlobalPlayers(prev => [...prev, newPlayer]);
     
-    // Add to current session
-    setSessions(prev => prev.map(session => {
-      if (session.id === currentSessionId) {
-        return {
-          ...session,
-          playerIds: [...session.playerIds, newPlayer.id],
-          lastActiveAt: new Date().toISOString()
-        };
-      }
-      return session;
-    }));
+    // Add to current session via session_players table
+    const newSessionPlayer = {
+      id: generateId(),
+      session_id: currentSessionId,
+      player_id: newPlayer.id,
+      joined_at: new Date().toISOString(),
+      left_at: null,
+      session_matches: 0,
+      session_wins: 0,
+      session_losses: 0,
+      session_elo_start: newPlayer.elo,
+      session_elo_current: newPlayer.elo,
+      session_elo_peak: newPlayer.elo,
+      is_active_in_session: true
+    };
+    
+    setSessionPlayers(prev => [...prev, newSessionPlayer]);
     
     showNotification(`Created and added ${name} to session`);
-  }, [currentSessionId, setGlobalPlayers, setSessions, showNotification]);
+  }, [currentSessionId, setGlobalPlayers, setSessionPlayers, showNotification]);
 
   const handleUpdateGlobalPlayer = useCallback((id, updates) => {
     setGlobalPlayers(prev => prev.map(player => {
@@ -241,31 +386,206 @@ function App() {
     }));
   }, [setGlobalPlayers]);
 
+  const handleToggleSessionPlayerActive = useCallback((playerId, isActive) => {
+    // Update the session player's active status in the session_players table
+    setSessionPlayers(prev => prev.map(sessionPlayer => {
+      if (sessionPlayer.session_id === currentSessionId && sessionPlayer.player_id === playerId) {
+        return {
+          ...sessionPlayer,
+          is_active_in_session: isActive
+        };
+      }
+      return sessionPlayer;
+    }));
+  }, [currentSessionId, setSessionPlayers]);
+
   const completeMatch = useCallback((courtId, winner) => {
-    if (!currentSession) return;
+    console.log(`🏸 completeMatch called: courtId=${courtId}, winner=${winner}`);
+    console.log(`📊 currentSession:`, currentSession);
     
+    if (!currentSession) {
+      console.log(`❌ No currentSession - aborting match completion`);
+      return;
+    }
+    
+    console.log(`📊 courtStates:`, currentSession.courtStates);
     const court = currentSession.courtStates?.find(c => c.id === courtId);
-    if (!court || !court.currentMatch) return;
+    console.log(`📊 found court:`, court);
+    
+    if (!court || !court.currentMatch) {
+      console.log(`❌ No court or currentMatch - aborting match completion`);
+      return;
+    }
 
     const match = court.currentMatch;
+    console.log(`🏸 Processing match:`, match);
     
     if (winner === 'cancelled') {
+      console.log(`🏸 Cancelling match with ID: ${match.id}`);
+      
+      // Find and update ALL active matches on this court to mark them as cancelled
+      setMatches(prev => prev.map(dbMatch => {
+        if (dbMatch.session_name === currentSession.name && 
+            dbMatch.court_number === courtId && 
+            !dbMatch.completed_at && 
+            !dbMatch.cancelled_at) {
+          console.log(`✅ Marking match as cancelled:`, dbMatch.id);
+          return {
+            ...dbMatch,
+            cancelled_at: new Date().toISOString()
+          };
+        }
+        return dbMatch;
+      }));
+      
       showNotification('Match cancelled - no stats recorded');
     } else {
+      console.log(`🏸 Completing match with ID: ${match.id}, winner: ${winner}`);
+      console.log(`🔍 Looking for matches to complete in court ${courtId}, session ${currentSession.name}`);
+      
+      // Find and update the Supabase match on this court (by court + session, not exact ID)
+      let completedMatch = null;
+      let matchesFound = 0;
+      
+      setMatches(prev => {
+        console.log(`🔍 All matches before completion:`, prev.map(m => ({id: m.id, court: m.court_number, completed: !!m.completed_at, cancelled: !!m.cancelled_at})));
+        
+        const updated = prev.map(dbMatch => {
+          if (dbMatch.session_name === currentSession.name && 
+              dbMatch.court_number === courtId && 
+              !dbMatch.completed_at && 
+              !dbMatch.cancelled_at) {
+            
+            matchesFound++;
+            console.log(`🔍 Found active match ${matchesFound}: ${dbMatch.id} (court ${dbMatch.court_number})`);
+            
+            // Complete ALL active matches on this court (in case of duplicates)
+            console.log(`✅ Marking match as completed: ${dbMatch.id}`);
+            completedMatch = {
+              ...dbMatch,
+              completed_at: new Date().toISOString(),
+              winning_team: winner === 'team1' ? 1 : 2
+            };
+            return completedMatch;
+          }
+          return dbMatch;
+        });
+        
+        console.log(`📊 Total active matches found for completion: ${matchesFound}`);
+        console.log(`🔍 All matches after completion:`, updated.map(m => ({id: m.id, court: m.court_number, completed: !!m.completed_at, cancelled: !!m.cancelled_at})));
+        return updated;
+      });
+      
+      if (!completedMatch) {
+        console.log(`⚠️ Could not find match to complete, creating new record`);
+        completedMatch = {
+          id: generateId(),
+          session_name: currentSession.name,
+          court_number: courtId,
+          started_at: match.startTime,
+          completed_at: new Date().toISOString(),
+          team1_player1_id: match.team1.player1.id,
+          team1_player2_id: match.team1.player2.id,
+          team2_player1_id: match.team2.player1.id,
+          team2_player2_id: match.team2.player2.id,
+          // Add names for Supabase UUID resolution
+          team1_player1_name: match.team1.player1.name,
+          team1_player2_name: match.team1.player2.name,
+          team2_player1_name: match.team2.player1.name,
+          team2_player2_name: match.team2.player2.name,
+          winning_team: winner === 'team1' ? 1 : 2,
+          match_type: 'doubles'
+        };
+        setMatches(prev => [...prev, completedMatch]);
+      }
+      
       // Update player stats (both global lifetime and session-specific)
+      console.log(`📊 Updating player stats for completed match`);
+      console.log(`🏆 Winner: ${winner}, completedMatch:`, completedMatch);
+      
       const winningTeam = winner === 'team1' ? match.team1 : match.team2;
       const losingTeam = winner === 'team1' ? match.team2 : match.team1;
       
-      setGlobalPlayers(prev => prev.map(globalPlayer => {
+      console.log(`🥇 Winning team:`, winningTeam);
+      console.log(`🥈 Losing team:`, losingTeam);
+      
+      // Collect ELO changes for history
+      const eloChanges = [];
+      
+      setGlobalPlayers(prev => {
+        console.log(`🔄 Updating global players stats`);
+        return prev.map(globalPlayer => {
         const isWinner = winningTeam.player1.id === globalPlayer.id || winningTeam.player2.id === globalPlayer.id;
         const isLoser = losingTeam.player1.id === globalPlayer.id || losingTeam.player2.id === globalPlayer.id;
         
         if (isWinner || isLoser) {
+          console.log(`🎯 Updating stats for player: ${globalPlayer.name}, isWinner: ${isWinner}`);
+          
           // Update lifetime stats
           const currentELO = globalPlayer.elo || calculateInitialELO(globalPlayer.wins || 0, globalPlayer.losses || 0);
           const newELO = updateELO(currentELO, isWinner);
           
-          // Update session stats
+          console.log(`📈 ELO change: ${currentELO} → ${newELO} (${isWinner ? '+' : '-'}${Math.abs(newELO - currentELO)})`);
+          console.log(`📊 Stats update: Wins ${globalPlayer.wins || 0} → ${(globalPlayer.wins || 0) + (isWinner ? 1 : 0)}, Losses ${globalPlayer.losses || 0} → ${(globalPlayer.losses || 0) + (isLoser ? 1 : 0)}`);
+          
+          // Record ELO change for history
+          eloChanges.push({
+            id: generateId(),
+            player_id: globalPlayer.id,
+            match_id: completedMatch.id,
+            session_id: currentSessionId,
+            // Add names for Supabase UUID resolution
+            player_name: globalPlayer.name,
+            session_name: currentSession.name,
+            elo_before: currentELO,
+            elo_after: newELO,
+            elo_change: newELO - currentELO,
+            was_winner: isWinner,
+            opponent_elo: 100, // We'll calculate average opponent ELO properly later
+            created_at: new Date().toISOString()
+          });
+          
+          // Update session stats in session_players table
+          // Update session stats - target ALL instances of this player in this session
+          // Update session stats by directly modifying the cleaned array
+          
+          // Find the player in the cleaned array and update directly
+          const playerInCleanedArray = cleanedSessionPlayers.find(sp => {
+            const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sp.player_id);
+            return sessionPlayerGlobal && sessionPlayerGlobal.name === globalPlayer.name;
+          });
+          
+          if (playerInCleanedArray) {
+            // Update the player directly
+            playerInCleanedArray.session_wins = (playerInCleanedArray.session_wins || 0) + (isWinner ? 1 : 0);
+            playerInCleanedArray.session_losses = (playerInCleanedArray.session_losses || 0) + (isLoser ? 1 : 0);
+            playerInCleanedArray.session_matches = (playerInCleanedArray.session_matches || 0) + 1;
+            playerInCleanedArray.session_elo_current = newELO;
+            playerInCleanedArray.last_match_time = new Date().toISOString();
+          }
+          
+          // Also update the full sessionPlayers array for consistency
+          setSessionPlayers(prevSessionPlayers => {
+            return prevSessionPlayers.map((sessionPlayer) => {
+              const isCurrentSession = sessionPlayer.session_id === currentSessionId;
+              const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sessionPlayer.player_id);
+              const isCurrentPlayer = sessionPlayerGlobal && sessionPlayerGlobal.name === globalPlayer.name;
+              
+              if (isCurrentSession && isCurrentPlayer) {
+                return {
+                  ...sessionPlayer,
+                  session_wins: (sessionPlayer.session_wins || 0) + (isWinner ? 1 : 0),
+                  session_losses: (sessionPlayer.session_losses || 0) + (isLoser ? 1 : 0),
+                  session_matches: (sessionPlayer.session_matches || 0) + 1,
+                  session_elo_current: newELO,
+                  last_match_time: new Date().toISOString()
+                };
+              }
+              return sessionPlayer;
+            });
+          });
+          
+          // Update session stats in global player (for backward compatibility)
           const sessionStats = getSessionPlayerStats(globalPlayer, currentSessionId);
           const updatedSessionStats = {
             ...sessionStats,
@@ -291,7 +611,13 @@ function App() {
           };
         }
         return globalPlayer;
-      }));
+        });
+      });
+      
+      // Save ELO history (will sync to Supabase)
+      if (eloChanges.length > 0) {
+        setEloHistory(prev => [...prev, ...eloChanges]);
+      }
       
       showNotification(`Team ${winner === 'team1' ? '1' : '2'} wins!`);
     }
@@ -303,10 +629,10 @@ function App() {
       ),
       currentMatches: currentSession.currentMatches.filter(m => m.courtId !== courtId)
     });
-  }, [currentSession, currentSessionId, setGlobalPlayers, updateSession, showNotification]);
+  }, [currentSession, currentSessionId, setGlobalPlayers, setMatches, setEloHistory, setSessionPlayers, updateSession, showNotification]);
 
   // Available pool for current session
-  const availablePool = sessionPlayers.filter(player => {
+  const availablePool = sessionPlayersArray.filter(player => {
     const isInMatch = currentSession?.currentMatches?.some(match => {
       const playerIds = [
         match.team1?.player1?.id,
@@ -361,14 +687,22 @@ function App() {
   }, [currentSession, updateSession, showNotification]);
 
   const generateMatches = useCallback(() => {
-    if (!currentSession) return;
+    console.log(`🎯 generateMatches called`);
+    console.log(`📊 currentSession:`, currentSession);
+    console.log(`📊 sessionPlayersArray:`, sessionPlayersArray);
     
-    if (sessionPlayers.filter(p => p.isActive).length < 4) {
+    if (!currentSession) {
+      console.log(`❌ No currentSession in generateMatches`);
+      return;
+    }
+    
+    if (sessionPlayersArray.filter(p => p.isActive).length < 4) {
+      console.log(`❌ Not enough active players: ${sessionPlayersArray.filter(p => p.isActive).length}`);
       showNotification('Need at least 4 active players to generate matches', 'error');
       return;
     }
 
-    const activePlayers = sessionPlayers.filter(p => p.isActive);
+    const activePlayers = sessionPlayersArray.filter(p => p.isActive);
     const newMatches = [];
     const usedPlayers = new Set();
 
@@ -405,6 +739,31 @@ function App() {
       };
 
       newMatches.push(match);
+      
+      // Also save as incomplete match to database for persistence
+      const dbMatch = {
+        id: generateId(),
+        session_name: currentSession.name,
+        court_number: i,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        cancelled_at: null,
+        team1_player1_id: selectedPlayers[0].id,
+        team1_player2_id: selectedPlayers[1].id,
+        team2_player1_id: selectedPlayers[2].id,
+        team2_player2_id: selectedPlayers[3].id,
+        // Add names for Supabase UUID resolution
+        team1_player1_name: selectedPlayers[0].name,
+        team1_player2_name: selectedPlayers[1].name,
+        team2_player1_name: selectedPlayers[2].name,
+        team2_player2_name: selectedPlayers[3].name,
+        session_name: currentSession.name,
+        winning_team: null,
+        match_type: 'doubles'
+      };
+      
+      // Save to matches database
+      setMatches(prev => [...prev, dbMatch]);
     }
 
     // Update session with new matches and court states
@@ -417,16 +776,37 @@ function App() {
       };
     });
 
+    console.log(`🏸 Updating session with ${newMatches.length} matches and court states:`, newCourtStates);
+    
     updateSession({
       currentMatches: newMatches,
       courtStates: newCourtStates
     });
     
     showNotification(`Generated ${newMatches.length} new matches`);
-  }, [currentSession, sessionPlayers, updateSession, showNotification]);
+  }, [currentSession, sessionPlayersArray, currentSessionId, setMatches, updateSession, showNotification]);
 
   const clearMatches = useCallback(() => {
     if (!currentSession) return;
+    
+    // Mark all active matches as cancelled in database
+    const activeMatches = safeMatches.filter(match => 
+      match && match.session_name === currentSession.name && 
+      !match.completed_at && 
+      !match.cancelled_at
+    );
+    
+    if (activeMatches.length > 0) {
+      setMatches(prev => prev.map(match => {
+        if (match.session_name === currentSession.name && !match.completed_at && !match.cancelled_at) {
+          return {
+            ...match,
+            cancelled_at: new Date().toISOString()
+          };
+        }
+        return match;
+      }));
+    }
     
     updateSession({
       currentMatches: [],
@@ -438,29 +818,47 @@ function App() {
     });
     
     showNotification('All matches cleared');
-  }, [currentSession, updateSession, showNotification]);
+  }, [currentSession, currentSessionId, safeMatches, setMatches, updateSession, showNotification]);
 
-  const fillEmptyCourt = useCallback((courtId, matchData = null) => {
-    if (!currentSession) return;
+  const fillEmptyCourt = useCallback(async (courtId, matchData = null) => {
+    console.log(`🏸 fillEmptyCourt called: courtId=${courtId}, matchData=`, matchData);
+    
+    if (!currentSession) {
+      console.log(`❌ No currentSession in fillEmptyCourt`);
+      return;
+    }
     
     if (matchData) {
-      // Use the match data from the modal
-      const match = {
-        ...matchData,
-        id: generateId(),
-        courtId,
-        startTime: new Date().toISOString(),
-        completed: false
-      };
-
-      updateSession({
-        currentMatches: [...currentSession.currentMatches, match],
-        courtStates: currentSession.courtStates.map(c => 
-        c.id === courtId ? { ...c, isOccupied: true, currentMatch: match } : c
-        )
-      });
+      console.log(`🚀 Creating match - Supabase first approach`);
       
-      showNotification('Court filled with selected players');
+      // Create match in Supabase first to get proper UUID (no custom IDs)
+      const dbMatchData = {
+        session_name: currentSession.name,
+        court_number: courtId,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        cancelled_at: null,
+        team1_player1_id: matchData.team1.player1.id,
+        team1_player2_id: matchData.team1.player2?.id || null,
+        team2_player1_id: matchData.team2.player1.id,
+        team2_player2_id: matchData.team2.player2?.id || null,
+        // Add names for Supabase UUID resolution
+        team1_player1_name: matchData.team1.player1.name,
+        team1_player2_name: matchData.team1.player2?.name || null,
+        team2_player1_name: matchData.team2.player1.name,
+        team2_player2_name: matchData.team2.player2?.name || null,
+        winning_team: null,
+        match_type: matchData.matchType || 'doubles'
+      };
+      
+      console.log(`💾 Saving match to Supabase (will get UUID):`, dbMatchData);
+      
+      // Save to Supabase - this will INSERT and get UUID back
+      setMatches(prev => [...prev, dbMatchData]);
+      
+      // Let the reconstruction effect handle UI updates with proper UUID
+      showNotification('Court filled - match will appear with Supabase UUID');
+      return;
     } else {
       // Fallback to random selection
       if (availablePool.length < 4) {
@@ -502,7 +900,30 @@ function App() {
       
       showNotification('Court filled with random players');
     }
-  }, [currentSession, availablePool, updateSession, showNotification]);
+  }, [currentSession, currentSessionId, availablePool, setMatches, updateSession, showNotification]);
+
+  // Show loading screen while data is being loaded
+  if (isDataLoading) {
+    return (
+      <div className="App">
+        <div className="container" style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          flexDirection: 'column',
+          gap: '20px'
+        }}>
+          <div style={{ fontSize: '24px' }}>🏸</div>
+          <div>Loading badminton data...</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {usingSupabase ? '📡 Syncing with Supabase...' : '📁 Loading from local storage...'}
+          </div>
+        </div>
+        <ConnectionStatus />
+      </div>
+    );
+  }
 
   // Show blank page with create session button if no sessions exist
   if (!currentSession) {
@@ -522,7 +943,7 @@ function App() {
               
               <div className="create-first-session">
                 <SessionHamburgerMenu
-                  sessions={sessions}
+                  sessions={safeSessions.filter(s => s.isActive !== false)}
                   currentSessionId={null}
                   onSessionSelect={handleSessionSelect}
                   onSessionCreate={handleSessionCreate}
@@ -530,11 +951,11 @@ function App() {
                 />
               </div>
               
-              {globalPlayers.length > 0 && (
+              {safeGlobalPlayers.length > 0 && (
                 <div className="welcome-leaderboard">
                   <h3>🏆 Lifetime Leaderboard</h3>
                   <div className="leaderboard-list">
-                    {globalPlayers
+                    {safeGlobalPlayers
                       .filter(player => player && player.id) // Filter out null/undefined players
                       .sort((a, b) => {
                         const eloA = a.elo || calculateInitialELO(a.wins || 0, a.losses || 0);
@@ -561,9 +982,9 @@ function App() {
                         );
                       })}
                   </div>
-                  {globalPlayers.length > 10 && (
+                  {safeGlobalPlayers.length > 10 && (
                     <p className="leaderboard-note">
-                      Showing top 10 of {globalPlayers.length} players
+                      Showing top 10 of {safeGlobalPlayers.length} players
                     </p>
                   )}
                 </div>
@@ -598,13 +1019,13 @@ function App() {
     <div className="App">
       <div className="container">
         <header className="app-header">
-          <SessionHamburgerMenu
-            sessions={sessions}
-            currentSessionId={currentSessionId}
-            onSessionSelect={handleSessionSelect}
-            onSessionCreate={handleSessionCreate}
-            onSessionEnd={handleSessionEnd}
-          />
+        <SessionHamburgerMenu
+          sessions={safeSessions.filter(s => s.isActive !== false)}
+          currentSessionId={currentSessionId}
+          onSessionSelect={handleSessionSelect}
+          onSessionCreate={handleSessionCreate}
+          onSessionEnd={handleSessionEnd}
+        />
           <h1 className="app-title">🏸 Badminton Pairing App</h1>
         </header>
 
@@ -622,13 +1043,14 @@ function App() {
         />
 
         <SessionPlayerManagement
-          globalPlayers={globalPlayers}
-          sessionPlayers={sessionPlayers}
+          globalPlayers={safeGlobalPlayers}
+          sessionPlayers={sessionPlayersArray}
           sessionId={currentSessionId}
           occupiedPlayerIds={occupiedPlayerIds}
           onAddPlayerToSession={handleAddPlayerToSession}
           onRemovePlayerFromSession={handleRemovePlayerFromSession}
           onUpdateGlobalPlayer={handleUpdateGlobalPlayer}
+          onToggleSessionPlayerActive={handleToggleSessionPlayerActive}
           onCreateNewPlayer={handleCreateNewPlayer}
         />
 
@@ -640,7 +1062,7 @@ function App() {
           />
         )}
 
-        <Scoreboard players={sessionPlayers} />
+        <Scoreboard players={sessionPlayersArray} />
         
         {/* Connection status indicator */}
         <ConnectionStatus />

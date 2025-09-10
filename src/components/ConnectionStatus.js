@@ -100,7 +100,7 @@ const ConnectionStatus = () => {
     const envVars = `ENV: URL=${process.env.REACT_APP_SUPABASE_URL ? 'SET' : 'NOT_SET'}, KEY=${process.env.REACT_APP_SUPABASE_ANON_KEY ? 'SET' : 'NOT_SET'}`;
     
     if (connectionStatus.isLoading) return `Checking database connection... ${envVars}`;
-    if (connectionStatus.isConnected) return `Connected to Supabase database - data syncs across devices. ${envVars}`;
+    if (connectionStatus.isConnected) return `✅ ACTIVE: Using Supabase for data storage - data syncs across devices. ${envVars}`;
     if (connectionStatus.error) return `Local storage mode - ${connectionStatus.error}. ${envVars}`;
     return `Local storage mode - data stored locally only. ${envVars}`;
   };
