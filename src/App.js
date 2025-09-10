@@ -535,6 +535,7 @@ function App() {
                   <h3>🏆 Lifetime Leaderboard</h3>
                   <div className="leaderboard-list">
                     {globalPlayers
+                      .filter(player => player && player.id) // Filter out null/undefined players
                       .sort((a, b) => {
                         const eloA = a.elo || calculateInitialELO(a.wins || 0, a.losses || 0);
                         const eloB = b.elo || calculateInitialELO(b.wins || 0, b.losses || 0);

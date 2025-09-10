@@ -15,24 +15,53 @@ const ConnectionStatus = () => {
         const supabaseClient = await createSupabaseClient();
         
         if (supabaseClient) {
-          // Test the connection with a simple query
-          const { error } = await supabaseClient
-            .from('players')
-            .select('count', { count: 'exact', head: true });
-          
-          if (error && error.code !== 'PGRST116') { // PGRST116 is "table not found"
+          // Test the connection with a more thorough check
+          try {
+            const { data, error } = await supabaseClient
+              .from('players')
+              .select('count', { count: 'exact', head: true });
+            
+            if (error) {
+              if (error.code === 'PGRST116') {
+                // Table not found - database exists but no schema
+                setConnectionStatus({
+                  isConnected: false,
+                  isLoading: false,
+                  storageMode: 'localStorage',
+                  error: 'Database schema not created'
+                });
+              } else if (error.code === '42P01') {
+                // PostgreSQL table doesn't exist
+                setConnectionStatus({
+                  isConnected: false,
+                  isLoading: false,
+                  storageMode: 'localStorage',
+                  error: 'Tables not created in Supabase'
+                });
+              } else {
+                // Other connection error
+                setConnectionStatus({
+                  isConnected: false,
+                  isLoading: false,
+                  storageMode: 'localStorage',
+                  error: `Connection error: ${error.message}`
+                });
+              }
+            } else {
+              // Successfully connected and tables exist
+              setConnectionStatus({
+                isConnected: true,
+                isLoading: false,
+                storageMode: 'Supabase',
+                error: null
+              });
+            }
+          } catch (queryError) {
             setConnectionStatus({
               isConnected: false,
               isLoading: false,
               storageMode: 'localStorage',
-              error: error.message
-            });
-          } else {
-            setConnectionStatus({
-              isConnected: true,
-              isLoading: false,
-              storageMode: 'Supabase',
-              error: null
+              error: `Query failed: ${queryError.message}`
             });
           }
         } else {
@@ -68,10 +97,12 @@ const ConnectionStatus = () => {
   };
 
   const getTooltipText = () => {
-    if (connectionStatus.isLoading) return 'Checking database connection...';
-    if (connectionStatus.isConnected) return 'Connected to Supabase database - data syncs across devices';
-    if (connectionStatus.error) return `Local storage mode - ${connectionStatus.error}`;
-    return 'Local storage mode - data stored locally only';
+    const envVars = `ENV: URL=${process.env.REACT_APP_SUPABASE_URL ? 'SET' : 'NOT_SET'}, KEY=${process.env.REACT_APP_SUPABASE_ANON_KEY ? 'SET' : 'NOT_SET'}`;
+    
+    if (connectionStatus.isLoading) return `Checking database connection... ${envVars}`;
+    if (connectionStatus.isConnected) return `Connected to Supabase database - data syncs across devices. ${envVars}`;
+    if (connectionStatus.error) return `Local storage mode - ${connectionStatus.error}. ${envVars}`;
+    return `Local storage mode - data stored locally only. ${envVars}`;
   };
 
   return (

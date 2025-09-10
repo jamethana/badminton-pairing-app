@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Badminton App localStorage</title>
+</head>
+<body>
+    <h1>Clear localStorage for Badminton App</h1>
+    <button onclick="clearData()">Clear All Data</button>
+    <div id="result"></div>
+    
+    <script>
+        function clearData() {
+            // Clear all badminton app data
+            localStorage.removeItem('badminton-global-players');
+            localStorage.removeItem('badminton-sessions');
+            localStorage.removeItem('badminton-current-session');
+            
+            // Show what was cleared
+            const result = document.getElementById('result');
+            result.innerHTML = '<p style="color: green;">✅ All badminton app data cleared!</p>';
+            
+            console.log('Cleared localStorage keys:');
+            console.log('- badminton-global-players');
+            console.log('- badminton-sessions');
+            console.log('- badminton-current-session');
+        }
+        
+        // Show current localStorage content
+        window.onload = function() {
+            console.log('Current localStorage content:');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('badminton')) {
+                    console.log(`${key}:`, localStorage.getItem(key));
+                }
+            }
+        }
+    </script>
+</body>
+</html>

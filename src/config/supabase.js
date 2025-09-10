@@ -72,14 +72,28 @@ export async function createSupabaseClient() {
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
     
-    // Test the connection
-    const { error } = await supabase.from('players').select('count', { count: 'exact', head: true });
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "table not found" which is expected initially
-      console.error('Supabase connection error:', error);
-      return null;
+    // Test the connection with detailed logging
+    console.log('Testing Supabase connection...');
+    const { data, error } = await supabase.from('players').select('count', { count: 'exact', head: true });
+    
+    if (error) {
+      console.log('Supabase connection test error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        console.warn('⚠️ Supabase connected but tables not found. Run the database schema first!');
+      } else {
+        console.error('❌ Supabase connection failed:', error.message);
+        return null;
+      }
+    } else {
+      console.log('✅ Supabase client connected successfully with working tables');
     }
     
-    console.log('Supabase client connected successfully');
     return supabase;
   } catch (error) {
     console.error('Error creating Supabase client:', error);
