@@ -463,11 +463,10 @@ code {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 20px;
-  padding-top: 20px;
   /* Ensure modal is always visible on all operating systems */
   overflow-y: auto;
   overflow-x: hidden;
@@ -500,7 +499,7 @@ code {
   width: 100%;
   /* Ensure it's always visible */
   max-height: 85vh;
-  margin: 20px auto;
+  margin: 0 auto;
 }
 
 @keyframes modalSlideIn {
@@ -1841,15 +1840,15 @@ code {
 @media (max-width: 768px) {
   .fill-court-modal {
     max-width: none;
-    margin: 16px;
+    margin: 0;
     max-height: 90vh;
   }
   
   .modal-overlay {
     padding: 16px;
-    /* Ensure proper positioning on mobile */
-    align-items: flex-start;
-    padding-top: 20px;
+    /* Center modal on mobile but allow scrolling if needed */
+    align-items: center;
+    min-height: 100vh;
   }
   
   .modal-content {
@@ -1946,7 +1945,7 @@ code {
 
 @media (max-width: 480px) {
   .fill-court-modal {
-    margin: 8px;
+    margin: 0;
     max-height: 95vh;
   }
   
@@ -1987,8 +1986,7 @@ code {
 @media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
   .modal-overlay {
     /* IE/Edge specific positioning */
-    align-items: flex-start;
-    padding-top: 20px;
+    align-items: center;
   }
   
   .modal-content {
@@ -1999,7 +1997,7 @@ code {
   }
   
   .fill-court-modal {
-    margin: 20px auto;
+    margin: 0 auto;
     max-height: 80vh;
   }
 }
@@ -2008,8 +2006,7 @@ code {
 @media (-webkit-min-device-pixel-ratio: 1.25), (min-resolution: 120dpi) {
   .modal-overlay {
     /* Better positioning for high DPI displays */
-    align-items: flex-start;
-    padding-top: 20px;
+    align-items: center;
   }
   
   .modal-content {
@@ -2184,7 +2181,7 @@ code {
 @media (max-width: 768px) {
   .select-winner-modal {
     max-width: none;
-    margin: 16px;
+    margin: 0;
     max-height: 85vh;
   }
   
@@ -2219,7 +2216,7 @@ code {
 
 @media (max-width: 480px) {
   .select-winner-modal {
-    margin: 8px;
+    margin: 0;
     max-height: 90vh;
   }
   
@@ -2303,6 +2300,10 @@ code {
   right: 0;
   bottom: 0;
   z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
 /* Adjust modal content positioning for better integration */
@@ -2796,6 +2797,84 @@ code {
   background: var(--bg-secondary);
   border-radius: 6px;
   border: 1px solid var(--border-color);
+}
+
+/* Player Edit Modal - Ensure proper centering */
+.modal-overlay:has(.modal-content .modal-title:contains("Edit")) {
+  align-items: center;
+  justify-content: center;
+}
+
+/* Fallback for browsers without :has() support */
+.player-edit-modal-overlay {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  display: flex !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1000 !important;
+}
+
+/* Court Modal - Ensure proper centering */
+.court-modal-overlay {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  display: flex !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1000 !important;
+}
+
+/* Override any section-specific modal rules for court modals */
+.CurrentMatches .court-modal-overlay {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+}
+
+/* Portal Modal - Always centered at viewport level */
+.portal-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Enhanced disabled button styling */
+.btn:disabled {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-color) !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn:disabled:hover {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-color) !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* Mobile responsiveness for shuffle button */

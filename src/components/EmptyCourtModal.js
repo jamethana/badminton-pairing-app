@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { generateId, getELOTier } from '../utils/helpers';
+import Modal from './Modal';
 
 const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   const [assignedPlayers, setAssignedPlayers] = useState([]);
@@ -127,7 +128,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
 
   if (availablePool.length < 4) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <Modal isOpen={true} onClose={onClose} className="court-modal">
         <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
           {/* <div className="modal-header">
             <h3 className="modal-title">Fill Court {court.id + 1}</h3>
@@ -153,12 +154,12 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
             </button>
           </div>
         </div>
-      </div>
+      </Modal>
     );
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <Modal isOpen={true} onClose={onClose} className="court-modal">
       <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
         {/* <div className="modal-header">
           <h3 className="modal-title">Fill Court {court.id + 1}</h3>
@@ -292,7 +293,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

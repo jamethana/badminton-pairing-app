@@ -82,9 +82,9 @@ const CurrentMatches = ({
           {/* <button className="btn btn-primary btn-lg" onClick={onGenerateMatches}>
             Generate Matches
           </button> */}
-          <button className="btn btn-danger" onClick={handleClearMatches}>
+          {/* <button className="btn btn-danger" onClick={handleClearMatches}>
             Clear Matches
-          </button>
+          </button> */}
         </div>
       </div>
 

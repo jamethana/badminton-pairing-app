@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Modal from './Modal';
 
 const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
   const { currentMatch } = court;
@@ -15,7 +16,7 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <Modal isOpen={true} onClose={onClose} className="court-modal">
       <div className="modal-content select-winner-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Select Winner - Court {court.id + 1}</h3>
@@ -84,7 +85,7 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

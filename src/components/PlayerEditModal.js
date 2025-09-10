@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
 
 const PlayerEditModal = ({ playerId, playerName, onSave, onRemove, onClose }) => {
   const [name, setName] = useState(playerName);
@@ -28,7 +29,7 @@ const PlayerEditModal = ({ playerId, playerName, onSave, onRemove, onClose }) =>
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <Modal isOpen={true} onClose={onClose} className="player-edit-modal">
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">
@@ -57,8 +58,9 @@ const PlayerEditModal = ({ playerId, playerName, onSave, onRemove, onClose }) =>
             className="btn btn-primary" 
             onClick={handleSave}
             disabled={!hasUnsavedChanges}
+            title={hasUnsavedChanges ? "Save changes" : "No changes to save"}
           >
-            Save Changes
+            {hasUnsavedChanges ? "Save Changes" : "No Changes"}
           </button>
           <button className="btn btn-secondary" onClick={onClose}>
             Cancel
@@ -68,7 +70,7 @@ const PlayerEditModal = ({ playerId, playerName, onSave, onRemove, onClose }) =>
           </button> */}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
