@@ -11,6 +11,7 @@ const SessionPlayerManagement = ({
   onAddPlayerToSession,
   onRemovePlayerFromSession,
   onUpdateGlobalPlayer,
+  onToggleSessionPlayerActive,
   onCreateNewPlayer
 }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -71,21 +72,9 @@ const SessionPlayerManagement = ({
   };
 
   const handleToggleActive = (id, updatedPlayer) => {
-    // For session players, we update their active status within the session
-    const sessionPlayer = sessionPlayers.find(p => p.id === id);
-    if (sessionPlayer) {
-      const globalPlayer = globalPlayers.find(p => p.id === id);
-      const sessionStats = getSessionPlayerStats(globalPlayer, sessionId);
-      
-      onUpdateGlobalPlayer(id, {
-        sessionStats: {
-          ...globalPlayer.sessionStats,
-          [sessionId]: {
-            ...sessionStats,
-            isActive: updatedPlayer.isActive
-          }
-        }
-      });
+    // Use the dedicated session player toggle function
+    if (onToggleSessionPlayerActive) {
+      onToggleSessionPlayerActive(id, updatedPlayer.isActive);
     }
   };
 
