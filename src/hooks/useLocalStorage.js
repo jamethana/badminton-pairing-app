@@ -16,17 +16,20 @@ export function useLocalStorage(key, initialValue) {
   const setValue = (value) => {
     try {
       // Allow value to be a function so we have the same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      console.log(`useLocalStorage: Setting ${key} to:`, valueToStore);
-      setStoredValue(valueToStore);
-      
-      // Save to local storage
-      if (valueToStore === undefined) {
-        window.localStorage.removeItem(key);
-      } else {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-        console.log(`useLocalStorage: Saved ${key} to localStorage`);
-      }
+      setStoredValue(currentValue => {
+        const valueToStore = value instanceof Function ? value(currentValue) : value;
+        console.log(`useLocalStorage: Setting ${key} to:`, valueToStore);
+        
+        // Save to local storage
+        if (valueToStore === undefined) {
+          window.localStorage.removeItem(key);
+        } else {
+          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+          console.log(`useLocalStorage: Saved ${key} to localStorage`);
+        }
+        
+        return valueToStore;
+      });
     } catch (error) {
       console.error(`Error setting localStorage key "${key}":`, error);
     }

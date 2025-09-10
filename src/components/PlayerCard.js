@@ -20,7 +20,7 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
 
   const handleToggleActive = () => {
     if (!disabled) {
-      onToggleActive(player.id, { ...player, isActive: !player.isActive });
+      onToggleActive(player.id, { isActive: !player.isActive });
     }
   };
 

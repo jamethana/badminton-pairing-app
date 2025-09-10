@@ -28,10 +28,10 @@ function App() {
     updateAvailablePool();
   }, [players, currentMatches]);
 
-  // Initialize ELO and session stats for existing players
+  // Initialize ELO and session stats for existing players (run only once on mount)
   useEffect(() => {
     const playersNeedingUpdate = players.filter(player => 
-      !player.hasOwnProperty('elo') || !player.hasOwnProperty('sessionElo')
+      !player.hasOwnProperty('elo') || !player.hasOwnProperty('sessionWins')
     );
     
     if (playersNeedingUpdate.length > 0) {
@@ -51,7 +51,7 @@ function App() {
         return Object.keys(updates).length > 0 ? { ...player, ...updates } : player;
       }));
     }
-  }, [players]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Cleanup refresh timer on unmount
   useEffect(() => {
@@ -77,7 +77,6 @@ function App() {
   }, [courtCount]);
 
   const updateAvailablePool = useCallback(() => {
-    console.log('updateAvailablePool called with players:', players);
     const occupiedPlayerIds = currentMatches.flatMap(match => [
       match.team1.player1.id,
       match.team1.player2.id,
@@ -133,12 +132,8 @@ function App() {
       clearTimeout(refreshTimer);
     }
     
-    // Set new 2-second delay before refresh
-    const newTimer = setTimeout(() => {
-      window.location.reload();
-    }, 5);
-    
-    setRefreshTimer(newTimer);
+    // Clear any existing refresh timer
+    setRefreshTimer(null);
   }, [players, showNotification, refreshTimer]);
 
   const updatePlayer = useCallback((id, updates) => {
@@ -162,15 +157,16 @@ function App() {
       
       return updated;
     });
-    showNotification('Player updated successfully');
+    
+    // Only show notification for non-active status changes to avoid spam
+    if (!updates.hasOwnProperty('isActive')) {
+      showNotification('Player updated successfully');
+    }
   }, [showNotification]);
 
   const removePlayer = useCallback((id) => {
     setPlayers(prev => prev.filter(player => player.id !== id));
     showNotification('Player removed successfully');
-    
-    // Instant refresh for player removal
-    window.location.reload();
   }, [showNotification]);
 
   const startNewSession = useCallback(() => {
@@ -187,11 +183,6 @@ function App() {
     })));
     
     showNotification('New session started - session stats reset');
-    
-    // Refresh page instantly after starting new session
-    setTimeout(() => {
-      window.location.reload();
-    }, 1);
   }, [showNotification]);
 
   const resetAllMatchCounts = useCallback(() => {
@@ -213,11 +204,6 @@ function App() {
     })));
     
     showNotification('All match counts and history reset');
-    
-    // Refresh page instantly after resetting match counts
-    setTimeout(() => {
-      window.location.reload();
-    }, 1);
   }, [showNotification]);
 
   const generateMatches = useCallback(() => {
@@ -482,17 +468,11 @@ function App() {
         isOccupied: false,
         currentMatch: null
       });
-      console.log(`Court states updated:`, newCourtStates);
       return newCourtStates;
     });
     
     setCourtCount(prev => prev + 1);
     showNotification('Court added');
-
-    // Force page refresh to ensure state synchronization
-    setTimeout(() => {
-        window.location.reload();
-      }, 1);
   }, [showNotification]);
 
   const removeCourt = useCallback(() => {
@@ -516,11 +496,6 @@ function App() {
       setCourtCount(prev => Math.max(1, prev - 1));
       showNotification('Court removed');
       
-      // Force page refresh to ensure state synchronization
-      setTimeout(() => {
-        window.location.reload();
-      }, 1);
-      
       return newCourtStates;
     });
     
@@ -534,11 +509,6 @@ function App() {
       currentMatch: null
     })));
     showNotification('All matches cleared');
-    
-    // Refresh page instantly after clearing matches
-    setTimeout(() => {
-      window.location.reload();
-    }, 1);
   }, [showNotification]);
 
   return (

@@ -103,14 +103,10 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
     };
     
     onFillCourt(court.id, match);
-    // Refresh page instantly after confirming match
-    window.location.reload();
   };
 
   const handleCancel = () => {
     onClose();
-    // Refresh page instantly after canceling
-    window.location.reload();
   };
 
   const handleShufflePlayers = () => {
