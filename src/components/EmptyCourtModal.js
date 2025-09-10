@@ -192,7 +192,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         <span className="player-stats">
                           {/* {player.wins}W - {player.losses}L */}
                           {/* {player.elo} */}
-                          {getELOTier(player.elo).name}
+                          {getELOTier(player.elo).icon} {getELOTier(player.elo).name}
                         </span>
                       </div>
                     </div>

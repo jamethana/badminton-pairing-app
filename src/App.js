@@ -4,7 +4,7 @@ import CurrentMatches from './components/CurrentMatches';
 import Notification from './components/Notification';
 import Scoreboard from './components/Scoreboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { generateId, calculateInitialELO, updateELO } from './utils/helpers';
+import { generateId, calculateInitialELO, updateELO, initializeSessionStats } from './utils/helpers';
 
 function App() {
   const [players, setPlayers] = useLocalStorage('badminton-players', []);
@@ -28,18 +28,27 @@ function App() {
     updateAvailablePool();
   }, [players, currentMatches]);
 
-  // Initialize ELO for existing players who don't have it
+  // Initialize ELO and session stats for existing players
   useEffect(() => {
-    const playersNeedingELO = players.filter(player => !player.hasOwnProperty('elo'));
-    if (playersNeedingELO.length > 0) {
+    const playersNeedingUpdate = players.filter(player => 
+      !player.hasOwnProperty('elo') || !player.hasOwnProperty('sessionElo')
+    );
+    
+    if (playersNeedingUpdate.length > 0) {
       setPlayers(prev => prev.map(player => {
+        const updates = {};
+        
+        // Initialize lifetime ELO if missing
         if (!player.hasOwnProperty('elo')) {
-          return {
-            ...player,
-            elo: calculateInitialELO(player.wins || 0, player.losses || 0)
-          };
+          updates.elo = calculateInitialELO(player.wins || 0, player.losses || 0);
         }
-        return player;
+        
+        // Initialize session stats if missing
+        if (!player.hasOwnProperty('sessionWins')) {
+          Object.assign(updates, initializeSessionStats());
+        }
+        
+        return Object.keys(updates).length > 0 ? { ...player, ...updates } : player;
       }));
     }
   }, [players]);
@@ -108,7 +117,8 @@ function App() {
       wins: 0,
       losses: 0,
       lastMatchTime: null,
-      elo: 100 // Starting ELO
+      elo: 100, // Starting ELO
+      ...initializeSessionStats() // Initialize session stats
     };
 
     setPlayers(prev => {
@@ -163,6 +173,27 @@ function App() {
     window.location.reload();
   }, [showNotification]);
 
+  const startNewSession = useCallback(() => {
+    setPlayers(prev => prev.map(player => ({
+      ...player,
+      ...initializeSessionStats() // Reset only session stats
+    })));
+    
+    setCurrentMatches([]);
+    setCourtStates(prev => prev.map(court => ({
+      ...court,
+      isOccupied: false,
+      currentMatch: null
+    })));
+    
+    showNotification('New session started - session stats reset');
+    
+    // Refresh page instantly after starting new session
+    setTimeout(() => {
+      window.location.reload();
+    }, 1);
+  }, [showNotification]);
+
   const resetAllMatchCounts = useCallback(() => {
     setPlayers(prev => prev.map(player => ({
       ...player,
@@ -170,7 +201,8 @@ function App() {
       wins: 0,
       losses: 0,
       lastMatchTime: null,
-      elo: 100 // Reset to starting ELO
+      elo: 100, // Reset to starting ELO
+      ...initializeSessionStats() // Also reset session stats
     })));
     
     setCurrentMatches([]);
@@ -331,24 +363,38 @@ function App() {
       
       setPlayers(prev => prev.map(player => {
         if (winningTeam.player1.id === player.id || winningTeam.player2.id === player.id) {
+          // Update lifetime stats
           const currentELO = player.elo || calculateInitialELO(player.wins, player.losses);
           const newELO = updateELO(currentELO, true);
+          
           return { 
             ...player, 
+            // Lifetime stats
             wins: (player.wins || 0) + 1, 
             matchCount: player.matchCount + 1, 
             lastMatchTime: new Date().toISOString(),
-            elo: newELO
+            elo: newELO,
+            // Session stats
+            sessionWins: (player.sessionWins || 0) + 1,
+            sessionMatchCount: (player.sessionMatchCount || 0) + 1,
+            sessionLastMatchTime: new Date().toISOString()
           };
         } else if (losingTeam.player1.id === player.id || losingTeam.player2.id === player.id) {
+          // Update lifetime stats
           const currentELO = player.elo || calculateInitialELO(player.wins, player.losses);
           const newELO = updateELO(currentELO, false);
+          
           return { 
             ...player, 
+            // Lifetime stats
             losses: (player.losses || 0) + 1, 
             matchCount: player.matchCount + 1, 
             lastMatchTime: new Date().toISOString(),
-            elo: newELO
+            elo: newELO,
+            // Session stats
+            sessionLosses: (player.sessionLosses || 0) + 1,
+            sessionMatchCount: (player.sessionMatchCount || 0) + 1,
+            sessionLastMatchTime: new Date().toISOString()
           };
         }
         return player;
@@ -522,6 +568,7 @@ function App() {
           onUpdatePlayer={updatePlayer}
           onRemovePlayer={removePlayer}
           onResetMatchCounts={resetAllMatchCounts}
+          onStartNewSession={startNewSession}
         />
 
         {notification && (

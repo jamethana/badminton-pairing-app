@@ -62,10 +62,53 @@ export function getELOTier(elo) {
 }
 
 // Sort players by ELO (highest first)
-export function sortPlayersByELO(players) {
+export function sortPlayersByELO(players, useSession = false) {
   return [...players].sort((a, b) => {
-    const eloA = a.elo || calculateInitialELO(a.wins, a.losses);
-    const eloB = b.elo || calculateInitialELO(b.wins, b.losses);
+    let eloA, eloB;
+    
+    if (useSession) {
+      // Use session ELO
+      eloA = a.sessionElo || calculateInitialELO(a.sessionWins || 0, a.sessionLosses || 0);
+      eloB = b.sessionElo || calculateInitialELO(b.sessionWins || 0, b.sessionLosses || 0);
+    } else {
+      // Use lifetime ELO
+      eloA = a.elo || calculateInitialELO(a.wins || 0, a.losses || 0);
+      eloB = b.elo || calculateInitialELO(b.wins || 0, b.losses || 0);
+    }
+    
     return eloB - eloA;
+  });
+}
+
+// Initialize session stats for a player
+export function initializeSessionStats() {
+  return {
+    sessionWins: 0,
+    sessionLosses: 0,
+    sessionMatchCount: 0,
+    sessionLastMatchTime: null
+  };
+}
+
+// Sort players by wins (highest first) for session view
+export function sortPlayersByWins(players) {
+  return [...players].sort((a, b) => {
+    const winsA = a.sessionWins || 0;
+    const winsB = b.sessionWins || 0;
+    
+    // Primary sort by wins
+    if (winsB !== winsA) {
+      return winsB - winsA;
+    }
+    
+    // Secondary sort by losses (fewer losses is better)
+    const lossesA = a.sessionLosses || 0;
+    const lossesB = b.sessionLosses || 0;
+    if (lossesA !== lossesB) {
+      return lossesA - lossesB;
+    }
+    
+    // Tertiary sort by name for consistency
+    return a.name.localeCompare(b.name);
   });
 } 

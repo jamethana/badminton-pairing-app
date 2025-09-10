@@ -8,19 +8,34 @@ const PlayerManagement = ({
   onAddPlayer,
   onUpdatePlayer,
   onRemovePlayer,
-  onResetMatchCounts
+  onResetMatchCounts,
+  onStartNewSession
 }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [showSessionConfirmation, setShowSessionConfirmation] = useState(false);
+  const [filterText, setFilterText] = useState('');
 
   const handleAddPlayer = (e) => {
     e.preventDefault();
     if (newPlayerName.trim()) {
       onAddPlayer(newPlayerName);
       setNewPlayerName('');
+      setFilterText(''); // Clear filter after adding player
     }
   };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setNewPlayerName(value);
+    setFilterText(value); // Use the input value as filter
+  };
+
+  // Filter players based on the input text
+  const filteredPlayers = players.filter(player =>
+    player.name.toLowerCase().includes(filterText.toLowerCase())
+  );
 
   const handleEditPlayer = (player) => {
     console.log('Opening edit modal for player:', player);
@@ -52,6 +67,15 @@ const PlayerManagement = ({
     window.location.reload();
   };
 
+  const handleStartNewSession = () => {
+    setShowSessionConfirmation(true);
+  };
+
+  const confirmStartNewSession = () => {
+    onStartNewSession();
+    setShowSessionConfirmation(false);
+  };
+
   const handleResetMatchCounts = () => {
     setShowResetConfirmation(true);
   };
@@ -81,6 +105,9 @@ const PlayerManagement = ({
       <div className="section-header">
         <h2 className="section-title">Player Management</h2>
         <div className="section-actions">
+          <button className="btn btn-warning" onClick={handleStartNewSession}>
+            Start New Session
+          </button>
           {/* <button className="btn btn-warning" onClick={handleResetMatchCounts}>
             Reset All Match Counts
           </button> */}
@@ -94,7 +121,7 @@ const PlayerManagement = ({
             className="input-field"
             placeholder="Enter player name"
             value={newPlayerName}
-            onChange={(e) => setNewPlayerName(e.target.value)}
+            onChange={handleInputChange}
             required
           />
           <button type="submit" className="btn btn-primary">
@@ -104,8 +131,18 @@ const PlayerManagement = ({
       </form>
 
       <div className="player-stats-container-compact">
+        {filterText && (
+          <div className="filter-info">
+            <small style={{ color: 'var(--text-muted)' }}>
+              Showing {filteredPlayers.length} of {players.length} players
+              {filteredPlayers.length === 0 && (
+                <span style={{ color: 'var(--danger-color)' }}> - No matches found</span>
+              )}
+            </small>
+          </div>
+        )}
         <div className="player-stats-grid-compact">
-          {players.map((player) => (
+          {filteredPlayers.map((player) => (
             <PlayerCard
               key={player.id}
               player={player}
@@ -129,6 +166,27 @@ const PlayerManagement = ({
         />
       )}
 
+      {showSessionConfirmation && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 className="modal-title">Start New Session</h3>
+            </div>
+            <div className="modal-body">
+              <p>This will start a new session by resetting session stats (wins, losses, matches) for all players. Lifetime stats will be preserved.</p>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowSessionConfirmation(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={confirmStartNewSession}>
+                Start New Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showResetConfirmation && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -142,9 +200,9 @@ const PlayerManagement = ({
               <button className="btn btn-outline" onClick={() => setShowResetConfirmation(false)}>
                 Cancel
               </button>
-              <button className="btn btn-warning" onClick={confirmResetMatchCounts} data-testid="confirm-reset-button">
+              {/* <button className="btn btn-warning" onClick={confirmResetMatchCounts} data-testid="confirm-reset-button">
                 Reset All Match Counts
-              </button>
+              </button> */}
             </div>
           </div>
         </div>

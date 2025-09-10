@@ -4,9 +4,12 @@ import { getELOTier, calculateInitialELO } from '../utils/helpers';
 const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disabled }) => {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   
-  // Calculate ELO if not present
+  // Use session stats for display
   const playerELO = player.elo || calculateInitialELO(player.wins || 0, player.losses || 0);
   const eloTier = getELOTier(playerELO);
+  const sessionWins = player.sessionWins || 0;
+  const sessionLosses = player.sessionLosses || 0;
+  const sessionMatches = player.sessionMatchCount || 0;
 
   const handleEditName = (e) => {
     e.stopPropagation(); // Prevent card click when editing
@@ -60,22 +63,19 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
       
       {/* Stats */}
       <div className="stat-details">
-        {/* <small style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>
-          ELO: {playerELO}
-        </small> */}
         <small style={{ color: 'var(--success-color)' }}>
-          Wins: {player.wins || 0}
+          Wins: {sessionWins}
         </small>
         <small style={{ color: 'var(--danger-color)' }}>
-          Losses: {player.losses || 0}
+          Losses: {sessionLosses}
         </small>
         <small style={{ color: 'var(--text-muted)' }}>
-          Matches: {player.matchCount}
+          Matches: {sessionMatches}
         </small>
       </div>
       
       <small style={{ color: 'var(--text-muted)' }}>
-        Last match: {player.lastMatchTime ? getTimeAgo(player.lastMatchTime) : 'Never'} | 
+        Last match: {player.sessionLastMatchTime ? getTimeAgo(player.sessionLastMatchTime) : 'Never'} | 
         Status: {player.isActive ? 'Active' : 'Inactive'}
       </small>
 

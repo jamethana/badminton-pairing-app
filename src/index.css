@@ -2478,6 +2478,33 @@ code {
   border-radius: var(--border-radius) var(--border-radius) 0 0;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-mode-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .scoreboard-header h3,
 .scoreboard-header h4 {
   margin: 0;
@@ -2762,6 +2789,15 @@ code {
   flex-wrap: wrap;
 }
 
+/* Player Filter Info */
+.filter-info {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
 /* Mobile responsiveness for shuffle button */
 @media (max-width: 768px) {
   .shuffle-btn {
@@ -2772,5 +2808,10 @@ code {
   
   .modal-actions-middle {
     gap: 8px;
+  }
+  
+  .filter-info {
+    margin-bottom: 8px;
+    padding: 6px 8px;
   }
 } 
