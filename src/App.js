@@ -1,223 +1,371 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import PlayerManagement from './components/PlayerManagement';
+import SessionHamburgerMenu from './components/SessionHamburgerMenu';
+import SessionPlayerManagement from './components/SessionPlayerManagement';
 import CurrentMatches from './components/CurrentMatches';
 import Notification from './components/Notification';
 import Scoreboard from './components/Scoreboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { generateId, calculateInitialELO, updateELO, initializeSessionStats } from './utils/helpers';
+import { 
+  generateId, 
+  calculateInitialELO, 
+  updateELO, 
+  initializeSessionStats,
+  createNewSession,
+  getSessionPlayerStats,
+  updateSessionPlayerStats,
+  getELOTier
+} from './utils/helpers';
 
 function App() {
-  const [players, setPlayers] = useLocalStorage('badminton-players', []);
-  const [currentMatches, setCurrentMatches] = useLocalStorage('badminton-matches', []);
-  const [courtCount, setCourtCount] = useLocalStorage('badminton-courts', 2);
-  const [availablePool, setAvailablePool] = useLocalStorage('badminton-pool', []);
-  const [courtStates, setCourtStates] = useLocalStorage('badminton-court-states', []);
+  // Global storage
+  const [globalPlayers, setGlobalPlayers] = useLocalStorage('badminton-global-players', []);
+  const [sessions, setSessions] = useLocalStorage('badminton-sessions', []);
+  const [currentSessionId, setCurrentSessionId] = useLocalStorage('badminton-current-session', null);
+  
+  // UI state
   const [notification, setNotification] = useState(null);
-  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
-  const [refreshTimer, setRefreshTimer] = useState(null);
 
-  // Initialize court states only on first load
+  // Initialize current session if valid session exists
   useEffect(() => {
-    if (courtStates.length === 0) {
-      initializeCourtStates();
+    if (sessions.length > 0) {
+      if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
+        setCurrentSessionId(sessions[0].id);
+      }
+    } else {
+      setCurrentSessionId(null);
     }
-  }, []);
+  }, [sessions, currentSessionId, setCurrentSessionId]);
 
-  // Initialize available pool when players change
+  // Initialize court states for existing sessions that might not have them
   useEffect(() => {
-    updateAvailablePool();
-  }, [players, currentMatches]);
-
-  // Initialize ELO and session stats for existing players (run only once on mount)
-  useEffect(() => {
-    const playersNeedingUpdate = players.filter(player => 
-      !player.hasOwnProperty('elo') || !player.hasOwnProperty('sessionWins')
+    const sessionsNeedingCourtStates = sessions.filter(session => 
+      !session.courtStates || session.courtStates.length === 0
     );
     
-    if (playersNeedingUpdate.length > 0) {
-      setPlayers(prev => prev.map(player => {
-        const updates = {};
-        
-        // Initialize lifetime ELO if missing
-        if (!player.hasOwnProperty('elo')) {
-          updates.elo = calculateInitialELO(player.wins || 0, player.losses || 0);
-        }
-        
-        // Initialize session stats if missing
-        if (!player.hasOwnProperty('sessionWins')) {
-          Object.assign(updates, initializeSessionStats());
-        }
-        
-        return Object.keys(updates).length > 0 ? { ...player, ...updates } : player;
-      }));
-    }
-  }, []); // Empty dependency array - only run once on mount
-
-  // Cleanup refresh timer on unmount
-  useEffect(() => {
-    return () => {
-      if (refreshTimer) {
-        clearTimeout(refreshTimer);
-      }
-    };
-  }, [refreshTimer]);
-
-  const initializeCourtStates = useCallback(() => {
-    setCourtStates(prevStates => {
-      const newCourtStates = [];
-      for (let i = 0; i < courtCount; i++) {
-        newCourtStates.push({
+    if (sessionsNeedingCourtStates.length > 0) {
+      setSessions(prev => prev.map(session => {
+        if (!session.courtStates || session.courtStates.length === 0) {
+          const courtStates = [];
+          for (let i = 0; i < (session.courtCount || 4); i++) {
+            courtStates.push({
           id: i,
           isOccupied: false,
           currentMatch: null
         });
       }
-      return newCourtStates;
-    });
-  }, [courtCount]);
+          return {
+            ...session,
+            courtStates: courtStates,
+            currentMatches: session.currentMatches || []
+          };
+        }
+        return session;
+      }));
+    }
+  }, [sessions, setSessions]);
 
-  const updateAvailablePool = useCallback(() => {
-    const occupiedPlayerIds = currentMatches.flatMap(match => [
+  // Initialize ELO for existing global players
+  useEffect(() => {
+    const playersNeedingELO = globalPlayers.filter(player => !player.hasOwnProperty('elo'));
+    if (playersNeedingELO.length > 0) {
+      setGlobalPlayers(prev => prev.map(player => {
+        if (!player.hasOwnProperty('elo')) {
+          return {
+            ...player,
+            elo: calculateInitialELO(player.wins || 0, player.losses || 0)
+          };
+        }
+        return player;
+      }));
+    }
+  }, []);
+
+  const currentSession = sessions.find(s => s.id === currentSessionId);
+  
+  // Get session players with their session-specific stats
+  const sessionPlayers = currentSession ? 
+    currentSession.playerIds.map(playerId => {
+      const globalPlayer = globalPlayers.find(p => p.id === playerId);
+      if (!globalPlayer) return null;
+      
+      const sessionStats = getSessionPlayerStats(globalPlayer, currentSessionId);
+      return {
+        ...globalPlayer,
+        ...sessionStats,
+        sessionWins: sessionStats.sessionWins || 0,
+        sessionLosses: sessionStats.sessionLosses || 0,
+        sessionMatchCount: sessionStats.sessionMatchCount || 0,
+        sessionLastMatchTime: sessionStats.sessionLastMatchTime || null,
+        isActive: sessionStats.isActive !== undefined ? sessionStats.isActive : true
+      };
+    }).filter(Boolean) : [];
+
+  // Get occupied player IDs from all active sessions
+  const occupiedPlayerIds = sessions.flatMap(session => {
+    if (session.id === currentSessionId) return []; // Don't include current session
+    return session.currentMatches?.flatMap(match => [
       match.team1.player1.id,
       match.team1.player2.id,
       match.team2.player1.id,
       match.team2.player2.id
-    ]);
-    
-    const available = players.filter(player => 
-      player.isActive && !occupiedPlayerIds.includes(player.id)
-    );
-    setAvailablePool(available);
-  }, [players, currentMatches]);
+    ]) || [];
+  });
 
   const showNotification = useCallback((message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   }, []);
 
-  const addPlayer = useCallback((name) => {
-    if (!name.trim()) {
-      showNotification('Player name cannot be empty', 'error');
-      return;
-    }
-    
-    if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-      showNotification('Player name already exists', 'error');
-      return;
-    }
+  // Session update function (define early so other functions can use it)
+  const updateSession = useCallback((updates) => {
+    setSessions(prev => prev.map(session => {
+      if (session.id === currentSessionId) {
+        return {
+          ...session,
+          ...updates,
+          lastActiveAt: new Date().toISOString()
+        };
+      }
+      return session;
+    }));
+  }, [currentSessionId, setSessions]);
 
-    setIsAddingPlayer(true);
+  const handleSessionSelect = useCallback((sessionId) => {
+    setCurrentSessionId(sessionId);
+    showNotification(`Switched to session: ${sessions.find(s => s.id === sessionId)?.name}`);
+  }, [sessions, setCurrentSessionId, showNotification]);
+
+  const handleSessionCreate = useCallback((newSession) => {
+    setSessions(prev => [...prev, newSession]);
+    setCurrentSessionId(newSession.id);
+    showNotification(`Created new session: ${newSession.name}`);
+  }, [setSessions, setCurrentSessionId, showNotification]);
+
+
+  const handleSessionEnd = useCallback((sessionId) => {
+    const targetSessionId = sessionId || currentSessionId;
     
+    // Delete the specified session completely
+    setSessions(prev => prev.filter(s => s.id !== targetSessionId));
+    
+    // If ending current session, handle navigation
+    if (targetSessionId === currentSessionId) {
+      const remainingSessions = sessions.filter(s => s.id !== targetSessionId);
+      if (remainingSessions.length > 0) {
+        setCurrentSessionId(remainingSessions[0].id);
+        showNotification(`Session ended. Switched to: ${remainingSessions[0].name}`);
+      } else {
+        setCurrentSessionId(null);
+        showNotification('Session ended - returned to main menu');
+      }
+    } else {
+      showNotification('Session ended');
+    }
+  }, [currentSessionId, sessions, setSessions, setCurrentSessionId, showNotification]);
+
+  const handleAddPlayerToSession = useCallback((playerId) => {
+    if (!currentSession) return;
+    
+    setSessions(prev => prev.map(session => {
+      if (session.id === currentSessionId) {
+        return {
+          ...session,
+          playerIds: [...session.playerIds, playerId],
+          lastActiveAt: new Date().toISOString()
+        };
+      }
+      return session;
+    }));
+    
+    const player = globalPlayers.find(p => p.id === playerId);
+    showNotification(`${player?.name} added to session`);
+  }, [currentSession, currentSessionId, globalPlayers, setSessions, showNotification]);
+
+  const handleRemovePlayerFromSession = useCallback((playerId) => {
+    if (!currentSession) return;
+    
+    setSessions(prev => prev.map(session => {
+      if (session.id === currentSessionId) {
+        return {
+          ...session,
+          playerIds: session.playerIds.filter(id => id !== playerId),
+          lastActiveAt: new Date().toISOString()
+        };
+      }
+      return session;
+    }));
+    
+    const player = globalPlayers.find(p => p.id === playerId);
+    showNotification(`${player?.name} removed from session`);
+  }, [currentSession, currentSessionId, globalPlayers, setSessions, showNotification]);
+
+  const handleCreateNewPlayer = useCallback((name) => {
     const newPlayer = {
       id: generateId(),
       name: name.trim(),
-      isActive: true,
       matchCount: 0,
       wins: 0,
       losses: 0,
       lastMatchTime: null,
-      elo: 100, // Starting ELO
-      ...initializeSessionStats() // Initialize session stats
+      elo: 100,
+      sessionStats: {}
     };
 
-    setPlayers(prev => {
-      const updated = [...prev, newPlayer];
-      return updated;
-    });
+    setGlobalPlayers(prev => [...prev, newPlayer]);
     
-    showNotification(`Player "${name}" added successfully`);
-    
-    // Clear any existing refresh timer
-    if (refreshTimer) {
-      clearTimeout(refreshTimer);
-    }
-    
-    // Clear any existing refresh timer
-    setRefreshTimer(null);
-  }, [players, showNotification, refreshTimer]);
-
-  const updatePlayer = useCallback((id, updates) => {
-    setPlayers(prev => {
-      // Defensive check - ensure prev is an array
-      if (!Array.isArray(prev)) {
-        console.error('Previous state is not an array:', prev);
-        return prev;
+    // Add to current session
+    setSessions(prev => prev.map(session => {
+      if (session.id === currentSessionId) {
+        return {
+          ...session,
+          playerIds: [...session.playerIds, newPlayer.id],
+          lastActiveAt: new Date().toISOString()
+        };
       }
-      
-      // Find the player to update
-      const playerIndex = prev.findIndex(player => player.id === id);
-      if (playerIndex === -1) {
-        console.error('Player not found with id:', id);
-        return prev;
+      return session;
+    }));
+    
+    showNotification(`Created and added ${name} to session`);
+  }, [currentSessionId, setGlobalPlayers, setSessions, showNotification]);
+
+  const handleUpdateGlobalPlayer = useCallback((id, updates) => {
+    setGlobalPlayers(prev => prev.map(player => {
+      if (player.id === id) {
+        return { ...player, ...updates };
       }
-      
-      // Create new array with updated player
-      const updated = [...prev];
-      updated[playerIndex] = { ...updated[playerIndex], ...updates };
-      
-      return updated;
-    });
+      return player;
+    }));
+  }, [setGlobalPlayers]);
+
+  const completeMatch = useCallback((courtId, winner) => {
+    if (!currentSession) return;
     
-    // Only show notification for non-active status changes to avoid spam
-    if (!updates.hasOwnProperty('isActive')) {
-      showNotification('Player updated successfully');
+    const court = currentSession.courtStates?.find(c => c.id === courtId);
+    if (!court || !court.currentMatch) return;
+
+    const match = court.currentMatch;
+    
+    if (winner === 'cancelled') {
+      showNotification('Match cancelled - no stats recorded');
+    } else {
+      // Update player stats (both global lifetime and session-specific)
+      const winningTeam = winner === 'team1' ? match.team1 : match.team2;
+      const losingTeam = winner === 'team1' ? match.team2 : match.team1;
+      
+      setGlobalPlayers(prev => prev.map(globalPlayer => {
+        const isWinner = winningTeam.player1.id === globalPlayer.id || winningTeam.player2.id === globalPlayer.id;
+        const isLoser = losingTeam.player1.id === globalPlayer.id || losingTeam.player2.id === globalPlayer.id;
+        
+        if (isWinner || isLoser) {
+          // Update lifetime stats
+          const currentELO = globalPlayer.elo || calculateInitialELO(globalPlayer.wins || 0, globalPlayer.losses || 0);
+          const newELO = updateELO(currentELO, isWinner);
+          
+          // Update session stats
+          const sessionStats = getSessionPlayerStats(globalPlayer, currentSessionId);
+          const updatedSessionStats = {
+            ...sessionStats,
+            sessionWins: (sessionStats.sessionWins || 0) + (isWinner ? 1 : 0),
+            sessionLosses: (sessionStats.sessionLosses || 0) + (isLoser ? 1 : 0),
+            sessionMatchCount: (sessionStats.sessionMatchCount || 0) + 1,
+            sessionLastMatchTime: new Date().toISOString()
+          };
+          
+          return {
+            ...globalPlayer,
+            // Update lifetime stats
+            wins: (globalPlayer.wins || 0) + (isWinner ? 1 : 0),
+            losses: (globalPlayer.losses || 0) + (isLoser ? 1 : 0),
+            matchCount: (globalPlayer.matchCount || 0) + 1,
+            lastMatchTime: new Date().toISOString(),
+            elo: newELO,
+            // Update session stats
+            sessionStats: {
+              ...globalPlayer.sessionStats,
+              [currentSessionId]: updatedSessionStats
+            }
+          };
+        }
+        return globalPlayer;
+      }));
+      
+      showNotification(`Team ${winner === 'team1' ? '1' : '2'} wins!`);
     }
-  }, [showNotification]);
 
-  const removePlayer = useCallback((id) => {
-    setPlayers(prev => prev.filter(player => player.id !== id));
-    showNotification('Player removed successfully');
-  }, [showNotification]);
+    // Update session: clear the court and remove match
+    updateSession({
+      courtStates: currentSession.courtStates.map(c => 
+        c.id === courtId ? { ...c, isOccupied: false, currentMatch: null } : c
+      ),
+      currentMatches: currentSession.currentMatches.filter(m => m.courtId !== courtId)
+    });
+  }, [currentSession, currentSessionId, setGlobalPlayers, updateSession, showNotification]);
 
-  const startNewSession = useCallback(() => {
-    setPlayers(prev => prev.map(player => ({
-      ...player,
-      ...initializeSessionStats() // Reset only session stats
-    })));
+  // Available pool for current session
+  const availablePool = sessionPlayers.filter(player => {
+    const isInMatch = currentSession?.currentMatches?.some(match =>
+      match.team1.player1.id === player.id ||
+      match.team1.player2.id === player.id ||
+      match.team2.player1.id === player.id ||
+      match.team2.player2.id === player.id
+    );
+    return player.isActive && !isInMatch;
+  });
+
+  // Court management functions
+  const addCourt = useCallback(() => {
+    if (!currentSession) return;
     
-    setCurrentMatches([]);
-    setCourtStates(prev => prev.map(court => ({
-      ...court,
+    updateSession({
+      courtCount: currentSession.courtCount + 1,
+      courtStates: [
+        ...currentSession.courtStates,
+        {
+          id: currentSession.courtStates.length,
       isOccupied: false,
       currentMatch: null
-    })));
+        }
+      ]
+    });
     
-    showNotification('New session started - session stats reset');
-  }, [showNotification]);
+    showNotification('Court added');
+  }, [currentSession, updateSession, showNotification]);
 
-  const resetAllMatchCounts = useCallback(() => {
-    setPlayers(prev => prev.map(player => ({
-      ...player,
-      matchCount: 0,
-      wins: 0,
-      losses: 0,
-      lastMatchTime: null,
-      elo: 100, // Reset to starting ELO
-      ...initializeSessionStats() // Also reset session stats
-    })));
+  const removeCourt = useCallback(() => {
+    if (!currentSession || currentSession.courtStates.length <= 1) {
+      showNotification('Cannot remove the last court', 'error');
+      return;
+    }
     
-    setCurrentMatches([]);
-    setCourtStates(prev => prev.map(court => ({
-      ...court,
-      isOccupied: false,
-      currentMatch: null
-    })));
+    // Check if any court has active players
+    const hasActivePlayers = currentSession.courtStates.some(court => court.isOccupied);
+    if (hasActivePlayers) {
+      showNotification('Cannot remove courts while there are active matches. Please complete or clear all matches first.', 'error');
+      return;
+    }
     
-    showNotification('All match counts and history reset');
-  }, [showNotification]);
+    updateSession({
+      courtCount: Math.max(1, currentSession.courtCount - 1),
+      courtStates: currentSession.courtStates.slice(0, -1)
+    });
+    
+    showNotification('Court removed');
+  }, [currentSession, updateSession, showNotification]);
 
   const generateMatches = useCallback(() => {
-    if (players.filter(p => p.isActive).length < 4) {
+    if (!currentSession) return;
+    
+    if (sessionPlayers.filter(p => p.isActive).length < 4) {
       showNotification('Need at least 4 active players to generate matches', 'error');
       return;
     }
 
-    const activePlayers = players.filter(p => p.isActive);
+    const activePlayers = sessionPlayers.filter(p => p.isActive);
     const newMatches = [];
     const usedPlayers = new Set();
 
     // Generate matches for each court
-    for (let i = 0; i < courtCount; i++) {
+    for (let i = 0; i < currentSession.courtCount; i++) {
       if (activePlayers.length - usedPlayers.size < 4) break;
 
       const availablePlayers = activePlayers.filter(p => !usedPlayers.has(p.id));
@@ -232,19 +380,17 @@ function App() {
         availablePlayers.splice(randomIndex, 1);
       }
 
-      // Find best team formation to avoid repeat partnerships
-      const bestFormation = findBestTeamFormation(selectedPlayers, currentMatches);
-      
+      // Simple team formation (first 2 vs last 2)
       const match = {
         id: generateId(),
         courtId: i,
         team1: {
-          player1: bestFormation.team1[0],
-          player2: bestFormation.team1[1]
+          player1: selectedPlayers[0],
+          player2: selectedPlayers[1]
         },
         team2: {
-          player1: bestFormation.team2[0],
-          player2: bestFormation.team2[1]
+          player1: selectedPlayers[2],
+          player2: selectedPlayers[3]
         },
         startTime: new Date().toISOString(),
         completed: false
@@ -253,10 +399,8 @@ function App() {
       newMatches.push(match);
     }
 
-    setCurrentMatches(newMatches);
-    
-    // Update court states
-    const newCourtStates = courtStates.map((court, index) => {
+    // Update session with new matches and court states
+    const newCourtStates = currentSession.courtStates.map((court, index) => {
       const match = newMatches.find(m => m.courtId === index);
       return {
         ...court,
@@ -264,140 +408,33 @@ function App() {
         currentMatch: match || null
       };
     });
-    setCourtStates(newCourtStates);
+
+    updateSession({
+      currentMatches: newMatches,
+      courtStates: newCourtStates
+    });
     
     showNotification(`Generated ${newMatches.length} new matches`);
-  }, [players, courtCount, currentMatches, courtStates, showNotification]);
+  }, [currentSession, sessionPlayers, updateSession, showNotification]);
 
-  const findBestTeamFormation = useCallback((players, previousMatches) => {
-    if (previousMatches.length === 0) {
-      // First time, just randomize
-      const shuffled = [...players].sort(() => Math.random() - 0.5);
-      return {
-        team1: [shuffled[0], shuffled[1]],
-        team2: [shuffled[2], shuffled[3]]
-      };
-    }
-
-    // Get previous partnerships
-    const lastMatch = previousMatches[previousMatches.length - 1];
-    const previousPartnerships = new Set();
+  const clearMatches = useCallback(() => {
+    if (!currentSession) return;
     
-    // Add teammate pairs
-    previousPartnerships.add(`${lastMatch.team1.player1.id}-${lastMatch.team1.player2.id}`);
-    previousPartnerships.add(`${lastMatch.team2.player1.id}-${lastMatch.team2.player2.id}`);
+    updateSession({
+      currentMatches: [],
+      courtStates: currentSession.courtStates.map(court => ({
+        ...court,
+        isOccupied: false,
+        currentMatch: null
+      }))
+    });
     
-    // Add opponent pairs
-    previousPartnerships.add(`${lastMatch.team1.player1.id}-${lastMatch.team2.player1.id}`);
-    previousPartnerships.add(`${lastMatch.team1.player1.id}-${lastMatch.team2.player2.id}`);
-    previousPartnerships.add(`${lastMatch.team1.player2.id}-${lastMatch.team2.player1.id}`);
-    previousPartnerships.add(`${lastMatch.team1.player2.id}-${lastMatch.team2.player2.id}`);
-
-    // Generate all possible formations and score them
-    const formations = [];
-    const playerIds = players.map(p => p.id);
-    
-    // Generate all possible 2v2 combinations
-    for (let i = 0; i < playerIds.length - 3; i++) {
-      for (let j = i + 1; j < playerIds.length - 2; j++) {
-        for (let k = j + 1; k < playerIds.length - 1; k++) {
-          for (let l = k + 1; l < playerIds.length; l++) {
-            const team1 = [players[i], players[j]];
-            const team2 = [players[k], players[l]];
-            
-            let score = 0;
-            
-            // Check teammate partnerships
-            const team1Partnership = `${team1[0].id}-${team1[1].id}`;
-            const team2Partnership = `${team2[0].id}-${team2[1].id}`;
-            
-            if (previousPartnerships.has(team1Partnership)) score += 2;
-            if (previousPartnerships.has(team2Partnership)) score += 2;
-            
-            // Check opponent partnerships
-            for (const p1 of team1) {
-              for (const p2 of team2) {
-                const opponentPair = `${p1.id}-${p2.id}`;
-                if (previousPartnerships.has(opponentPair)) score += 1;
-              }
-            }
-            
-            formations.push({ team1, team2, score });
-          }
-        }
-      }
-    }
-    
-    // Return the formation with the lowest score (fewest repeat partnerships)
-    formations.sort((a, b) => a.score - b.score);
-    return formations[0];
-  }, []);
-
-  const completeMatch = useCallback((courtId, winner) => {
-    const court = courtStates.find(c => c.id === courtId);
-    if (!court || !court.currentMatch) return;
-
-    const match = court.currentMatch;
-    
-    if (winner === 'cancelled') {
-      // Match cancelled - no stats recorded
-      showNotification('Match cancelled - no stats recorded');
-    } else {
-      // Update player stats
-      const winningTeam = winner === 'team1' ? match.team1 : match.team2;
-      const losingTeam = winner === 'team1' ? match.team2 : match.team1;
-      
-      setPlayers(prev => prev.map(player => {
-        if (winningTeam.player1.id === player.id || winningTeam.player2.id === player.id) {
-          // Update lifetime stats
-          const currentELO = player.elo || calculateInitialELO(player.wins, player.losses);
-          const newELO = updateELO(currentELO, true);
-          
-          return { 
-            ...player, 
-            // Lifetime stats
-            wins: (player.wins || 0) + 1, 
-            matchCount: player.matchCount + 1, 
-            lastMatchTime: new Date().toISOString(),
-            elo: newELO,
-            // Session stats
-            sessionWins: (player.sessionWins || 0) + 1,
-            sessionMatchCount: (player.sessionMatchCount || 0) + 1,
-            sessionLastMatchTime: new Date().toISOString()
-          };
-        } else if (losingTeam.player1.id === player.id || losingTeam.player2.id === player.id) {
-          // Update lifetime stats
-          const currentELO = player.elo || calculateInitialELO(player.wins, player.losses);
-          const newELO = updateELO(currentELO, false);
-          
-          return { 
-            ...player, 
-            // Lifetime stats
-            losses: (player.losses || 0) + 1, 
-            matchCount: player.matchCount + 1, 
-            lastMatchTime: new Date().toISOString(),
-            elo: newELO,
-            // Session stats
-            sessionLosses: (player.sessionLosses || 0) + 1,
-            sessionMatchCount: (player.sessionMatchCount || 0) + 1,
-            sessionLastMatchTime: new Date().toISOString()
-          };
-        }
-        return player;
-      }));
-      
-      showNotification(`Team ${winner === 'team1' ? '1' : '2'} wins!`);
-    }
-
-    // Clear the court
-    setCourtStates(prev => prev.map(c => 
-      c.id === courtId ? { ...c, isOccupied: false, currentMatch: null } : c
-    ));
-    
-    setCurrentMatches(prev => prev.filter(m => m.courtId !== courtId));
-  }, [courtStates, showNotification]);
+    showNotification('All matches cleared');
+  }, [currentSession, updateSession, showNotification]);
 
   const fillEmptyCourt = useCallback((courtId, matchData = null) => {
+    if (!currentSession) return;
+    
     if (matchData) {
       // Use the match data from the modal
       const match = {
@@ -408,14 +445,16 @@ function App() {
         completed: false
       };
 
-      setCurrentMatches(prev => [...prev, match]);
-      setCourtStates(prev => prev.map(c => 
+      updateSession({
+        currentMatches: [...currentSession.currentMatches, match],
+        courtStates: currentSession.courtStates.map(c => 
         c.id === courtId ? { ...c, isOccupied: true, currentMatch: match } : c
-      ));
+        )
+      });
       
       showNotification('Court filled with selected players');
     } else {
-      // Fallback to random selection (existing logic)
+      // Fallback to random selection
       if (availablePool.length < 4) {
         showNotification('Need at least 4 available players to fill court', 'error');
         return;
@@ -430,98 +469,140 @@ function App() {
         selectedPlayers.push(poolCopy[randomIndex]);
         poolCopy.splice(randomIndex, 1);
       }
-
-      // Find best team formation
-      const bestFormation = findBestTeamFormation(selectedPlayers, currentMatches);
       
       const match = {
         id: generateId(),
         courtId,
         team1: {
-          player1: bestFormation.team1[0],
-          player2: bestFormation.team1[1]
+          player1: selectedPlayers[0],
+          player2: selectedPlayers[1]
         },
         team2: {
-          player1: bestFormation.team2[0],
-          player2: bestFormation.team2[1]
+          player1: selectedPlayers[2],
+          player2: selectedPlayers[3]
         },
         startTime: new Date().toISOString(),
         completed: false
       };
 
-      setCurrentMatches(prev => [...prev, match]);
-      setCourtStates(prev => prev.map(c => 
+      updateSession({
+        currentMatches: [...currentSession.currentMatches, match],
+        courtStates: currentSession.courtStates.map(c => 
         c.id === courtId ? { ...c, isOccupied: true, currentMatch: match } : c
-      ));
+        )
+      });
       
       showNotification('Court filled with random players');
     }
-  }, [availablePool, currentMatches, findBestTeamFormation, showNotification]);
+  }, [currentSession, availablePool, updateSession, showNotification]);
 
-  const addCourt = useCallback(() => {
-    setCourtStates(prevStates => {
-      const newCourtStates = [...prevStates];
-      // Add new empty court with a unique ID
-      const newCourtId = Math.max(...prevStates.map(c => c.id), -1) + 1;
-      newCourtStates.push({
-        id: newCourtId,
-        isOccupied: false,
-        currentMatch: null
-      });
-      return newCourtStates;
-    });
-    
-    setCourtCount(prev => prev + 1);
-    showNotification('Court added');
-  }, [showNotification]);
+  // Show blank page with create session button if no sessions exist
+  if (!currentSession) {
+    return (
+      <div className="App">
+        <div className="container">
+          <header className="app-header">
+            <h1 className="app-title">🏸 Badminton Pairing App</h1>
+          </header>
+          
+          <div className="no-sessions-page">
+            <div className="no-sessions-content">
+              <div className="welcome-message">
+                <h2>Welcome to Badminton Pairing!</h2>
+                <p>Create your first session to start organizing matches and tracking player stats.</p>
+              </div>
+              
+              <div className="create-first-session">
+                <SessionHamburgerMenu
+                  sessions={sessions}
+                  currentSessionId={null}
+                  onSessionSelect={handleSessionSelect}
+                  onSessionCreate={handleSessionCreate}
+                  onSessionEnd={handleSessionEnd}
+                />
+              </div>
+              
+              {globalPlayers.length > 0 && (
+                <div className="welcome-leaderboard">
+                  <h3>🏆 Lifetime Leaderboard</h3>
+                  <div className="leaderboard-list">
+                    {globalPlayers
+                      .sort((a, b) => {
+                        const eloA = a.elo || calculateInitialELO(a.wins || 0, a.losses || 0);
+                        const eloB = b.elo || calculateInitialELO(b.wins || 0, b.losses || 0);
+                        return eloB - eloA;
+                      })
+                      .slice(0, 10)
+                      .map((player, index) => {
+                        const elo = player.elo || calculateInitialELO(player.wins || 0, player.losses || 0);
+                        const tier = getELOTier(elo);
+                        return (
+                          <div key={player.id} className="leaderboard-item">
+                            <span className="rank">#{index + 1}</span>
+                            <div className="player-info">
+                              <span className="player-name">{player.name}</span>
+                              <span className="player-stats">
+                                {player.wins || 0}W - {player.losses || 0}L • ELO: {elo}
+                              </span>
+                            </div>
+                            <span className="tier-badge" style={{ color: tier.color }}>
+                              {tier.icon} {tier.name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  {globalPlayers.length > 10 && (
+                    <p className="leaderboard-note">
+                      Showing top 10 of {globalPlayers.length} players
+                    </p>
+                  )}
+                </div>
+              )}
 
-  const removeCourt = useCallback(() => {
-    setCourtStates(prevStates => {
-      if (prevStates.length <= 1) {
-        showNotification('Cannot remove the last court', 'error');
-        return prevStates;
-      }
-      
-      // Check if any court has active players
-      const hasActivePlayers = prevStates.some(court => court.isOccupied);
-      if (hasActivePlayers) {
-        showNotification('Cannot remove courts while there are active matches. Please complete or clear all matches first.', 'error');
-        return prevStates;
-      }
-      
-      // Remove last court from courtStates
-      const newCourtStates = prevStates.slice(0, -1);
-      
-      // Only update court count and show success when removal is successful
-      setCourtCount(prev => Math.max(1, prev - 1));
-      showNotification('Court removed');
-      
-      return newCourtStates;
-    });
-    
-  }, [showNotification]);
-
-  const clearMatches = useCallback(() => {
-    setCurrentMatches([]);
-    setCourtStates(prev => prev.map(court => ({
-      ...court,
-      isOccupied: false,
-      currentMatch: null
-    })));
-    showNotification('All matches cleared');
-  }, [showNotification]);
+              <div className="features-preview">
+                <h3>What you can do:</h3>
+                <ul>
+                  <li>🎯 Create multiple independent sessions</li>
+                  <li>👥 Invite players and track their performance</li>
+                  <li>🏸 Manage courts and organize matches</li>
+                  <li>📊 View session and lifetime rankings</li>
+                  <li>🏆 Track ELO ratings and player progression</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          {notification && (
+            <Notification
+              message={notification.message}
+              type={notification.type}
+              onClose={() => setNotification(null)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="App">
       <div className="container">
-        <header className="section-header">
-          <h1 className="section-title">🏸 Badminton Pairing App</h1>
+        <header className="app-header">
+          <SessionHamburgerMenu
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSessionSelect={handleSessionSelect}
+            onSessionCreate={handleSessionCreate}
+            onSessionEnd={handleSessionEnd}
+          />
+          <h1 className="app-title">🏸 Badminton Pairing App</h1>
         </header>
 
         <CurrentMatches
-          currentMatches={currentMatches}
-          courtStates={courtStates}
-          courtCount={courtCount}
+          currentMatches={currentSession.currentMatches || []}
+          courtStates={currentSession.courtStates || []}
+          courtCount={currentSession.courtCount || 4}
           availablePool={availablePool}
           onCompleteMatch={completeMatch}
           onFillCourt={fillEmptyCourt}
@@ -531,14 +612,15 @@ function App() {
           onClearMatches={clearMatches}
         />
 
-        <PlayerManagement
-          players={players}
-          isAddingPlayer={isAddingPlayer}
-          onAddPlayer={addPlayer}
-          onUpdatePlayer={updatePlayer}
-          onRemovePlayer={removePlayer}
-          onResetMatchCounts={resetAllMatchCounts}
-          onStartNewSession={startNewSession}
+        <SessionPlayerManagement
+          globalPlayers={globalPlayers}
+          sessionPlayers={sessionPlayers}
+          sessionId={currentSessionId}
+          occupiedPlayerIds={occupiedPlayerIds}
+          onAddPlayerToSession={handleAddPlayerToSession}
+          onRemovePlayerFromSession={handleRemovePlayerFromSession}
+          onUpdateGlobalPlayer={handleUpdateGlobalPlayer}
+          onCreateNewPlayer={handleCreateNewPlayer}
         />
 
         {notification && (
@@ -549,7 +631,7 @@ function App() {
           />
         )}
 
-        <Scoreboard players={players} />
+        <Scoreboard players={sessionPlayers} />
       </div>
     </div>
   );

@@ -111,4 +111,48 @@ export function sortPlayersByWins(players) {
     // Tertiary sort by name for consistency
     return a.name.localeCompare(b.name);
   });
+}
+
+// Session Management
+export function createNewSession(name) {
+  const sessionId = generateId();
+  const courtStates = [];
+  
+  // Initialize 4 default courts
+  for (let i = 0; i < 4; i++) {
+    courtStates.push({
+      id: i,
+      isOccupied: false,
+      currentMatch: null
+    });
+  }
+  
+  return {
+    id: sessionId,
+    name: name.trim(),
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    playerIds: [], // IDs of players invited to this session
+    courtCount: 4,
+    currentMatches: [],
+    courtStates: courtStates
+  };
+}
+
+export function getSessionPlayerStats(globalPlayer, sessionId) {
+  const sessionStats = globalPlayer.sessionStats?.[sessionId];
+  return sessionStats || initializeSessionStats();
+}
+
+export function updateSessionPlayerStats(globalPlayer, sessionId, updates) {
+  return {
+    ...globalPlayer,
+    sessionStats: {
+      ...globalPlayer.sessionStats,
+      [sessionId]: {
+        ...getSessionPlayerStats(globalPlayer, sessionId),
+        ...updates
+      }
+    }
+  };
 } 

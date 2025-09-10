@@ -2893,4 +2893,664 @@ code {
     margin-bottom: 8px;
     padding: 6px 8px;
   }
+  
+  .session-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .invite-players-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Session Selector Styles */
+.session-selector {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.session-title {
+  margin: 0;
+  color: var(--primary-color);
+  font-size: 18px;
+}
+
+.session-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.create-session-form {
+  margin-bottom: 16px;
+}
+
+.session-list {
+  margin-top: 16px;
+}
+
+.session-list-title {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.session-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.session-card {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.session-card:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-tertiary);
+  transform: translateY(-1px);
+}
+
+.session-card.active {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.session-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.session-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.session-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.session-delete-btn:hover {
+  opacity: 1;
+}
+
+/* Invite Section Styles */
+.invite-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.invite-section h4 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+}
+
+.invite-players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.invite-player-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invite-player-card:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-tertiary);
+}
+
+.invite-player-card .player-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.player-lifetime-stats {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.invite-btn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+/* App Header with Hamburger Menu */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-title {
+  margin: 0;
+  color: var(--primary-color);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Hamburger Menu Button */
+.hamburger-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 180px;
+}
+
+.hamburger-menu-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+}
+
+.hamburger-icon {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 18px;
+}
+
+.hamburger-icon span {
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+  transition: all 0.2s ease;
+}
+
+.session-info-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+}
+
+.current-session-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.session-player-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Session Menu Modal Content */
+.session-menu-content {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  max-width: 400px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.menu-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.current-session-info {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.current-session-info h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.current-session-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--primary-color);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.session-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.end-session-btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  background: var(--bg-primary);
+  border: 1px solid var(--danger-color);
+  color: var(--danger-color);
+}
+
+.end-session-btn:hover {
+  background: var(--danger-color);
+  color: white;
+}
+
+.current-session-card .session-name {
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 14px;
+}
+
+.session-details {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.session-created {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.create-session-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.session-list-section {
+  padding: 16px 20px;
+}
+
+.session-list-section h4 {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.session-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.session-item:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-tertiary);
+}
+
+.session-item.active {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+}
+
+.session-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.session-item-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.session-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.session-item-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.session-item-delete:hover {
+  opacity: 1;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* No Sessions Page */
+.no-sessions-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 40px 20px;
+}
+
+.no-sessions-content {
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.welcome-message {
+  margin-bottom: 30px;
+}
+
+.welcome-message h2 {
+  color: var(--primary-color);
+  margin-bottom: 12px;
+  font-size: 28px;
+}
+
+.welcome-message p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.create-first-session {
+  margin-bottom: 30px;
+}
+
+.features-preview {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  text-align: left;
+}
+
+.features-preview h3 {
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.features-preview ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.features-preview li {
+  padding: 6px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Welcome Page Leaderboard */
+.welcome-leaderboard {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: var(--shadow);
+}
+
+.welcome-leaderboard h3 {
+  color: var(--primary-color);
+  margin-bottom: 16px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.leaderboard-item:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.1);
+}
+
+.leaderboard-item .rank {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--primary-color);
+  min-width: 30px;
+  text-align: center;
+}
+
+.leaderboard-item .player-info {
+  flex: 1;
+  margin-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.leaderboard-item .player-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.leaderboard-item .player-stats {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.leaderboard-item .tier-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.leaderboard-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  font-style: italic;
+}
+
+.invite-description {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+.no-available-players {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Mobile responsiveness for hamburger menu */
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .app-title {
+    font-size: 20px;
+  }
+  
+  .hamburger-menu-btn {
+    min-width: 160px;
+    padding: 6px 10px;
+  }
+  
+  .session-menu-content {
+    max-width: 90vw;
+    max-height: 90vh;
+  }
+  
+  .no-sessions-page {
+    min-height: 50vh;
+    padding: 20px 10px;
+  }
+  
+  .welcome-message h2 {
+    font-size: 24px;
+  }
+  
+  .welcome-leaderboard {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .leaderboard-item {
+    padding: 8px 10px;
+  }
+  
+  .leaderboard-item .player-name {
+    font-size: 13px;
+  }
+  
+  .leaderboard-item .tier-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
 } 

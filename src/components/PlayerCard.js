@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getELOTier, calculateInitialELO } from '../utils/helpers';
 
-const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disabled }) => {
+const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disabled, sessionMode = false }) => {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   
   // Use session stats for display
@@ -83,7 +83,7 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
       {showRemoveConfirm && (
         <div className="remove-confirmation">
           <small style={{ color: 'var(--danger-color)', fontWeight: 'bold' }}>
-            Click delete again to confirm
+            Click again to {sessionMode ? 'remove from session' : 'delete permanently'}
           </small>
         </div>
       )}

@@ -1,0 +1,225 @@
+import React, { useState } from 'react';
+import PlayerCard from './PlayerCard';
+import PlayerEditModal from './PlayerEditModal';
+import { getSessionPlayerStats } from '../utils/helpers';
+
+const SessionPlayerManagement = ({
+  globalPlayers,
+  sessionPlayers,
+  sessionId,
+  occupiedPlayerIds,
+  onAddPlayerToSession,
+  onRemovePlayerFromSession,
+  onUpdateGlobalPlayer,
+  onCreateNewPlayer
+}) => {
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  const handleAddPlayer = (e) => {
+    e.preventDefault();
+    if (newPlayerName.trim()) {
+      // Check if player already exists globally
+      const existingPlayer = globalPlayers.find(p => 
+        p.name.toLowerCase() === newPlayerName.trim().toLowerCase()
+      );
+      
+      if (existingPlayer) {
+        // Check if already in session
+        if (sessionPlayers.some(sp => sp.id === existingPlayer.id)) {
+          alert('Player is already in this session');
+          return;
+        }
+        
+        // Check if player is in another active session
+        if (occupiedPlayerIds.includes(existingPlayer.id)) {
+          alert('Player is currently in another active session');
+          return;
+        }
+        
+        // Add existing player to session
+        onAddPlayerToSession(existingPlayer.id);
+      } else {
+        // Create new global player and add to session
+        onCreateNewPlayer(newPlayerName.trim());
+      }
+      
+      setNewPlayerName('');
+      setFilterText('');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setNewPlayerName(value);
+    setFilterText(value);
+  };
+
+  const handleEditPlayer = (player) => {
+    setEditingPlayer(player);
+  };
+
+  const handleUpdatePlayer = (id, updates) => {
+    onUpdateGlobalPlayer(id, updates);
+    setEditingPlayer(null);
+  };
+
+  const handleRemovePlayerFromSession = (playerId) => {
+    onRemovePlayerFromSession(playerId);
+  };
+
+  const handleToggleActive = (id, updatedPlayer) => {
+    // For session players, we update their active status within the session
+    const sessionPlayer = sessionPlayers.find(p => p.id === id);
+    if (sessionPlayer) {
+      const globalPlayer = globalPlayers.find(p => p.id === id);
+      const sessionStats = getSessionPlayerStats(globalPlayer, sessionId);
+      
+      onUpdateGlobalPlayer(id, {
+        sessionStats: {
+          ...globalPlayer.sessionStats,
+          [sessionId]: {
+            ...sessionStats,
+            isActive: updatedPlayer.isActive
+          }
+        }
+      });
+    }
+  };
+
+  const getTimeAgo = (timestamp) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - time) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+  };
+
+  // Filter session players
+  const filteredPlayers = sessionPlayers.filter(player =>
+    player.name.toLowerCase().includes(filterText.toLowerCase())
+  );
+
+  // Available global players not in this session or other active sessions
+  const availableGlobalPlayers = globalPlayers.filter(player =>
+    !sessionPlayers.some(sp => sp.id === player.id) &&
+    !occupiedPlayerIds.includes(player.id) &&
+    player.name.toLowerCase().includes(filterText.toLowerCase())
+  );
+
+  return (
+    <div className="card">
+      <div className="section-header">
+        <h2 className="section-title">Session Players</h2>
+        <div className="section-actions">
+          <button 
+            className="btn btn-outline" 
+            onClick={() => setShowInviteModal(!showInviteModal)}
+            title={showInviteModal ? 'Hide available players list' : 'Show available players from other sessions to invite'}
+          >
+            {showInviteModal ? 'Hide Available Players' : 'Show Available Players'}
+          </button>
+        </div>
+      </div>
+
+      <form onSubmit={handleAddPlayer} className="add-player-form">
+        <div className="input-group">
+          <input
+            type="text"
+            className="input-field"
+            placeholder="Add existing player or create new player"
+            value={newPlayerName}
+            onChange={handleInputChange}
+            required
+          />
+          <button type="submit" className="btn btn-primary">
+            Add/Create Player
+          </button>
+        </div>
+      </form>
+
+      {filterText && (
+        <div className="filter-info">
+          <small style={{ color: 'var(--text-muted)' }}>
+            Session: {filteredPlayers.length} players
+            {availableGlobalPlayers.length > 0 && (
+              <span style={{ color: 'var(--primary-color)' }}>
+                {' '}• Available: {availableGlobalPlayers.length} players
+              </span>
+            )}
+          </small>
+        </div>
+      )}
+
+      {/* Session Players */}
+      <div className="player-stats-container-compact">
+        <div className="player-stats-grid-compact">
+          {filteredPlayers.map((player) => (
+            <PlayerCard
+              key={player.id}
+              player={player}
+              onEdit={handleEditPlayer}
+              onRemove={handleRemovePlayerFromSession}
+              onToggleActive={handleToggleActive}
+              getTimeAgo={getTimeAgo}
+              disabled={false}
+              sessionMode={true}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Available Players to Invite */}
+      {showInviteModal && (
+        <div className="invite-section">
+          <h4>Available Players to Invite:</h4>
+          <p className="invite-description">
+            These are players from your global database who are not currently in this session or any other active session.
+          </p>
+          {availableGlobalPlayers.length > 0 ? (
+            <div className="invite-players-grid">
+            {availableGlobalPlayers.map(player => (
+              <div
+                key={player.id}
+                className="invite-player-card"
+                onClick={() => onAddPlayerToSession(player.id)}
+              >
+                <span className="player-name">{player.name}</span>
+                <span className="player-lifetime-stats">
+                  Lifetime: {player.wins || 0}W - {player.losses || 0}L (ELO: {player.elo || 100})
+                </span>
+                <button className="invite-btn">+ Invite</button>
+              </div>
+            ))}
+            </div>
+          ) : (
+            <p className="no-available-players">
+              No available players to invite. All global players are either in this session or in other active sessions.
+            </p>
+          )}
+        </div>
+      )}
+
+      {editingPlayer && (
+        <PlayerEditModal
+          playerId={editingPlayer.id}
+          playerName={editingPlayer.name}
+          onSave={handleUpdatePlayer}
+          onRemove={() => {}} // Don't allow removal from global through session
+          onClose={() => setEditingPlayer(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default SessionPlayerManagement;
