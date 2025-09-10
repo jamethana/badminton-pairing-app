@@ -24,6 +24,7 @@ function App() {
   const [sessions, setSessions, sessionsInfo] = useSupabaseStorage('badminton-sessions', []);
   const [sessionPlayers, setSessionPlayers] = useSupabaseStorage('badminton_session_players', []);
   const [matches, setMatches] = useSupabaseStorage('badminton_matches', []);
+  // ELO history - keep Supabase sync but don't auto-load
   const [eloHistory, setEloHistory] = useSupabaseStorage('badminton_elo_history', []);
   const [currentSessionId, setCurrentSessionId] = useLocalStorage('badminton-current-session', null);
   
@@ -102,9 +103,34 @@ function App() {
     sp && sp.session_id === currentSessionId && sp.is_active_in_session
   );
   
-  const sessionPlayersWithDetails = currentSessionPlayers.map(sessionPlayer => {
+  // Clean up duplicate session players (same player name in same session)
+  const uniqueSessionPlayers = currentSessionPlayers.reduce((acc, sp) => {
+    // Find the global player to get the name
+    const globalPlayer = safeGlobalPlayers.find(p => p.id === sp.player_id);
+    if (!globalPlayer) return acc;
+    
+    const key = `${sp.session_id}-${globalPlayer.name}`;
+    if (!acc.has(key)) {
+      acc.set(key, sp);
+    } else {
+      // Keep the one with more stats (more recent)
+      const existing = acc.get(key);
+      if ((sp.session_matches || 0) > (existing.session_matches || 0)) {
+        acc.set(key, sp);
+      }
+    }
+    return acc;
+  }, new Map());
+  
+  const cleanedSessionPlayers = Array.from(uniqueSessionPlayers.values());
+  
+  // Session players cleanup: ${currentSessionPlayers.length} → ${cleanedSessionPlayers.length}
+  
+  const sessionPlayersWithDetails = cleanedSessionPlayers.map(sessionPlayer => {
     const globalPlayer = safeGlobalPlayers.find(p => p && p.id === sessionPlayer.player_id);
     if (!globalPlayer) return null;
+    
+    // Session player stats loaded
     
     return {
       ...globalPlayer,
@@ -112,7 +138,7 @@ function App() {
       sessionWins: sessionPlayer.session_wins || 0,
       sessionLosses: sessionPlayer.session_losses || 0,
       sessionMatchCount: sessionPlayer.session_matches || 0,
-      sessionLastMatchTime: sessionPlayer.joined_at,
+      sessionLastMatchTime: sessionPlayer.last_match_time || sessionPlayer.joined_at,
       isActive: sessionPlayer.is_active_in_session !== false,
       sessionElo: sessionPlayer.session_elo_current || globalPlayer.elo || 100
     };
@@ -156,49 +182,33 @@ function App() {
 
   // Reconstruct current matches and court states from matches data
   useEffect(() => {
-    console.log(`🔄 Match reconstruction effect triggered`);
-    console.log(`📊 currentSession:`, currentSession);
-    console.log(`📊 matches:`, safeMatches);
-    console.log(`📊 currentSessionId:`, currentSessionId);
+    // Match reconstruction triggered
     
     if (!currentSession || !currentSessionId) {
-      console.log(`❌ Missing data for reconstruction - aborting`);
+      // Missing data for reconstruction
       return;
     }
     
     // Prevent infinite loop: only reconstruct if currentMatches is empty
     if (currentSession.currentMatches && currentSession.currentMatches.length > 0) {
-      console.log(`⚠️ currentMatches already exists, skipping reconstruction`);
+      // Current matches exist, skipping reconstruction
       return;
     }
     
-    // Find active (incomplete) matches for this session
-    const activeMatches = safeMatches.filter(match => {
-      const isForThisSession = match && match.session_name === currentSession.name;
-      const isNotCompleted = !match.completed_at;
-      const isNotCancelled = !match.cancelled_at;
-      
-      console.log(`🔍 Checking match ${match?.id}:`, {
-        isForThisSession,
-        isNotCompleted,
-        isNotCancelled,
-        cancelled_at: match?.cancelled_at,
-        completed_at: match?.completed_at,
-        session_name: match?.session_name
-      });
-      
-      return isForThisSession && isNotCompleted && isNotCancelled;
-    });
-    
-    console.log(`🔍 Found ${activeMatches.length} active matches for session "${currentSession.name}"`);
-    console.log(`📋 Active matches:`, activeMatches);
+    // Find active (incomplete) matches for this session (optimized)
+    const activeMatches = safeMatches.filter(match => 
+      match && 
+      match.session_name === currentSession.name && 
+      !match.completed_at && 
+      !match.cancelled_at
+    );
     
     if (activeMatches.length > 0) {
-      console.log(`🔄 Reconstructing ${activeMatches.length} active matches for session`);
+      // Reconstructing active matches for session
       
-      // Convert database matches back to UI format
+      // Convert database matches back to UI format using Supabase UUIDs
       const currentMatches = activeMatches.map(match => ({
-        id: match.id,
+        id: match.id, // Use Supabase UUID directly
         courtId: match.court_number,
         team1: {
           player1: safeGlobalPlayers.find(p => p.name === match.team1_player1_name) || { id: match.team1_player1_id, name: match.team1_player1_name },
@@ -431,34 +441,40 @@ function App() {
       showNotification('Match cancelled - no stats recorded');
     } else {
       console.log(`🏸 Completing match with ID: ${match.id}, winner: ${winner}`);
+      console.log(`🔍 Looking for matches to complete in court ${courtId}, session ${currentSession.name}`);
       
-      // Find and update ALL active matches on this court - complete one, cancel others
+      // Find and update the Supabase match on this court (by court + session, not exact ID)
       let completedMatch = null;
-      setMatches(prev => prev.map(dbMatch => {
-        if (dbMatch.session_name === currentSession.name && 
-            dbMatch.court_number === courtId && 
-            !dbMatch.completed_at && 
-            !dbMatch.cancelled_at) {
-          
-          // If this is the first match found, complete it; cancel others
-          if (!completedMatch) {
-            console.log(`✅ Marking match as completed:`, dbMatch.id);
+      let matchesFound = 0;
+      
+      setMatches(prev => {
+        console.log(`🔍 All matches before completion:`, prev.map(m => ({id: m.id, court: m.court_number, completed: !!m.completed_at, cancelled: !!m.cancelled_at})));
+        
+        const updated = prev.map(dbMatch => {
+          if (dbMatch.session_name === currentSession.name && 
+              dbMatch.court_number === courtId && 
+              !dbMatch.completed_at && 
+              !dbMatch.cancelled_at) {
+            
+            matchesFound++;
+            console.log(`🔍 Found active match ${matchesFound}: ${dbMatch.id} (court ${dbMatch.court_number})`);
+            
+            // Complete ALL active matches on this court (in case of duplicates)
+            console.log(`✅ Marking match as completed: ${dbMatch.id}`);
             completedMatch = {
               ...dbMatch,
               completed_at: new Date().toISOString(),
               winning_team: winner === 'team1' ? 1 : 2
             };
             return completedMatch;
-          } else {
-            console.log(`🚫 Cancelling duplicate match on same court:`, dbMatch.id);
-            return {
-              ...dbMatch,
-              cancelled_at: new Date().toISOString()
-            };
           }
-        }
-        return dbMatch;
-      }));
+          return dbMatch;
+        });
+        
+        console.log(`📊 Total active matches found for completion: ${matchesFound}`);
+        console.log(`🔍 All matches after completion:`, updated.map(m => ({id: m.id, court: m.court_number, completed: !!m.completed_at, cancelled: !!m.cancelled_at})));
+        return updated;
+      });
       
       if (!completedMatch) {
         console.log(`⚠️ Could not find match to complete, creating new record`);
@@ -484,20 +500,33 @@ function App() {
       }
       
       // Update player stats (both global lifetime and session-specific)
+      console.log(`📊 Updating player stats for completed match`);
+      console.log(`🏆 Winner: ${winner}, completedMatch:`, completedMatch);
+      
       const winningTeam = winner === 'team1' ? match.team1 : match.team2;
       const losingTeam = winner === 'team1' ? match.team2 : match.team1;
+      
+      console.log(`🥇 Winning team:`, winningTeam);
+      console.log(`🥈 Losing team:`, losingTeam);
       
       // Collect ELO changes for history
       const eloChanges = [];
       
-      setGlobalPlayers(prev => prev.map(globalPlayer => {
+      setGlobalPlayers(prev => {
+        console.log(`🔄 Updating global players stats`);
+        return prev.map(globalPlayer => {
         const isWinner = winningTeam.player1.id === globalPlayer.id || winningTeam.player2.id === globalPlayer.id;
         const isLoser = losingTeam.player1.id === globalPlayer.id || losingTeam.player2.id === globalPlayer.id;
         
         if (isWinner || isLoser) {
+          console.log(`🎯 Updating stats for player: ${globalPlayer.name}, isWinner: ${isWinner}`);
+          
           // Update lifetime stats
           const currentELO = globalPlayer.elo || calculateInitialELO(globalPlayer.wins || 0, globalPlayer.losses || 0);
           const newELO = updateELO(currentELO, isWinner);
+          
+          console.log(`📈 ELO change: ${currentELO} → ${newELO} (${isWinner ? '+' : '-'}${Math.abs(newELO - currentELO)})`);
+          console.log(`📊 Stats update: Wins ${globalPlayer.wins || 0} → ${(globalPlayer.wins || 0) + (isWinner ? 1 : 0)}, Losses ${globalPlayer.losses || 0} → ${(globalPlayer.losses || 0) + (isLoser ? 1 : 0)}`);
           
           // Record ELO change for history
           eloChanges.push({
@@ -516,7 +545,47 @@ function App() {
             created_at: new Date().toISOString()
           });
           
-          // Update session stats
+          // Update session stats in session_players table
+          // Update session stats - target ALL instances of this player in this session
+          // Update session stats by directly modifying the cleaned array
+          
+          // Find the player in the cleaned array and update directly
+          const playerInCleanedArray = cleanedSessionPlayers.find(sp => {
+            const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sp.player_id);
+            return sessionPlayerGlobal && sessionPlayerGlobal.name === globalPlayer.name;
+          });
+          
+          if (playerInCleanedArray) {
+            // Update the player directly
+            playerInCleanedArray.session_wins = (playerInCleanedArray.session_wins || 0) + (isWinner ? 1 : 0);
+            playerInCleanedArray.session_losses = (playerInCleanedArray.session_losses || 0) + (isLoser ? 1 : 0);
+            playerInCleanedArray.session_matches = (playerInCleanedArray.session_matches || 0) + 1;
+            playerInCleanedArray.session_elo_current = newELO;
+            playerInCleanedArray.last_match_time = new Date().toISOString();
+          }
+          
+          // Also update the full sessionPlayers array for consistency
+          setSessionPlayers(prevSessionPlayers => {
+            return prevSessionPlayers.map((sessionPlayer) => {
+              const isCurrentSession = sessionPlayer.session_id === currentSessionId;
+              const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sessionPlayer.player_id);
+              const isCurrentPlayer = sessionPlayerGlobal && sessionPlayerGlobal.name === globalPlayer.name;
+              
+              if (isCurrentSession && isCurrentPlayer) {
+                return {
+                  ...sessionPlayer,
+                  session_wins: (sessionPlayer.session_wins || 0) + (isWinner ? 1 : 0),
+                  session_losses: (sessionPlayer.session_losses || 0) + (isLoser ? 1 : 0),
+                  session_matches: (sessionPlayer.session_matches || 0) + 1,
+                  session_elo_current: newELO,
+                  last_match_time: new Date().toISOString()
+                };
+              }
+              return sessionPlayer;
+            });
+          });
+          
+          // Update session stats in global player (for backward compatibility)
           const sessionStats = getSessionPlayerStats(globalPlayer, currentSessionId);
           const updatedSessionStats = {
             ...sessionStats,
@@ -542,9 +611,10 @@ function App() {
           };
         }
         return globalPlayer;
-      }));
+        });
+      });
       
-      // Save ELO history
+      // Save ELO history (will sync to Supabase)
       if (eloChanges.length > 0) {
         setEloHistory(prev => [...prev, ...eloChanges]);
       }
@@ -559,7 +629,7 @@ function App() {
       ),
       currentMatches: currentSession.currentMatches.filter(m => m.courtId !== courtId)
     });
-  }, [currentSession, currentSessionId, setGlobalPlayers, setMatches, setEloHistory, updateSession, showNotification]);
+  }, [currentSession, currentSessionId, setGlobalPlayers, setMatches, setEloHistory, setSessionPlayers, updateSession, showNotification]);
 
   // Available pool for current session
   const availablePool = sessionPlayersArray.filter(player => {
@@ -750,7 +820,7 @@ function App() {
     showNotification('All matches cleared');
   }, [currentSession, currentSessionId, safeMatches, setMatches, updateSession, showNotification]);
 
-  const fillEmptyCourt = useCallback((courtId, matchData = null) => {
+  const fillEmptyCourt = useCallback(async (courtId, matchData = null) => {
     console.log(`🏸 fillEmptyCourt called: courtId=${courtId}, matchData=`, matchData);
     
     if (!currentSession) {
@@ -759,50 +829,36 @@ function App() {
     }
     
     if (matchData) {
-      // Use the match data from the modal
-      const match = {
-        ...matchData,
-        id: generateId(),
-        courtId,
-        startTime: new Date().toISOString(),
-        completed: false
-      };
-
-      console.log(`🏸 Created match for court:`, match);
-
-      // Save match to database as incomplete match
-      const dbMatch = {
-        id: generateId(),
-        // Use session name for consistent resolution, not UUID
+      console.log(`🚀 Creating match - Supabase first approach`);
+      
+      // Create match in Supabase first to get proper UUID (no custom IDs)
+      const dbMatchData = {
         session_name: currentSession.name,
         court_number: courtId,
         started_at: new Date().toISOString(),
         completed_at: null,
         cancelled_at: null,
-        team1_player1_id: match.team1.player1.id,
-        team1_player2_id: match.team1.player2?.id || null,
-        team2_player1_id: match.team2.player1.id,
-        team2_player2_id: match.team2.player2?.id || null,
+        team1_player1_id: matchData.team1.player1.id,
+        team1_player2_id: matchData.team1.player2?.id || null,
+        team2_player1_id: matchData.team2.player1.id,
+        team2_player2_id: matchData.team2.player2?.id || null,
         // Add names for Supabase UUID resolution
-        team1_player1_name: match.team1.player1.name,
-        team1_player2_name: match.team1.player2?.name || null,
-        team2_player1_name: match.team2.player1.name,
-        team2_player2_name: match.team2.player2?.name || null,
+        team1_player1_name: matchData.team1.player1.name,
+        team1_player2_name: matchData.team1.player2?.name || null,
+        team2_player1_name: matchData.team2.player1.name,
+        team2_player2_name: matchData.team2.player2?.name || null,
         winning_team: null,
-        match_type: match.matchType || 'doubles'
+        match_type: matchData.matchType || 'doubles'
       };
       
-      console.log(`💾 Saving match to database:`, dbMatch);
-      setMatches(prev => [...prev, dbMatch]);
-
-      updateSession({
-        currentMatches: [...currentSession.currentMatches, match],
-        courtStates: currentSession.courtStates.map(c => 
-        c.id === courtId ? { ...c, isOccupied: true, currentMatch: match } : c
-        )
-      });
+      console.log(`💾 Saving match to Supabase (will get UUID):`, dbMatchData);
       
-      showNotification('Court filled with selected players');
+      // Save to Supabase - this will INSERT and get UUID back
+      setMatches(prev => [...prev, dbMatchData]);
+      
+      // Let the reconstruction effect handle UI updates with proper UUID
+      showNotification('Court filled - match will appear with Supabase UUID');
+      return;
     } else {
       // Fallback to random selection
       if (availablePool.length < 4) {

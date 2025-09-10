@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clean Up Matches - Badminton App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .danger {
+            background: #dc3545;
+        }
+        .danger:hover {
+            background: #c82333;
+        }
+        .success {
+            background: #28a745;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .match-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        .incomplete {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        .completed {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .cancelled {
+            background: #f8d7da;
+            border-color: #f1b0b7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏸 Clean Up Matches</h1>
+        <p>This tool helps clean up incomplete matches in Supabase that are causing matches to reappear after completion.</p>
+        
+        <h3>Quick Actions</h3>
+        <button onclick="completeIncompleteMatches()" class="success">Complete All Incomplete Matches</button>
+        <button onclick="cancelIncompleteMatches()" class="danger">Cancel All Incomplete Matches</button>
+        <button onclick="loadMatches()">Refresh Match List</button>
+        
+        <h3>Manual Actions</h3>
+        <button onclick="completeSpecificMatch()">Complete Specific Match</button>
+        <button onclick="cancelSpecificMatch()">Cancel Specific Match</button>
+        
+        <div id="matches" class="log">Click "Refresh Match List" to see current matches...</div>
+        
+        <div id="log" class="log">Ready for actions...</div>
+        
+        <h3>Target Match</h3>
+        <p>Based on your logs, the problematic match is:</p>
+        <div class="match-item incomplete">
+            <strong>ID:</strong> 25e7fe73-1d5c-4828-a610-85a68eb98422<br>
+            <strong>Status:</strong> Incomplete (completed_at: null)<br>
+            <strong>Court:</strong> 0<br>
+            <strong>Session:</strong> Test<br>
+            <strong>Action:</strong> This match needs to be completed or cancelled
+        </div>
+    </div>
+
+    <script>
+        // Get Supabase credentials from localStorage (set by main app)
+        let SUPABASE_URL = null;
+        let SUPABASE_KEY = null;
+        
+        try {
+            const config = JSON.parse(localStorage.getItem('supabase_config') || '{}');
+            SUPABASE_URL = config.url;
+            SUPABASE_KEY = config.key;
+        } catch (error) {
+            console.error('Error reading Supabase config:', error);
+        }
+        
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+            alert('❌ Please open the main badminton app first to load Supabase credentials.');
+            document.body.innerHTML = '<div style="text-align:center;margin-top:100px;"><h2>❌ Configuration Required</h2><p>Please open the main badminton app first to load credentials.</p><a href="/badminton-pairing-app">Open Main App</a></div>';
+        }
+        
+        const log = document.getElementById('log');
+        const matchesDiv = document.getElementById('matches');
+        
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.textContent += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        async function supabaseRequest(method, endpoint, data = null) {
+            const options = {
+                method,
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            };
+            
+            if (data && (method === 'POST' || method === 'PATCH')) {
+                options.body = JSON.stringify(data);
+            }
+            
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, options);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            }
+            
+            return method === 'GET' ? await response.json() : response;
+        }
+        
+        async function loadMatches() {
+            try {
+                logMessage('Loading matches from Supabase...');
+                const matches = await supabaseRequest('GET', 'matches?order=started_at.desc');
+                
+                matchesDiv.innerHTML = '';
+                matches.forEach(match => {
+                    const div = document.createElement('div');
+                    div.className = 'match-item';
+                    
+                    if (match.completed_at) {
+                        div.className += ' completed';
+                    } else if (match.cancelled_at) {
+                        div.className += ' cancelled';
+                    } else {
+                        div.className += ' incomplete';
+                    }
+                    
+                    div.innerHTML = `
+                        <strong>ID:</strong> ${match.id}<br>
+                        <strong>Court:</strong> ${match.court_number}<br>
+                        <strong>Started:</strong> ${match.started_at}<br>
+                        <strong>Completed:</strong> ${match.completed_at || 'null'}<br>
+                        <strong>Cancelled:</strong> ${match.cancelled_at || 'null'}<br>
+                        <strong>Winner:</strong> ${match.winning_team || 'null'}<br>
+                        <button onclick="completeMatch('${match.id}')" ${match.completed_at || match.cancelled_at ? 'disabled' : ''}>Complete</button>
+                        <button onclick="cancelMatch('${match.id}')" ${match.completed_at || match.cancelled_at ? 'disabled' : ''}>Cancel</button>
+                    `;
+                    
+                    matchesDiv.appendChild(div);
+                });
+                
+                logMessage(`Loaded ${matches.length} matches`);
+            } catch (error) {
+                logMessage(`Error loading matches: ${error.message}`);
+            }
+        }
+        
+        async function completeMatch(matchId) {
+            try {
+                logMessage(`Completing match ${matchId}...`);
+                await supabaseRequest('PATCH', `matches?id=eq.${matchId}`, {
+                    completed_at: new Date().toISOString(),
+                    winning_team: 1 // Default to team 1
+                });
+                logMessage(`✅ Match ${matchId} completed`);
+                await loadMatches();
+            } catch (error) {
+                logMessage(`❌ Error completing match: ${error.message}`);
+            }
+        }
+        
+        async function cancelMatch(matchId) {
+            try {
+                logMessage(`Cancelling match ${matchId}...`);
+                await supabaseRequest('PATCH', `matches?id=eq.${matchId}`, {
+                    cancelled_at: new Date().toISOString()
+                });
+                logMessage(`✅ Match ${matchId} cancelled`);
+                await loadMatches();
+            } catch (error) {
+                logMessage(`❌ Error cancelling match: ${error.message}`);
+            }
+        }
+        
+        async function completeIncompleteMatches() {
+            try {
+                logMessage('Completing all incomplete matches...');
+                const matches = await supabaseRequest('GET', 'matches?completed_at=is.null&cancelled_at=is.null');
+                
+                for (const match of matches) {
+                    await supabaseRequest('PATCH', `matches?id=eq.${match.id}`, {
+                        completed_at: new Date().toISOString(),
+                        winning_team: 1 // Default to team 1
+                    });
+                    logMessage(`✅ Completed match ${match.id}`);
+                }
+                
+                logMessage(`✅ Completed ${matches.length} incomplete matches`);
+                await loadMatches();
+            } catch (error) {
+                logMessage(`❌ Error: ${error.message}`);
+            }
+        }
+        
+        async function cancelIncompleteMatches() {
+            try {
+                logMessage('Cancelling all incomplete matches...');
+                const matches = await supabaseRequest('GET', 'matches?completed_at=is.null&cancelled_at=is.null');
+                
+                for (const match of matches) {
+                    await supabaseRequest('PATCH', `matches?id=eq.${match.id}`, {
+                        cancelled_at: new Date().toISOString()
+                    });
+                    logMessage(`✅ Cancelled match ${match.id}`);
+                }
+                
+                logMessage(`✅ Cancelled ${matches.length} incomplete matches`);
+                await loadMatches();
+            } catch (error) {
+                logMessage(`❌ Error: ${error.message}`);
+            }
+        }
+        
+        function completeSpecificMatch() {
+            const matchId = prompt('Enter match ID to complete:');
+            if (matchId) {
+                completeMatch(matchId);
+            }
+        }
+        
+        function cancelSpecificMatch() {
+            const matchId = prompt('Enter match ID to cancel:');
+            if (matchId) {
+                cancelMatch(matchId);
+            }
+        }
+        
+        // Auto-load matches on page load
+        loadMatches();
+    </script>
+</body>
+</html>

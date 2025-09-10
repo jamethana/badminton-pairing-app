@@ -92,6 +92,16 @@ export async function createSupabaseClient() {
       }
     } else {
       console.log('✅ Supabase client connected successfully with working tables');
+    
+    // Store config for admin tools
+    try {
+      localStorage.setItem('supabase_config', JSON.stringify({
+        url: SUPABASE_URL,
+        key: SUPABASE_ANON_KEY
+      }));
+    } catch (error) {
+      console.warn('Could not store Supabase config:', error);
+    }
     }
     
     return supabase;
