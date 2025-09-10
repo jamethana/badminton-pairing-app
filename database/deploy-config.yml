@@ -1,0 +1,114 @@
+# Database Deployment Configuration
+# Customize deployment settings for different environments
+
+environments:
+  development:
+    host: localhost
+    port: 54322
+    database: postgres
+    schema: public
+    ssl_mode: prefer
+    timeout: 30
+    create_sample_data: true
+    
+  staging:
+    host: ${SUPABASE_HOST}
+    port: 5432
+    database: postgres
+    schema: public
+    ssl_mode: require
+    timeout: 60
+    create_sample_data: true
+    backup_before_deploy: true
+    
+  production:
+    host: ${SUPABASE_HOST}
+    port: 5432
+    database: postgres
+    schema: public
+    ssl_mode: require
+    timeout: 120
+    create_sample_data: false
+    backup_before_deploy: true
+    verify_deployment: true
+    enable_monitoring: true
+
+# Deployment settings
+deployment:
+  # Maximum time to wait for deployment
+  max_timeout_minutes: 10
+  
+  # Whether to run migrations in transaction
+  use_transaction: true
+  
+  # Whether to continue on warnings
+  ignore_warnings: false
+  
+  # Backup retention
+  backup_retention_days: 30
+  
+  # Rollback settings
+  enable_auto_rollback: false
+  rollback_on_failure: false
+
+# Monitoring and notifications
+monitoring:
+  # Health check queries
+  health_checks:
+    - "SELECT COUNT(*) FROM players"
+    - "SELECT COUNT(*) FROM sessions WHERE is_active = true"
+    - "SELECT COUNT(*) FROM matches WHERE completed_at IS NOT NULL"
+  
+  # Performance checks
+  performance_checks:
+    - query: "EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM player_leaderboard LIMIT 10"
+      max_execution_time_ms: 100
+    - query: "EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM recent_matches LIMIT 20"
+      max_execution_time_ms: 200
+
+# Notification settings
+notifications:
+  # Slack webhook (optional)
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  
+  # Email notifications (optional)
+  email_recipients:
+    - admin@yourdomain.com
+  
+  # Discord webhook (optional)
+  discord_webhook: ${DISCORD_WEBHOOK_URL}
+  
+  # Custom webhook
+  custom_webhook: ${CUSTOM_WEBHOOK_URL}
+
+# Security settings
+security:
+  # Whether to enable row level security
+  enable_rls: true
+  
+  # Whether to create default policies
+  create_default_policies: true
+  
+  # Whether to enable audit logging
+  enable_audit_log: false
+  
+  # Connection security
+  require_ssl: true
+  verify_ssl_cert: true
+
+# Feature flags for deployment
+features:
+  # Whether to create views
+  create_views: true
+  
+  # Whether to create indexes
+  create_indexes: true
+  
+  # Whether to create triggers
+  create_triggers: true
+  
+  # Whether to create functions
+  create_functions: true
+  
+  # Whether to create sample data function
+  create_sample_data_function: true

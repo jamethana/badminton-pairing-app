@@ -8,7 +8,13 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "audit:prod": "npm audit --audit-level=high --omit=dev",
+    "audit:full": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "security:check": "npm run audit:prod && echo 'Production dependencies are secure'",
+    "deploy:db": "cd database && ./deploy.sh",
+    "deploy:db:sample": "cd database && ./deploy.sh --with-sample-data"
   },
   "dependencies": {
     "firebase": "^12.1.0",

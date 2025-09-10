@@ -97,16 +97,25 @@ const CurrentMatches = ({
           >
             {court.isOccupied && court.currentMatch ? (
               <div className="match-content">
-                <h3>Court {court.id + 1}</h3>
+                <h3>
+                  Court {court.id + 1} 
+                  <span className="match-type-indicator">
+                    {court.currentMatch.matchType === 'singles' ? '(1v1)' : '(2v2)'}
+                  </span>
+                </h3>
                 <div className="teams">
                   <div className="team team1">
-                    <div className="player">{court.currentMatch.team1.player1.name}</div>
-                    <div className="player">{court.currentMatch.team1.player2.name}</div>
+                    <div className="player">{court.currentMatch.team1.player1?.name}</div>
+                    {court.currentMatch.team1.player2 && (
+                      <div className="player">{court.currentMatch.team1.player2.name}</div>
+                    )}
                   </div>
                   <div className="vs-divider">VS</div>
                   <div className="team team2">
-                    <div className="player">{court.currentMatch.team2.player1.name}</div>
-                    <div className="player">{court.currentMatch.team2.player2.name}</div>
+                    <div className="player">{court.currentMatch.team2.player1?.name}</div>
+                    {court.currentMatch.team2.player2 && (
+                      <div className="player">{court.currentMatch.team2.player2.name}</div>
+                    )}
                   </div>
                 </div>
                 <div className="match-time">

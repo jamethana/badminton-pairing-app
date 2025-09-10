@@ -7,17 +7,19 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   const [remainingPlayers, setRemainingPlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState([]);
+  const [matchType, setMatchType] = useState('doubles'); // 'singles' or 'doubles'
 
-  // Initialize with 4 random players when modal opens - only once
+  // Initialize with players when modal opens - only once
   useEffect(() => {
-    if (availablePool.length >= 4) {
+    const playersNeeded = matchType === 'singles' ? 2 : 4;
+    if (availablePool.length >= playersNeeded) {
       const shuffled = [...availablePool].sort(() => Math.random() - 0.5);
-      setAssignedPlayers(shuffled.slice(0, 4));
-      setRemainingPlayers(shuffled.slice(4));
+      setAssignedPlayers(shuffled.slice(0, playersNeeded));
+      setRemainingPlayers(shuffled.slice(playersNeeded));
       setSelectedPlayer(null);
       setSelectedAvailablePlayer(null);
     }
-  }, []); // Empty dependency array - only run once
+  }, [matchType]); // Re-run when match type changes
 
   const handlePlayerClick = (player, index) => {
     if (selectedAvailablePlayer) {
@@ -84,24 +86,46 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   };
 
   const handleFillCourt = () => {
-    if (assignedPlayers.length !== 4) {
+    const playersNeeded = matchType === 'singles' ? 2 : 4;
+    if (assignedPlayers.length !== playersNeeded) {
       return;
     }
     
-    const match = {
-      id: generateId(),
-      courtId: court.id,
-      team1: {
-        player1: assignedPlayers[0],
-        player2: assignedPlayers[1]
-      },
-      team2: {
-        player1: assignedPlayers[2],
-        player2: assignedPlayers[3]
-      },
-      startTime: new Date().toISOString(),
-      completed: false
-    };
+    let match;
+    
+    if (matchType === 'singles') {
+      match = {
+        id: generateId(),
+        courtId: court.id,
+        matchType: 'singles',
+        team1: {
+          player1: assignedPlayers[0],
+          player2: null
+        },
+        team2: {
+          player1: assignedPlayers[1], 
+          player2: null
+        },
+        startTime: new Date().toISOString(),
+        completed: false
+      };
+    } else {
+      match = {
+        id: generateId(),
+        courtId: court.id,
+        matchType: 'doubles',
+        team1: {
+          player1: assignedPlayers[0],
+          player2: assignedPlayers[1]
+        },
+        team2: {
+          player1: assignedPlayers[2],
+          player2: assignedPlayers[3]
+        },
+        startTime: new Date().toISOString(),
+        completed: false
+      };
+    }
     
     onFillCourt(court.id, match);
   };
@@ -121,12 +145,15 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
     // Shuffle all players
     const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
     
-    // Set new assigned players (first 4) and remaining players
-    setAssignedPlayers(shuffled.slice(0, 4));
-    setRemainingPlayers(shuffled.slice(4));
+    // Set new assigned players based on match type
+    const playersNeeded = matchType === 'singles' ? 2 : 4;
+    setAssignedPlayers(shuffled.slice(0, playersNeeded));
+    setRemainingPlayers(shuffled.slice(playersNeeded));
   };
 
-  if (availablePool.length < 4) {
+  const playersNeeded = matchType === 'singles' ? 2 : 4;
+  
+  if (availablePool.length < playersNeeded) {
     return (
       <Modal isOpen={true} onClose={onClose} className="court-modal">
         <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
@@ -139,7 +166,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
               <div className="warning-icon">⚠️</div>
               <div className="warning-content">
                 <h4>Not Enough Players</h4>
-                <p>You need at least 4 available players to fill this court.</p>
+                <p>You need at least {playersNeeded} available players for {matchType} matches.</p>
                 <div className="player-count">
                   <span className="count-label">Available Players:</span>
                   <span className="count-value">{availablePool.length}</span>
@@ -168,13 +195,29 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
         <div className="modal-body">
           {/* Match Preview */}
           <div className="match-preview">
-            <h4 className="preview-title">Match Preview</h4>
+            <div className="preview-header">
+              <h4 className="preview-title">Match Preview</h4>
+              <div className="match-type-toggle">
+                <button 
+                  className={`match-type-btn ${matchType === 'singles' ? 'active' : ''}`}
+                  onClick={() => setMatchType('singles')}
+                >
+                  1v1 Singles
+                </button>
+                <button 
+                  className={`match-type-btn ${matchType === 'doubles' ? 'active' : ''}`}
+                  onClick={() => setMatchType('doubles')}
+                >
+                  2v2 Doubles
+                </button>
+              </div>
+            </div>
             
             <div className="teams-container">
               {/* Team 1 */}
               <div className="team-preview team-1">
                 <div className="team-players">
-                  {assignedPlayers.slice(0, 2).map((player, index) => (
+                  {assignedPlayers.slice(0, matchType === 'singles' ? 1 : 2).map((player, index) => (
                     <div 
                       key={player.id} 
                       className={`player-slot clickable ${
@@ -205,21 +248,21 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
               {/* Team 2 */}
               <div className="team-preview team-2">
                 <div className="team-players">
-                  {assignedPlayers.slice(2, 4).map((player, index) => (
+                  {assignedPlayers.slice(matchType === 'singles' ? 1 : 2, matchType === 'singles' ? 2 : 4).map((player, index) => (
                     <div 
                       key={player.id} 
                       className={`player-slot clickable ${
-                        selectedPlayer?.index === index + 2 ? 'selected' : ''
+                        selectedPlayer?.index === index + (matchType === 'singles' ? 1 : 2) ? 'selected' : ''
                       } ${
                         selectedAvailablePlayer ? 'swap-ready' : ''
                     }`}
-                      onClick={() => handlePlayerClick(player, index + 2)}
+                      onClick={() => handlePlayerClick(player, index + (matchType === 'singles' ? 1 : 2))}
                     >
                       <div className="player-info">
                         <span className="player-name">{player.name}</span>
                         <span className="player-stats">
                           {/* {player.wins}W - {player.losses}L */}
-                          {getELOTier(player.elo).name}
+                          {getELOTier(player.elo).icon} {getELOTier(player.elo).name}
                         </span>
                       </div>
                     </div>
@@ -274,7 +317,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                       <span className="player-name">{player.name}</span>
                       <span className="player-stats">
                         {/* {player.wins}W - {player.losses}L */}
-                        {getELOTier(player.elo).name}
+                        {getELOTier(player.elo).icon} {getELOTier(player.elo).name}
                       </span>
                     </div>
                     <div className="player-actions">

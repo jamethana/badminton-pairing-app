@@ -34,11 +34,13 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
             >
               <div className="team-players">
                 <div className="player-name">
-                  {currentMatch.team1.player1.name}
+                  {currentMatch.team1.player1?.name}
                 </div>
-                <div className="player-name">
-                  {currentMatch.team1.player2.name}
-                </div>
+                {currentMatch.team1.player2 && (
+                  <div className="player-name">
+                    {currentMatch.team1.player2.name}
+                  </div>
+                )}
               </div>
             </button>
 
@@ -52,11 +54,13 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
             >
               <div className="team-players">
                 <div className="player-name">
-                  {currentMatch.team2.player1.name}
+                  {currentMatch.team2.player1?.name}
                 </div>
-                <div className="player-name">
-                  {currentMatch.team2.player2.name}
-                </div>
+                {currentMatch.team2.player2 && (
+                  <div className="player-name">
+                    {currentMatch.team2.player2.name}
+                  </div>
+                )}
               </div>
             </button>
 

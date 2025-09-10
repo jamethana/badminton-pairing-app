@@ -103,12 +103,15 @@ function App() {
   // Get occupied player IDs from all active sessions
   const occupiedPlayerIds = sessions.flatMap(session => {
     if (session.id === currentSessionId) return []; // Don't include current session
-    return session.currentMatches?.flatMap(match => [
-      match.team1.player1.id,
-      match.team1.player2.id,
-      match.team2.player1.id,
-      match.team2.player2.id
-    ]) || [];
+    return session.currentMatches?.flatMap(match => {
+      const playerIds = [
+        match.team1?.player1?.id,
+        match.team1?.player2?.id,
+        match.team2?.player1?.id,
+        match.team2?.player2?.id
+      ].filter(Boolean); // Remove null/undefined values
+      return playerIds;
+    }) || [];
   });
 
   const showNotification = useCallback((message, type = 'success') => {
@@ -303,12 +306,16 @@ function App() {
 
   // Available pool for current session
   const availablePool = sessionPlayers.filter(player => {
-    const isInMatch = currentSession?.currentMatches?.some(match =>
-      match.team1.player1.id === player.id ||
-      match.team1.player2.id === player.id ||
-      match.team2.player1.id === player.id ||
-      match.team2.player2.id === player.id
-    );
+    const isInMatch = currentSession?.currentMatches?.some(match => {
+      const playerIds = [
+        match.team1?.player1?.id,
+        match.team1?.player2?.id,
+        match.team2?.player1?.id,
+        match.team2?.player2?.id
+      ].filter(Boolean); // Remove null/undefined values
+      
+      return playerIds.includes(player.id);
+    });
     return player.isActive && !isInMatch;
   });
 
