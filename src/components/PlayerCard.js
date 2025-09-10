@@ -60,9 +60,9 @@ const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disa
       
       {/* Stats */}
       <div className="stat-details">
-        <small style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>
+        {/* <small style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>
           ELO: {playerELO}
-        </small>
+        </small> */}
         <small style={{ color: 'var(--success-color)' }}>
           Wins: {player.wins || 0}
         </small>

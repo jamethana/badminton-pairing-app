@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { generateId } from '../utils/helpers';
+import { generateId, getELOTier } from '../utils/helpers';
 
 const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
   const [assignedPlayers, setAssignedPlayers] = useState([]);
@@ -113,6 +113,22 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
     window.location.reload();
   };
 
+  const handleShufflePlayers = () => {
+    // Reset any selections first
+    setSelectedPlayer(null);
+    setSelectedAvailablePlayer(null);
+    
+    // Combine assigned and remaining players
+    const allAvailablePlayers = [...assignedPlayers, ...remainingPlayers];
+    
+    // Shuffle all players
+    const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
+    
+    // Set new assigned players (first 4) and remaining players
+    setAssignedPlayers(shuffled.slice(0, 4));
+    setRemainingPlayers(shuffled.slice(4));
+  };
+
   if (availablePool.length < 4) {
     return (
       <div className="modal-overlay" onClick={onClose}>
@@ -174,7 +190,9 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                       <div className="player-info">
                         <span className="player-name">{player.name}</span>
                         <span className="player-stats">
-                          {player.wins}W - {player.losses}L
+                          {/* {player.wins}W - {player.losses}L */}
+                          {/* {player.elo} */}
+                          {getELOTier(player.elo).name}
                         </span>
                       </div>
                     </div>
@@ -203,7 +221,8 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                       <div className="player-info">
                         <span className="player-name">{player.name}</span>
                         <span className="player-stats">
-                          {player.wins}W - {player.losses}L
+                          {/* {player.wins}W - {player.losses}L */}
+                          {getELOTier(player.elo).name}
                         </span>
                       </div>
                     </div>
@@ -221,6 +240,14 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
               disabled={selectedPlayer || selectedAvailablePlayer}
             >
               Confirm Match
+            </button>
+            <button 
+              className="btn btn-outline shuffle-btn"
+              onClick={handleShufflePlayers}
+              title="Shuffle players"
+              disabled={selectedPlayer || selectedAvailablePlayer}
+            >
+              🔀 Randomize
             </button>
             <button className="btn btn-outline" onClick={handleCancel}>
               Cancel
@@ -249,7 +276,8 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                     <div className="player-info">
                       <span className="player-name">{player.name}</span>
                       <span className="player-stats">
-                        {player.wins}W - {player.losses}L
+                        {/* {player.wins}W - {player.losses}L */}
+                        {getELOTier(player.elo).name}
                       </span>
                     </div>
                     <div className="player-actions">

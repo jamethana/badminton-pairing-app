@@ -2727,4 +2727,50 @@ code {
     font-size: 11px;
     padding: 1px 3px;
   }
+}
+
+/* Match Preview Shuffle Button */
+.shuffle-btn {
+  font-size: 12px;
+  padding: 8px 12px;
+  min-height: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.shuffle-btn:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.shuffle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Ensure modal actions have proper spacing */
+.modal-actions-middle {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Mobile responsiveness for shuffle button */
+@media (max-width: 768px) {
+  .shuffle-btn {
+    font-size: 11px;
+    padding: 6px 10px;
+    gap: 2px;
+  }
+  
+  .modal-actions-middle {
+    gap: 8px;
+  }
 } 
