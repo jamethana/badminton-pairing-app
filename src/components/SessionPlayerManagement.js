@@ -184,7 +184,7 @@ const SessionPlayerManagement = ({
               >
                 <span className="player-name">{player.name}</span>
                 <span className="player-lifetime-stats">
-                  Lifetime: {player.wins || 0}W - {player.losses || 0}L (ELO: {player.elo || 100})
+                  Lifetime: {player.wins || 0}W - {player.losses || 0}L (ELO: {player.elo || 1200})
                 </span>
                 <button className="invite-btn">+ Invite</button>
               </div>

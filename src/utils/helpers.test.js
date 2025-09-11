@@ -4,6 +4,11 @@ import {
   getTimeAgo, 
   calculateInitialELO, 
   updateELO, 
+  calculateELOChange,
+  calculateTeamELO,
+  calculateExpectedScore,
+  calculateKFactor,
+  updateConfidence,
   getELOTier,
   sortPlayersByELO,
   sortPlayersByWins,
@@ -111,50 +116,156 @@ describe('Helper Functions', () => {
     });
   });
 
-  describe('ELO System', () => {
+  describe('Advanced ELO System', () => {
     describe('calculateInitialELO', () => {
-      test('should calculate ELO from wins and losses', () => {
-        expect(calculateInitialELO(0, 0)).toBe(100); // Starting ELO
-        expect(calculateInitialELO(5, 3)).toBe(100 + (5 * 25) - (3 * 22)); // 100 + 125 - 66 = 159
-        expect(calculateInitialELO(10, 0)).toBe(100 + (10 * 25)); // 350
+      test('should return starting ELO for new players', () => {
+        expect(calculateInitialELO(0, 0)).toBe(1200); // New starting ELO
+      });
+
+      test('should estimate ELO based on win rate', () => {
+        expect(calculateInitialELO(5, 5)).toBe(1200); // 50% win rate = starting ELO
+        expect(calculateInitialELO(6, 4)).toBe(1300); // 60% win rate = +100 ELO
+        expect(calculateInitialELO(4, 6)).toBe(1100); // 40% win rate = -100 ELO
       });
 
       test('should not go below minimum ELO', () => {
-        expect(calculateInitialELO(0, 10)).toBe(1); // Should be capped at minimum
-        expect(calculateInitialELO(1, 20)).toBe(1); // Large losses still capped
+        expect(calculateInitialELO(0, 20)).toBe(700); // Very low win rate
+      });
+
+      test('should not go above maximum ELO', () => {
+        expect(calculateInitialELO(20, 0)).toBe(1700); // Very high win rate
       });
     });
 
-    describe('updateELO', () => {
-      test('should add points for wins', () => {
-        expect(updateELO(100, true)).toBe(125); // +25 for win
-        expect(updateELO(200, true)).toBe(225);
+    describe('calculateExpectedScore', () => {
+      test('should return 0.5 for equal ELO players', () => {
+        expect(calculateExpectedScore(1200, 1200)).toBeCloseTo(0.5, 2);
       });
 
-      test('should subtract points for losses', () => {
-        expect(updateELO(100, false)).toBe(78); // -22 for loss
-        expect(updateELO(200, false)).toBe(178);
+      test('should favor higher ELO player', () => {
+        expect(calculateExpectedScore(1300, 1200)).toBeGreaterThan(0.5);
+        expect(calculateExpectedScore(1200, 1300)).toBeLessThan(0.5);
       });
 
-      test('should not go below minimum ELO', () => {
-        expect(updateELO(20, false)).toBe(1); // Should be capped at 1
-        expect(updateELO(1, false)).toBe(1); // Already at minimum
+      test('should handle large ELO differences', () => {
+        expect(calculateExpectedScore(2000, 1000)).toBeCloseTo(1, 1);
+        expect(calculateExpectedScore(1000, 2000)).toBeCloseTo(0, 1);
+      });
+    });
+
+    describe('calculateTeamELO', () => {
+      test('should calculate average team ELO', () => {
+        expect(calculateTeamELO(1200, 1200)).toBe(1200);
+        expect(calculateTeamELO(1000, 1400)).toBe(1200);
+        expect(calculateTeamELO(1300, 1500)).toBe(1400);
+      });
+    });
+
+    describe('calculateKFactor', () => {
+      test('should use high K-factor for new players', () => {
+        expect(calculateKFactor(5)).toBe(40); // New player
+        expect(calculateKFactor(15)).toBe(40); // Still in calibration
+      });
+
+      test('should use base K-factor for regular players', () => {
+        expect(calculateKFactor(50)).toBe(32); // Regular player
+      });
+
+      test('should use low K-factor for experienced players', () => {
+        expect(calculateKFactor(150)).toBe(16); // Experienced player
+      });
+
+      test('should adjust for confidence', () => {
+        expect(calculateKFactor(50, 0.8)).toBeGreaterThan(32); // Lower confidence = higher K
+        expect(calculateKFactor(50, 1.0)).toBe(32); // Full confidence = base K
+      });
+    });
+
+    describe('calculateELOChange', () => {
+      test('should calculate proper ELO changes', () => {
+        const result = calculateELOChange({
+          playerELO: 1200,
+          opponentELO: 1200,
+          isWin: true,
+          matchCount: 50
+        });
+
+        expect(result.newELO).toBeGreaterThan(1200);
+        expect(result.eloChange).toBeGreaterThan(0);
+        expect(result.expectedScore).toBeCloseTo(0.5, 2);
+        expect(result.kFactor).toBe(32);
+      });
+
+      test('should give more points for upsets', () => {
+        const upset = calculateELOChange({
+          playerELO: 1200,
+          opponentELO: 1400,
+          isWin: true,
+          matchCount: 50
+        });
+
+        const expected = calculateELOChange({
+          playerELO: 1200,
+          opponentELO: 1200,
+          isWin: true,
+          matchCount: 50
+        });
+
+        expect(upset.eloChange).toBeGreaterThan(expected.eloChange);
+      });
+
+      test('should lose fewer points for expected losses', () => {
+        const expectedLoss = calculateELOChange({
+          playerELO: 1200,
+          opponentELO: 1400,
+          isWin: false,
+          matchCount: 50
+        });
+
+        const unexpectedLoss = calculateELOChange({
+          playerELO: 1400,
+          opponentELO: 1200,
+          isWin: false,
+          matchCount: 50
+        });
+
+        expect(Math.abs(expectedLoss.eloChange)).toBeLessThan(Math.abs(unexpectedLoss.eloChange));
+      });
+    });
+
+    describe('updateConfidence', () => {
+      test('should maintain confidence for recent activity', () => {
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        expect(updateConfidence(1.0, yesterday)).toBeCloseTo(0.995, 3);
+      });
+
+      test('should decay confidence for inactivity', () => {
+        const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        expect(updateConfidence(1.0, monthAgo)).toBeLessThan(0.9);
+      });
+
+      test('should not go below minimum confidence', () => {
+        const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+        expect(updateConfidence(1.0, yearAgo)).toBeGreaterThanOrEqual(0.5);
       });
     });
 
     describe('getELOTier', () => {
-      test('should return correct tiers for different ELO ranges', () => {
-        expect(getELOTier(50).name).toBe('Novice'); // Below 100
-        expect(getELOTier(150).name).toBe('Beginner'); // 100-200
-        expect(getELOTier(250).name).toBe('Intermediate'); // 200-300
-        expect(getELOTier(350).name).toBe('Advanced'); // 300-500
-        expect(getELOTier(550).name).toBe('Expert'); // 500-750
-        expect(getELOTier(800).name).toBe('Master'); // 750-1000
-        expect(getELOTier(1100).name).toBe('Legend'); // 1000+
+      test('should return correct tiers for new ELO ranges', () => {
+        expect(getELOTier(700).name).toBe('Unrated');
+        expect(getELOTier(900).name).toBe('Novice');
+        expect(getELOTier(1100).name).toBe('Learning');
+        expect(getELOTier(1300).name).toBe('Beginner');
+        expect(getELOTier(1500).name).toBe('Improving');
+        expect(getELOTier(1700).name).toBe('Intermediate');
+        expect(getELOTier(1900).name).toBe('Advanced');
+        expect(getELOTier(2100).name).toBe('Expert');
+        expect(getELOTier(2300).name).toBe('Master');
+        expect(getELOTier(2500).name).toBe('Grandmaster');
       });
 
       test('should return tier with color and icon', () => {
-        const tier = getELOTier(200);
+        const tier = getELOTier(1400);
         expect(tier).toHaveProperty('name');
         expect(tier).toHaveProperty('color');
         expect(tier).toHaveProperty('icon');
@@ -163,12 +274,26 @@ describe('Helper Functions', () => {
       });
     });
 
+    describe('Legacy updateELO function', () => {
+      test('should work with new system for backward compatibility', () => {
+        const newELO = updateELO(1200, true);
+        expect(newELO).toBeGreaterThan(1200);
+        expect(newELO).toBeLessThanOrEqual(3000);
+      });
+
+      test('should handle losses', () => {
+        const newELO = updateELO(1200, false);
+        expect(newELO).toBeLessThan(1200);
+        expect(newELO).toBeGreaterThanOrEqual(100);
+      });
+    });
+
     describe('sortPlayersByELO', () => {
       test('should sort players by ELO descending', () => {
         const players = [
-          { id: '1', name: 'Alice', elo: 150 },
-          { id: '2', name: 'Bob', elo: 200 },
-          { id: '3', name: 'Charlie', elo: 100 }
+          { id: '1', name: 'Alice', elo: 1150 },
+          { id: '2', name: 'Bob', elo: 1300 },
+          { id: '3', name: 'Charlie', elo: 1100 }
         ];
 
         const sorted = sortPlayersByELO(players);
@@ -180,12 +305,12 @@ describe('Helper Functions', () => {
       test('should handle missing ELO values', () => {
         const players = [
           { id: '1', name: 'Alice', wins: 5, losses: 2 },
-          { id: '2', name: 'Bob', elo: 200 }
+          { id: '2', name: 'Bob', elo: 1300 }
         ];
 
         const sorted = sortPlayersByELO(players);
-        expect(sorted[0].name).toBe('Bob'); // Has explicit ELO
-        expect(sorted[1].name).toBe('Alice'); // Calculated ELO
+        expect(sorted[0].name).toBe('Alice'); // Higher calculated ELO (1343)
+        expect(sorted[1].name).toBe('Bob'); // Lower explicit ELO (1300)
       });
     });
 

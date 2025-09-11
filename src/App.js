@@ -5,17 +5,21 @@ import CurrentMatches from './components/CurrentMatches';
 import Notification from './components/Notification';
 import Scoreboard from './components/Scoreboard';
 import ConnectionStatus from './components/ConnectionStatus';
+import CreateFirstSessionButton from './components/CreateFirstSessionButton';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSupabaseStorage } from './hooks/useSupabaseStorage';
 import { 
   generateId, 
   calculateInitialELO, 
-  updateELO, 
+  calculateELOChange,
+  calculateTeamELO,
+  updateConfidence,
   initializeSessionStats,
   createNewSession,
   getSessionPlayerStats,
   updateSessionPlayerStats,
-  getELOTier
+  getELOTier,
+  ELO_CONFIG
 } from './utils/helpers';
 
 function App() {
@@ -42,13 +46,15 @@ function App() {
 
   // Initialize current session if valid session exists
   useEffect(() => {
-    const activeSessions = safeSessions.filter(s => s.isActive !== false);
-    if (activeSessions.length > 0) {
-      if (!currentSessionId || !activeSessions.find(s => s.id === currentSessionId)) {
-        setCurrentSessionId(activeSessions[0].id);
-      }
-    } else {
+    const activeSessions = safeSessions.filter(s => s && (s.isActive !== false || s.is_active !== false));
+    
+    // If we have a currentSessionId but it's no longer valid (session was ended)
+    if (currentSessionId && !activeSessions.find(s => s.id === currentSessionId)) {
       setCurrentSessionId(null);
+    }
+    // Only auto-select a session on initial load when no session is selected
+    else if (!currentSessionId && activeSessions.length > 0) {
+      setCurrentSessionId(activeSessions[0].id);
     }
   }, [safeSessions, currentSessionId, setCurrentSessionId]);
 
@@ -96,7 +102,12 @@ function App() {
     }
   }, [safeGlobalPlayers, setGlobalPlayers]);
 
-  const currentSession = safeSessions.find(s => s && s.id === currentSessionId && s.isActive !== false);
+  // Find current session - ensure it exists, matches ID, and is active
+  const currentSession = currentSessionId ? safeSessions.find(s => 
+    s && 
+    s.id === currentSessionId && 
+    (s.isActive !== false || s.is_active !== false)
+  ) : null;
   
   // Get session players with their session-specific stats from session_players table
   const currentSessionPlayers = sessionPlayers.filter(sp => 
@@ -140,7 +151,7 @@ function App() {
       sessionMatchCount: sessionPlayer.session_matches || 0,
       sessionLastMatchTime: sessionPlayer.last_match_time || sessionPlayer.joined_at,
       isActive: sessionPlayer.is_active_in_session !== false,
-      sessionElo: sessionPlayer.session_elo_current || globalPlayer.elo || 100
+      sessionElo: sessionPlayer.session_elo_current || globalPlayer.elo || 1200
     };
   }).filter(Boolean);
   
@@ -262,6 +273,7 @@ function App() {
         return {
           ...session,
           isActive: false,
+          is_active: false, // Ensure both fields are set for compatibility
           ended_at: new Date().toISOString(),
           lastActiveAt: new Date().toISOString()
         };
@@ -269,20 +281,15 @@ function App() {
       return session;
     }));
     
-    // If ending current session, handle navigation
+    // If ending current session, always go to main menu first
+    // Let the user manually select another session if they want
     if (targetSessionId === currentSessionId) {
-      const remainingSessions = safeSessions.filter(s => s && s.id !== targetSessionId && s.isActive !== false);
-      if (remainingSessions.length > 0) {
-        setCurrentSessionId(remainingSessions[0].id);
-        showNotification(`Session ended. Switched to: ${remainingSessions[0].name}`);
-      } else {
-        setCurrentSessionId(null);
-        showNotification('Session ended - returned to main menu');
-      }
+      setCurrentSessionId(null);
+      showNotification('Session ended - returned to main menu');
     } else {
       showNotification('Session ended');
     }
-  }, [currentSessionId, safeSessions, setSessions, setCurrentSessionId, showNotification]);
+  }, [currentSessionId, setSessions, setCurrentSessionId, showNotification]);
 
   const handleAddPlayerToSession = useCallback((playerId) => {
     if (!currentSession) return;
@@ -301,13 +308,16 @@ function App() {
     const player = safeGlobalPlayers.find(p => p && p.id === playerId);
     if (!player) return;
     
-    const currentELO = player.elo || 100;
+    const currentELO = player.elo || ELO_CONFIG.STARTING_ELO;
     
     // Create new session player relationship
     const newSessionPlayer = {
       id: generateId(),
       session_id: currentSessionId,
       player_id: playerId,
+      // Add name fields for Supabase UUID resolution
+      player_name: player.name,
+      session_name: currentSession.name,
       joined_at: new Date().toISOString(),
       left_at: null,
       session_matches: 0,
@@ -350,7 +360,8 @@ function App() {
       wins: 0,
       losses: 0,
       lastMatchTime: null,
-      elo: 100,
+      elo: ELO_CONFIG.STARTING_ELO,
+      confidence: 1.0,
       sessionStats: {}
     };
 
@@ -361,6 +372,9 @@ function App() {
       id: generateId(),
       session_id: currentSessionId,
       player_id: newPlayer.id,
+      // Add name fields for Supabase UUID resolution
+      player_name: newPlayer.name,
+      session_name: currentSession.name,
       joined_at: new Date().toISOString(),
       left_at: null,
       session_matches: 0,
@@ -521,14 +535,47 @@ function App() {
         if (isWinner || isLoser) {
           console.log(`🎯 Updating stats for player: ${globalPlayer.name}, isWinner: ${isWinner}`);
           
-          // Update lifetime stats
+          // Get current player stats
           const currentELO = globalPlayer.elo || calculateInitialELO(globalPlayer.wins || 0, globalPlayer.losses || 0);
-          const newELO = updateELO(currentELO, isWinner);
+          const matchCount = globalPlayer.matchCount || 0;
+          const confidence = updateConfidence(globalPlayer.confidence || 1.0, globalPlayer.lastMatchTime);
           
-          console.log(`📈 ELO change: ${currentELO} → ${newELO} (${isWinner ? '+' : '-'}${Math.abs(newELO - currentELO)})`);
-          console.log(`📊 Stats update: Wins ${globalPlayer.wins || 0} → ${(globalPlayer.wins || 0) + (isWinner ? 1 : 0)}, Losses ${globalPlayer.losses || 0} → ${(globalPlayer.losses || 0) + (isLoser ? 1 : 0)}`);
+          // Calculate team ELOs for proper opponent rating
+          const playerTeam = isWinner ? winningTeam : losingTeam;
+          const opponentTeam = isWinner ? losingTeam : winningTeam;
           
-          // Record ELO change for history
+          // Find teammate and opponent ELOs
+          const teammatePlayer = safeGlobalPlayers.find(p => 
+            p.id !== globalPlayer.id && 
+            (p.id === playerTeam.player1.id || p.id === playerTeam.player2.id)
+          );
+          const opponent1Player = safeGlobalPlayers.find(p => p.id === opponentTeam.player1.id);
+          const opponent2Player = safeGlobalPlayers.find(p => p.id === opponentTeam.player2.id);
+          
+          const teammateELO = teammatePlayer ? (teammatePlayer.elo || calculateInitialELO(teammatePlayer.wins || 0, teammatePlayer.losses || 0)) : currentELO;
+          const opponent1ELO = opponent1Player ? (opponent1Player.elo || calculateInitialELO(opponent1Player.wins || 0, opponent1Player.losses || 0)) : ELO_CONFIG.STARTING_ELO;
+          const opponent2ELO = opponent2Player ? (opponent2Player.elo || calculateInitialELO(opponent2Player.wins || 0, opponent2Player.losses || 0)) : ELO_CONFIG.STARTING_ELO;
+          
+          // Calculate team ELOs
+          const playerTeamELO = calculateTeamELO(currentELO, teammateELO);
+          const opponentTeamELO = calculateTeamELO(opponent1ELO, opponent2ELO);
+          
+          // Calculate ELO change using the new system
+          const eloResult = calculateELOChange({
+            playerELO: currentELO,
+            opponentELO: opponentTeamELO,
+            isWin: isWinner,
+            matchCount,
+            confidence
+          });
+          
+          const newELO = eloResult.newELO;
+          
+          console.log(`📈 ELO change: ${currentELO} → ${newELO} (${eloResult.eloChange >= 0 ? '+' : ''}${eloResult.eloChange})`);
+          console.log(`📊 Expected score: ${eloResult.expectedScore}, K-factor: ${eloResult.kFactor}`);
+          console.log(`🏸 Team ELOs: Player team ${playerTeamELO} vs Opponent team ${opponentTeamELO}`);
+          
+          // Record ELO change for history with detailed information
           eloChanges.push({
             id: generateId(),
             player_id: globalPlayer.id,
@@ -539,9 +586,15 @@ function App() {
             session_name: currentSession.name,
             elo_before: currentELO,
             elo_after: newELO,
-            elo_change: newELO - currentELO,
+            elo_change: eloResult.eloChange,
             was_winner: isWinner,
-            opponent_elo: 100, // We'll calculate average opponent ELO properly later
+            opponent_elo: opponentTeamELO,
+            expected_score: eloResult.expectedScore,
+            k_factor: eloResult.kFactor,
+            player_team_elo: playerTeamELO,
+            opponent_team_elo: opponentTeamELO,
+            match_count: matchCount,
+            confidence: confidence,
             created_at: new Date().toISOString()
           });
           
@@ -561,6 +614,8 @@ function App() {
             playerInCleanedArray.session_losses = (playerInCleanedArray.session_losses || 0) + (isLoser ? 1 : 0);
             playerInCleanedArray.session_matches = (playerInCleanedArray.session_matches || 0) + 1;
             playerInCleanedArray.session_elo_current = newELO;
+            // Update peak ELO if new ELO is higher
+            playerInCleanedArray.session_elo_peak = Math.max(playerInCleanedArray.session_elo_peak || newELO, newELO);
             playerInCleanedArray.last_match_time = new Date().toISOString();
           }
           
@@ -578,6 +633,8 @@ function App() {
                   session_losses: (sessionPlayer.session_losses || 0) + (isLoser ? 1 : 0),
                   session_matches: (sessionPlayer.session_matches || 0) + 1,
                   session_elo_current: newELO,
+                  // Update peak ELO if new ELO is higher
+                  session_elo_peak: Math.max(sessionPlayer.session_elo_peak || newELO, newELO),
                   last_match_time: new Date().toISOString()
                 };
               }
@@ -603,6 +660,7 @@ function App() {
             matchCount: (globalPlayer.matchCount || 0) + 1,
             lastMatchTime: new Date().toISOString(),
             elo: newELO,
+            confidence: confidence,
             // Update session stats
             sessionStats: {
               ...globalPlayer.sessionStats,
@@ -937,17 +995,13 @@ function App() {
           <div className="no-sessions-page">
             <div className="no-sessions-content">
               <div className="welcome-message">
-                <h2>Welcome to Badminton Pairing!</h2>
-                <p>Create your first session to start organizing matches and tracking player stats.</p>
+                <h2>Welcome to Badminton Pairing! 🏸</h2>
+                <p>Get started by creating your first badminton session. You'll be able to organize matches, track player stats, and manage courts all in one place.</p>
               </div>
               
               <div className="create-first-session">
-                <SessionHamburgerMenu
-                  sessions={safeSessions.filter(s => s.isActive !== false)}
-                  currentSessionId={null}
-                  onSessionSelect={handleSessionSelect}
+                <CreateFirstSessionButton
                   onSessionCreate={handleSessionCreate}
-                  onSessionEnd={handleSessionEnd}
                 />
               </div>
               
@@ -990,7 +1044,7 @@ function App() {
                 </div>
               )}
 
-              <div className="features-preview">
+              {/* <div className="features-preview">
                 <h3>What you can do:</h3>
                 <ul>
                   <li>🎯 Create multiple independent sessions</li>
@@ -999,7 +1053,7 @@ function App() {
                   <li>📊 View session and lifetime rankings</li>
                   <li>🏆 Track ELO ratings and player progression</li>
                 </ul>
-              </div>
+              </div> */}
             </div>
           </div>
           
@@ -1020,7 +1074,7 @@ function App() {
       <div className="container">
         <header className="app-header">
         <SessionHamburgerMenu
-          sessions={safeSessions.filter(s => s.isActive !== false)}
+          sessions={safeSessions.filter(s => s && (s.isActive !== false || s.is_active !== false))}
           currentSessionId={currentSessionId}
           onSessionSelect={handleSessionSelect}
           onSessionCreate={handleSessionCreate}

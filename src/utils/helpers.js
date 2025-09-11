@@ -29,36 +29,168 @@ export function getTimeAgo(timestamp) {
   return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
 }
 
-// ELO Rating System
+// Advanced ELO Rating System
 export const ELO_CONFIG = {
-  STARTING_ELO: 100,
-  WIN_POINTS: 25,
-  LOSS_POINTS: 22,
-  MIN_ELO: 1
+  STARTING_ELO: 1200,        // Standard starting ELO
+  MIN_ELO: 100,              // Minimum possible ELO
+  MAX_ELO: 3000,             // Maximum possible ELO
+  K_FACTOR_BASE: 32,         // Base K-factor for ELO changes
+  K_FACTOR_NEW_PLAYER: 40,   // Higher K-factor for new players (first 20 matches)
+  K_FACTOR_EXPERIENCED: 16,  // Lower K-factor for experienced players (>100 matches)
+  CALIBRATION_MATCHES: 20,   // Number of matches considered calibration period
+  EXPERIENCED_MATCHES: 100,  // Number of matches to be considered experienced
+  CONFIDENCE_DECAY: 0.995    // Confidence decay factor for inactive players
 };
 
-// Calculate ELO from existing wins and losses
+/**
+ * Calculate expected score using standard ELO formula
+ * @param {number} playerELO - Player's current ELO
+ * @param {number} opponentELO - Opponent's ELO (or average for team)
+ * @returns {number} Expected score between 0 and 1
+ */
+export function calculateExpectedScore(playerELO, opponentELO) {
+  const eloDifference = opponentELO - playerELO;
+  return 1 / (1 + Math.pow(10, eloDifference / 400));
+}
+
+/**
+ * Calculate team ELO for doubles matches
+ * @param {number} player1ELO - First player's ELO
+ * @param {number} player2ELO - Second player's ELO
+ * @returns {number} Team ELO (weighted average)
+ */
+export function calculateTeamELO(player1ELO, player2ELO) {
+  // Simple average for now, could be weighted based on matches played
+  return Math.round((player1ELO + player2ELO) / 2);
+}
+
+/**
+ * Calculate dynamic K-factor based on player experience and confidence
+ * @param {number} matchCount - Total matches played
+ * @param {number} confidence - Player's confidence rating (0-1)
+ * @returns {number} K-factor for ELO calculation
+ */
+export function calculateKFactor(matchCount, confidence = 1.0) {
+  let kFactor;
+  
+  if (matchCount < ELO_CONFIG.CALIBRATION_MATCHES) {
+    // New players: higher volatility
+    kFactor = ELO_CONFIG.K_FACTOR_NEW_PLAYER;
+  } else if (matchCount > ELO_CONFIG.EXPERIENCED_MATCHES) {
+    // Experienced players: lower volatility
+    kFactor = ELO_CONFIG.K_FACTOR_EXPERIENCED;
+  } else {
+    // Regular players: standard volatility
+    kFactor = ELO_CONFIG.K_FACTOR_BASE;
+  }
+  
+  // Adjust based on confidence (lower confidence = higher volatility)
+  kFactor = kFactor * (2 - confidence);
+  
+  return Math.round(kFactor);
+}
+
+/**
+ * Calculate ELO change for a match result
+ * @param {Object} params - Match parameters
+ * @param {number} params.playerELO - Player's current ELO
+ * @param {number} params.opponentELO - Opponent's ELO (team ELO for doubles)
+ * @param {boolean} params.isWin - Whether the player won
+ * @param {number} params.matchCount - Player's total match count
+ * @param {number} params.confidence - Player's confidence rating (optional)
+ * @returns {Object} {newELO, eloChange, expectedScore}
+ */
+export function calculateELOChange({ playerELO, opponentELO, isWin, matchCount, confidence = 1.0 }) {
+  const expectedScore = calculateExpectedScore(playerELO, opponentELO);
+  const actualScore = isWin ? 1 : 0;
+  const kFactor = calculateKFactor(matchCount, confidence);
+  
+  const eloChange = Math.round(kFactor * (actualScore - expectedScore));
+  const newELO = Math.max(ELO_CONFIG.MIN_ELO, Math.min(ELO_CONFIG.MAX_ELO, playerELO + eloChange));
+  
+  return {
+    newELO,
+    eloChange,
+    expectedScore: Math.round(expectedScore * 100) / 100, // Round to 2 decimal places
+    kFactor
+  };
+}
+
+/**
+ * Update player's confidence based on match activity
+ * @param {number} currentConfidence - Current confidence rating
+ * @param {string} lastMatchTime - ISO string of last match time
+ * @returns {number} Updated confidence rating
+ */
+export function updateConfidence(currentConfidence = 1.0, lastMatchTime) {
+  if (!lastMatchTime) return currentConfidence;
+  
+  const now = new Date();
+  const lastMatch = new Date(lastMatchTime);
+  const daysSinceLastMatch = (now - lastMatch) / (1000 * 60 * 60 * 24);
+  
+  // Decay confidence based on inactivity (1% per day of inactivity)
+  const confidenceDecay = Math.pow(ELO_CONFIG.CONFIDENCE_DECAY, daysSinceLastMatch);
+  return Math.max(0.5, Math.min(1.0, currentConfidence * confidenceDecay));
+}
+
+/**
+ * Calculate initial ELO for existing players (backward compatibility)
+ * @param {number} wins - Number of wins
+ * @param {number} losses - Number of losses
+ * @returns {number} Estimated ELO based on win/loss record
+ */
 export function calculateInitialELO(wins = 0, losses = 0) {
-  const totalELO = ELO_CONFIG.STARTING_ELO + (wins * ELO_CONFIG.WIN_POINTS) - (losses * ELO_CONFIG.LOSS_POINTS);
-  return Math.max(ELO_CONFIG.MIN_ELO, totalELO);
+  if (wins === 0 && losses === 0) {
+    return ELO_CONFIG.STARTING_ELO;
+  }
+  
+  // Estimate ELO based on win rate
+  const totalMatches = wins + losses;
+  const winRate = wins / totalMatches;
+  
+  // Convert win rate to ELO (approximate)
+  // 50% win rate = starting ELO, each 10% = ~100 ELO points
+  const estimatedELO = ELO_CONFIG.STARTING_ELO + ((winRate - 0.5) * 1000);
+  
+  return Math.max(ELO_CONFIG.MIN_ELO, Math.min(ELO_CONFIG.MAX_ELO, Math.round(estimatedELO)));
 }
 
-// Update ELO after a match result
-export function updateELO(currentELO, isWin) {
-  const change = isWin ? ELO_CONFIG.WIN_POINTS : -ELO_CONFIG.LOSS_POINTS;
-  const newELO = currentELO + change;
-  return Math.max(ELO_CONFIG.MIN_ELO, newELO);
+/**
+ * Legacy function for backward compatibility - now uses proper ELO calculation
+ * @param {number} currentELO - Current ELO rating
+ * @param {boolean} isWin - Whether the match was won
+ * @param {number} opponentELO - Opponent's ELO (defaults to starting ELO)
+ * @param {number} matchCount - Player's match count (defaults to 50)
+ * @returns {number} New ELO rating
+ */
+export function updateELO(currentELO, isWin, opponentELO = ELO_CONFIG.STARTING_ELO, matchCount = 50) {
+  const result = calculateELOChange({
+    playerELO: currentELO,
+    opponentELO,
+    isWin,
+    matchCount
+  });
+  return result.newELO;
 }
 
-// Get ELO tier/rank name based on ELO score
+/**
+ * Get ELO tier/rank name based on ELO score
+ * Updated for new ELO system (starting at 1200)
+ * @param {number} elo - Player's ELO rating
+ * @returns {Object} Tier information with name, color, and icon
+ */
 export function getELOTier(elo) {
-  if (elo > 1000) return { name: 'Legend', color: '#FFD700', icon: '👑' };
-  if (elo > 750) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
-  if (elo > 500) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
-  if (elo > 300) return { name: 'Advanced', color: '#45B7D1', icon: '🎯' };
-  if (elo > 200) return { name: 'Intermediate', color: '#96CEB4', icon: '🌟' };
-  if (elo > 100) return { name: 'Beginner', color: '#F1B40F', icon: '🌱' };
-  return { name: 'Novice', color: '#DDA0DD', icon: '🥚' };
+  if (elo >= 2400) return { name: 'Grandmaster', color: '#FFD700', icon: '👑' };
+  if (elo >= 2200) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
+  if (elo >= 2000) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
+  if (elo >= 1800) return { name: 'Advanced', color: '#45B7D1', icon: '🎯' };
+  if (elo >= 1600) return { name: 'Intermediate', color: '#96CEB4', icon: '🌟' };
+  if (elo >= 1400) return { name: 'Improving', color: '#F39C12', icon: '📈' };
+  if (elo >= 1200) return { name: 'Beginner', color: '#F1B40F', icon: '🌱' };
+  if (elo >= 1000) return { name: 'Learning', color: '#E67E22', icon: '📚' };
+  if (elo >= 800) return { name: 'Novice', color: '#DDA0DD', icon: '🥚' };
+  return { name: 'Unrated', color: '#95A5A6', icon: '❓' };
 }
 
 // Sort players by ELO (highest first)

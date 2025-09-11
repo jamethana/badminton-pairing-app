@@ -58,9 +58,9 @@ class DatabaseService {
       total_matches: 0,
       total_wins: 0,
       total_losses: 0,
-      current_elo: 100,
-      highest_elo: 100,
-      lowest_elo: 100,
+      current_elo: 1200,
+      highest_elo: 1200,
+      lowest_elo: 1200,
       
       // Metadata
       is_active: true,
@@ -199,9 +199,9 @@ class DatabaseService {
       session_matches: 0,
       session_wins: 0,
       session_losses: 0,
-      session_elo_start: 100,
-      session_elo_current: 100,
-      session_elo_peak: 100,
+      session_elo_start: 1200,
+      session_elo_current: 1200,
+      session_elo_peak: 1200,
       
       is_active_in_session: true
     };

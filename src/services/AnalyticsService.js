@@ -518,7 +518,7 @@ class AnalyticsService {
     const playerElo = playerReport.player.current_elo;
     
     playerReport.headToHead.allMatchups.forEach(matchup => {
-      const opponentElo = players.find(p => p.id === matchup.player2.id)?.current_elo || 100;
+      const opponentElo = players.find(p => p.id === matchup.player2.id)?.current_elo || 1200;
       const eloDiff = opponentElo - playerElo;
       
       let tier;

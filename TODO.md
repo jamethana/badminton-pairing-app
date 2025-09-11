@@ -17,14 +17,12 @@
 - **Dynamic Point System**: Larger changes for upsets, smaller for expected outcomes
 - **Team ELO Calculation**: For doubles matches, calculate team ELO vs individual
 - **Confidence Intervals**: Account for player reliability (more matches = more stable ELO)
-- **Decay System**: Slight ELO decay for inactive players
 - **Calibration Matches**: Initial placement matches with higher ELO volatility
 
 **Implementation Notes:**
 - Research standard ELO formulas (chess, tennis, etc.)
 - Consider Glicko or TrueSkill rating systems
 - Add ELO calculation parameters to session settings
-- Maintain backward compatibility during transition
 
 ---
 

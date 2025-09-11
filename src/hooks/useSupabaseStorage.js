@@ -11,11 +11,19 @@ export function useSupabaseStorage(key, initialValue) {
   useEffect(() => {
     const initializeStorage = async () => {
       try {
-        // Special handling for session_players - keep localStorage-only for now
+        // Enable Supabase sync for session_players
         if (key === 'badminton_session_players') {
-          console.log(`📁 Using localStorage only for ${key} (no Supabase sync yet)`);
-          setUseSupabase(false);
-          loadFromLocalStorage();
+          console.log(`🚀 Enabling full Supabase sync for ${key}`);
+          const client = await createSupabaseClient();
+          if (client) {
+            setSupabaseClient(client);
+            setUseSupabase(true);
+            await loadFromSupabase(client, key);
+          } else {
+            console.log(`📁 Using localStorage for ${key}`);
+            setUseSupabase(false);
+            loadFromLocalStorage();
+          }
           setIsLoading(false);
           return;
         }
@@ -230,7 +238,7 @@ export function useSupabaseStorage(key, initialValue) {
         wins: player.total_wins || 0,
         losses: player.total_losses || 0,
         matchCount: player.total_matches || 0,
-        elo: player.current_elo || 100,
+        elo: player.current_elo || 1200,
         isActive: player.is_active !== false,
         lastMatchTime: player.last_match_at,
         // Add any session stats if they exist
@@ -242,26 +250,42 @@ export function useSupabaseStorage(key, initialValue) {
         name: session.name,
         description: session.description,
         createdAt: session.created_at,
+        lastActiveAt: session.updated_at,
         isActive: session.is_active !== false,
+        is_active: session.is_active !== false, // Keep both for compatibility
         courtCount: session.court_count || 4,
+        totalMatchesPlayed: session.total_matches_played || 0,
         playerIds: [], // Will be populated from session_players table
         courtStates: [], // Will be initialized by App.js
         currentMatches: [], // Will be reconstructed from active matches
-        ended_at: session.ended_at
+        ended_at: session.ended_at,
+        endedAt: session.ended_at
       }));
     } else if (tableName === TABLES.SESSION_PLAYERS) {
-      return data.map(sp => ({
+      // Load session players with expanded data including player and session names
+      const { data: expandedData } = await client
+        .from(TABLES.SESSION_PLAYERS)
+        .select(`
+          *,
+          player:players!session_players_player_id_fkey(name),
+          session:sessions!session_players_session_id_fkey(name)
+        `);
+      
+      return (expandedData || data).map(sp => ({
         id: sp.id,
         session_id: sp.session_id,
         player_id: sp.player_id,
+        // Add name fields for future UUID resolution
+        player_name: sp.player?.name || null,
+        session_name: sp.session?.name || null,
         joined_at: sp.joined_at,
         left_at: sp.left_at,
         session_matches: sp.session_matches || 0,
         session_wins: sp.session_wins || 0,
         session_losses: sp.session_losses || 0,
-        session_elo_start: sp.session_elo_start || 100,
-        session_elo_current: sp.session_elo_current || 100,
-        session_elo_peak: sp.session_elo_peak || 100,
+        session_elo_start: sp.session_elo_start || 1200,
+        session_elo_current: sp.session_elo_current || 1200,
+        session_elo_peak: sp.session_elo_peak || 1200,
         is_active_in_session: sp.is_active_in_session !== false
       }));
     } else if (tableName === TABLES.MATCHES) {
@@ -375,9 +399,9 @@ export function useSupabaseStorage(key, initialValue) {
           total_matches: player.matchCount || 0,
           total_wins: player.wins || 0,
           total_losses: player.losses || 0,
-          current_elo: player.elo || 100,
-          highest_elo: player.elo || 100,
-          lowest_elo: player.elo || 100,
+          current_elo: player.elo || 1200,
+          highest_elo: player.elo || 1200,
+          lowest_elo: player.elo || 1200,
           is_active: player.isActive !== false,
           last_match_at: player.lastMatchTime ? new Date(player.lastMatchTime) : null
         });
@@ -534,9 +558,10 @@ export function useSupabaseStorage(key, initialValue) {
         total_matches: player.matchCount || 0,
         total_wins: player.wins || 0,
         total_losses: player.losses || 0,
-        current_elo: player.elo || 100,
-        highest_elo: Math.max(player.elo || 100, player.highest_elo || 100),
-        lowest_elo: Math.min(player.elo || 100, player.lowest_elo || 100),
+        current_elo: player.elo || 1200, // Use new default starting ELO
+        highest_elo: Math.max(player.elo || 1200, player.highest_elo || 1200),
+        lowest_elo: Math.min(player.elo || 1200, player.lowest_elo || 1200),
+        confidence: player.confidence || 1.0, // Add confidence field
         is_active: player.isActive !== false,
         last_match_at: player.lastMatchTime ? new Date(player.lastMatchTime) : null,
         updated_at: new Date()
@@ -616,12 +641,102 @@ export function useSupabaseStorage(key, initialValue) {
 
   // Save session players to Supabase
   const saveSessionPlayersToSupabase = async (sessionPlayersData) => {
-    console.log('⚠️ Session players sync temporarily disabled due to UUID constraints');
-    console.log('Players will sync, but session relationships will be localStorage only for now');
+    console.log(`💾 Saving ${sessionPlayersData.length} session players to Supabase`);
     
-    // TODO: Implement proper UUID mapping between local and Supabase IDs
-    // For now, keeping localStorage only to avoid foreign key constraint issues
-    return;
+    // Get player and session mappings to resolve UUIDs
+    const { data: players } = await supabaseClient
+      .from(TABLES.PLAYERS)
+      .select('id, name');
+    
+    const { data: sessions } = await supabaseClient
+      .from(TABLES.SESSIONS)
+      .select('id, name');
+    
+    const playersByName = players?.reduce((acc, p) => {
+      acc[p.name] = p.id;
+      return acc;
+    }, {}) || {};
+    
+    const sessionsByName = sessions?.reduce((acc, s) => {
+      acc[s.name] = s.id;
+      return acc;
+    }, {}) || {};
+    
+    // Get existing session players to avoid duplicates
+    const { data: existingSessionPlayers } = await supabaseClient
+      .from(TABLES.SESSION_PLAYERS)
+      .select('id, session_id, player_id');
+    
+    const existingBySessionAndPlayer = existingSessionPlayers?.reduce((acc, sp) => {
+      acc[`${sp.session_id}-${sp.player_id}`] = sp.id;
+      return acc;
+    }, {}) || {};
+    
+    // Process each session player
+    for (const sessionPlayer of sessionPlayersData) {
+      if (!sessionPlayer || !sessionPlayer.session_id || !sessionPlayer.player_id) continue;
+      
+      // We need to resolve player and session names for UUID mapping
+      // For session players, we'll use the stored names if available, or skip if not resolvable
+      const playerName = sessionPlayer.player_name;
+      const sessionName = sessionPlayer.session_name;
+      
+      if (!playerName || !sessionName) {
+        console.log(`⚠️ Skipping session player - missing name data for resolution`);
+        continue;
+      }
+      
+      const playerUuid = playersByName[playerName];
+      const sessionUuid = sessionsByName[sessionName];
+      
+      if (!playerUuid || !sessionUuid) {
+        console.log(`⚠️ Skipping session player - missing UUID mapping: ${playerName} in ${sessionName}`);
+        continue;
+      }
+      
+      // Ensure peak ELO is at least as high as current ELO to satisfy constraint
+      const currentElo = sessionPlayer.session_elo_current || 1200;
+      const peakElo = Math.max(sessionPlayer.session_elo_peak || 1200, currentElo);
+      
+      const sessionPlayerData = {
+        session_id: sessionUuid,
+        player_id: playerUuid,
+        joined_at: sessionPlayer.joined_at ? new Date(sessionPlayer.joined_at) : new Date(),
+        left_at: sessionPlayer.left_at ? new Date(sessionPlayer.left_at) : null,
+        session_matches: sessionPlayer.session_matches || 0,
+        session_wins: sessionPlayer.session_wins || 0,
+        session_losses: sessionPlayer.session_losses || 0,
+        session_elo_start: sessionPlayer.session_elo_start || 1200,
+        session_elo_current: currentElo,
+        session_elo_peak: peakElo,
+        is_active_in_session: sessionPlayer.is_active_in_session !== false
+      };
+      
+      const existingKey = `${sessionUuid}-${playerUuid}`;
+      
+      if (existingBySessionAndPlayer[existingKey]) {
+        // Update existing session player
+        const { error } = await supabaseClient
+          .from(TABLES.SESSION_PLAYERS)
+          .update(sessionPlayerData)
+          .eq('id', existingBySessionAndPlayer[existingKey]);
+        
+        if (error) {
+          console.error('Error updating session player:', playerName, error);
+        }
+      } else {
+        // Insert new session player
+        const { error } = await supabaseClient
+          .from(TABLES.SESSION_PLAYERS)
+          .insert(sessionPlayerData);
+        
+        if (error && error.code !== '23505') { // Ignore duplicate key errors
+          console.error('Error inserting session player:', playerName, error);
+        }
+      }
+    }
+    
+    console.log(`✅ Session players saved to Supabase`);
   };
 
   // Save matches to Supabase
@@ -805,6 +920,13 @@ export function useSupabaseStorage(key, initialValue) {
         elo_change: elo.elo_change,
         was_winner: elo.was_winner,
         opponent_elo: elo.opponent_elo,
+        // New advanced ELO fields
+        expected_score: elo.expected_score || null,
+        k_factor: elo.k_factor || null,
+        player_team_elo: elo.player_team_elo || null,
+        opponent_team_elo: elo.opponent_team_elo || null,
+        match_count: elo.match_count || null,
+        confidence: elo.confidence || null,
         created_at: elo.created_at ? new Date(elo.created_at) : new Date()
       };
 

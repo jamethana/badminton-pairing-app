@@ -2,7 +2,7 @@
 // Uses DatabaseService for persistence, contains game rules and logic
 
 import databaseService from './DatabaseService';
-import { updateELO, calculateInitialELO } from '../utils/helpers';
+import { updateELO, calculateInitialELO, calculateELOChange } from '../utils/helpers';
 
 class GameService {
   constructor() {
@@ -38,7 +38,7 @@ class GameService {
         session_matches: 0,
         session_wins: 0,
         session_losses: 0,
-        session_elo_current: 100,
+        session_elo_current: 1200,
         is_active_in_session: true
       }
     };
@@ -171,9 +171,23 @@ class GameService {
       const isTeam1 = match.team1_player1_id === playerId || match.team1_player2_id === playerId;
       const won = (isTeam1 && winnerTeam === 1) || (!isTeam1 && winnerTeam === 2);
       
-      // Calculate ELO changes
-      const oldElo = player.current_elo;
-      const newElo = updateELO(oldElo, won);
+      // Calculate ELO changes using new system
+      const currentELO = player.current_elo || 1200;
+      const matchCount = player.total_matches || 0;
+      const confidence = player.confidence || 1.0;
+      
+      // For now, use average opponent ELO (could be improved with team calculation)
+      const averageOpponentELO = 1200; // TODO: Calculate actual opponent team ELO
+      
+      const eloResult = calculateELOChange({
+        playerELO: currentELO,
+        opponentELO: averageOpponentELO,
+        isWin: won,
+        matchCount,
+        confidence
+      });
+      
+      const newElo = eloResult.newELO;
       
       // Update global player stats
       await this.db.updatePlayer(playerId, {
@@ -181,8 +195,8 @@ class GameService {
         total_wins: player.total_wins + (won ? 1 : 0),
         total_losses: player.total_losses + (won ? 0 : 1),
         current_elo: newElo,
-        highest_elo: Math.max(player.highest_elo || 100, newElo),
-        lowest_elo: Math.min(player.lowest_elo || 100, newElo),
+        highest_elo: Math.max(player.highest_elo || 1200, newElo),
+        lowest_elo: Math.min(player.lowest_elo || 1200, newElo),
         last_match_at: new Date().toISOString(),
         
         // Update legacy fields for compatibility
@@ -200,7 +214,7 @@ class GameService {
         session_losses: sessionPlayer.session_losses + (won ? 0 : 1),
         session_elo_current: sessionPlayer.session_elo_current + (won ? 25 : -23),
         session_elo_peak: Math.max(
-          sessionPlayer.session_elo_peak || 100,
+          sessionPlayer.session_elo_peak || 1200,
           sessionPlayer.session_elo_current + (won ? 25 : -23)
         )
       };

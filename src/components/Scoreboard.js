@@ -37,7 +37,11 @@ const Scoreboard = ({ players }) => {
   const sortedPlayers = viewMode === 'session' 
     ? sortPlayersByWins(playersWithStats)
     : sortPlayersByELO(playersWithStats, false);
-  const topPlayers = sortedPlayers.slice(0, 3); // Top 3 for minimized view
+  
+  // Show fewer players on mobile for better space utilization
+  const isMobile = window.innerWidth <= 480;
+  const topPlayersCount = isMobile ? 2 : 3;
+  const topPlayers = sortedPlayers.slice(0, topPlayersCount);
 
   if (isExpanded) {
     return (
@@ -97,7 +101,10 @@ const Scoreboard = ({ players }) => {
   return (
     <div className="scoreboard minimized">
       <div className="scoreboard-header" onClick={toggleExpanded}>
-        <h4>🏆 {viewMode === 'session' ? 'Session' : 'Lifetime'}</h4>
+        <h4>🏆 {isMobile 
+          ? (viewMode === 'session' ? 'Session' : 'Global')
+          : (viewMode === 'session' ? 'Session' : 'Lifetime')
+        }</h4>
         <div className="header-controls">
           <button 
             className="view-mode-toggle"
