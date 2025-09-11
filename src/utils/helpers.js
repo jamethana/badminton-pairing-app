@@ -38,8 +38,7 @@ export const ELO_CONFIG = {
   K_FACTOR_NEW_PLAYER: 100,   // Higher K-factor for new players (first 20 matches)
   K_FACTOR_EXPERIENCED: 16,  // Lower K-factor for experienced players (>100 matches)
   CALIBRATION_MATCHES: 20,   // Number of matches considered calibration period
-  EXPERIENCED_MATCHES: 100,  // Number of matches to be considered experienced
-  CONFIDENCE_DECAY: 0.995    // Confidence decay factor for inactive players
+  EXPERIENCED_MATCHES: 100   // Number of matches to be considered experienced
 };
 
 /**
@@ -118,20 +117,14 @@ export function calculateELOChange({ playerELO, opponentELO, isWin, matchCount, 
 
 /**
  * Update player's confidence based on match activity
+ * Confidence remains stable and only changes based on performance patterns, not time
  * @param {number} currentConfidence - Current confidence rating
- * @param {string} lastMatchTime - ISO string of last match time
- * @returns {number} Updated confidence rating
+ * @returns {number} Current confidence rating (unchanged by time)
  */
-export function updateConfidence(currentConfidence = 1.0, lastMatchTime) {
-  if (!lastMatchTime) return currentConfidence;
-  
-  const now = new Date();
-  const lastMatch = new Date(lastMatchTime);
-  const daysSinceLastMatch = (now - lastMatch) / (1000 * 60 * 60 * 24);
-  
-  // Decay confidence based on inactivity (1% per day of inactivity)
-  const confidenceDecay = Math.pow(ELO_CONFIG.CONFIDENCE_DECAY, daysSinceLastMatch);
-  return Math.max(0.5, Math.min(1.0, currentConfidence * confidenceDecay));
+export function updateConfidence(currentConfidence = 1.0) {
+  // Confidence is now purely performance-based, not time-based
+  // It maintains its current value and only changes through match outcomes
+  return Math.max(0.5, Math.min(1.0, currentConfidence));
 }
 
 /**

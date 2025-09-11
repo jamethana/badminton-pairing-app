@@ -542,7 +542,7 @@ function App() {
           // Get current player stats
           const currentELO = globalPlayer.elo || calculateInitialELO(globalPlayer.wins || 0, globalPlayer.losses || 0);
           const matchCount = globalPlayer.matchCount || 0;
-          const confidence = updateConfidence(globalPlayer.confidence || 1.0, globalPlayer.lastMatchTime);
+          const confidence = updateConfidence(globalPlayer.confidence || 1.0);
           
           // Calculate team ELOs for proper opponent rating
           const playerTeam = isWinner ? winningTeam : losingTeam;
@@ -1023,7 +1023,7 @@ function App() {
                 />
               </div>
               
-              {safeGlobalPlayers.length > 0 && (
+              {/* {safeGlobalPlayers.length > 0 && (
                 <div className="welcome-leaderboard">
                   <h3>🏆 Lifetime Leaderboard</h3>
                   <div className="leaderboard-list">
@@ -1060,7 +1060,7 @@ function App() {
                     </p>
                   )}
                 </div>
-              )}
+              )} */}
 
               {/* <div className="features-preview">
                 <h3>What you can do:</h3>

@@ -234,19 +234,24 @@ describe('Helper Functions', () => {
     });
 
     describe('updateConfidence', () => {
-      test('should maintain confidence for recent activity', () => {
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        expect(updateConfidence(1.0, yesterday)).toBeCloseTo(0.995, 3);
+      test('should maintain confidence unchanged', () => {
+        expect(updateConfidence(1.0)).toBe(1.0);
+        expect(updateConfidence(0.8)).toBe(0.8);
+        expect(updateConfidence(0.6)).toBe(0.6);
       });
 
-      test('should decay confidence for inactivity', () => {
-        const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        expect(updateConfidence(1.0, monthAgo)).toBeLessThan(0.9);
+      test('should enforce minimum confidence', () => {
+        expect(updateConfidence(0.3)).toBe(0.5);
+        expect(updateConfidence(0.1)).toBe(0.5);
       });
 
-      test('should not go below minimum confidence', () => {
-        const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
-        expect(updateConfidence(1.0, yearAgo)).toBeGreaterThanOrEqual(0.5);
+      test('should enforce maximum confidence', () => {
+        expect(updateConfidence(1.2)).toBe(1.0);
+        expect(updateConfidence(1.5)).toBe(1.0);
+      });
+
+      test('should handle default confidence', () => {
+        expect(updateConfidence()).toBe(1.0);
       });
     });
 
