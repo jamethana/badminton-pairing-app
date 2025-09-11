@@ -9,7 +9,8 @@ const SessionHamburgerMenu = ({
   onSessionSelect, 
   onSessionCreate, 
   onSessionEnd,
-  onUpdateSession
+  onUpdateSession,
+  onNavigateHome
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -30,6 +31,16 @@ const SessionHamburgerMenu = ({
   const handleCreateSession = (e) => {
     e.preventDefault();
     if (newSessionName.trim()) {
+      // Check for duplicate session names
+      const existingSession = sessions.find(s => 
+        s.name.toLowerCase() === newSessionName.trim().toLowerCase()
+      );
+      
+      if (existingSession) {
+        alert(`Session "${newSessionName.trim()}" already exists. Please choose a different name.`);
+        return;
+      }
+      
       const newSession = createNewSession(newSessionName);
       onSessionCreate(newSession);
       setNewSessionName('');
@@ -48,6 +59,13 @@ const SessionHamburgerMenu = ({
     
     if (targetSession && window.confirm(`Are you sure you want to end session "${targetSession.name}"? This will permanently delete the session and all its data.`)) {
       onSessionEnd(sessionId || currentSessionId);
+      closeMenu();
+    }
+  };
+
+  const handleNavigateHome = () => {
+    if (onNavigateHome) {
+      onNavigateHome();
       closeMenu();
     }
   };
@@ -78,6 +96,17 @@ const SessionHamburgerMenu = ({
             <h3>🎯 Sessions</h3>
             <button className="close-btn" onClick={closeMenu}>✖️</button>
           </div>
+
+          {/* Back to Welcome Button */}
+          {/* <div className="home-navigation">
+            <button 
+              className="btn btn-outline btn-full home-btn"
+              onClick={handleNavigateHome}
+              title="Return to welcome page"
+            >
+              🏠 Back to home page
+            </button>
+          </div> */}
 
           {currentSession && (
             <div className="current-session-info">

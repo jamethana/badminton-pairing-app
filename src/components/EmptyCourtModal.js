@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { generateId, getELOTier } from '../utils/helpers';
+import { generateId, getELOTier, formatELODisplay, formatTeamELODisplay } from '../utils/helpers';
 import { getMatchPreview } from '../utils/smartMatching';
 import Modal from './Modal';
 
@@ -233,7 +233,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         <span className="player-stats">
                           {/* {player.wins}W - {player.losses}L */}
                           {/* {player.elo} */}
-                          {getELOTier(player.elo).icon} {getELOTier(player.elo).name}
+                          {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                         </span>
                       </div>
                     </div>
@@ -249,7 +249,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         assignedPlayers[2],
                         assignedPlayers[3]
                       );
-                      return <span className="team-elo-number">Team ELO: {preview.team1ELO}</span>;
+                      return <span className="team-elo-number">Rating: {formatTeamELODisplay(assignedPlayers[0], assignedPlayers[1], false)}</span>;
                     })()}
                   </div>
                 )}
@@ -277,7 +277,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         <span className="player-name">{player.name}</span>
                         <span className="player-stats">
                           {/* {player.wins}W - {player.losses}L */}
-                          {getELOTier(player.elo).icon} {getELOTier(player.elo).name}
+                          {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                         </span>
                       </div>
                     </div>
@@ -293,7 +293,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                         assignedPlayers[2],
                         assignedPlayers[3]
                       );
-                      return <span className="team-elo-number">Team ELO: {preview.team2ELO}</span>;
+                      return <span className="team-elo-number">Rating: {formatTeamELODisplay(assignedPlayers[2], assignedPlayers[3], false)}</span>;
                     })()}
                   </div>
                 )}
@@ -346,7 +346,7 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                       <span className="player-name">{player.name}</span>
                       <span className="player-stats">
                         {/* {player.wins}W - {player.losses}L */}
-                        {getELOTier(player.elo).icon} {getELOTier(player.elo).name}
+                        {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                       </span>
                     </div>
                     <div className="player-actions">

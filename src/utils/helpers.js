@@ -35,9 +35,9 @@ export const ELO_CONFIG = {
   MIN_ELO: 100,              // Minimum possible ELO
   MAX_ELO: 3000,             // Maximum possible ELO
   K_FACTOR_BASE: 32,         // Base K-factor for ELO changes
-  K_FACTOR_NEW_PLAYER: 100,   // Higher K-factor for new players (first 20 matches)
+  K_FACTOR_NEW_PLAYER: 120,   // Higher K-factor for new players (first 10 matches)
   K_FACTOR_EXPERIENCED: 16,  // Lower K-factor for experienced players (>100 matches)
-  CALIBRATION_MATCHES: 20,   // Number of matches considered calibration period
+  CALIBRATION_MATCHES: 10,   // Number of matches considered calibration period
   EXPERIENCED_MATCHES: 100   // Number of matches to be considered experienced
 };
 
@@ -173,7 +173,15 @@ export function updateELO(currentELO, isWin, opponentELO = ELO_CONFIG.STARTING_E
  * @param {number} elo - Player's ELO rating
  * @returns {Object} Tier information with name, color, and icon
  */
-export function getELOTier(elo) {
+export function getELOTier(elo, player = null) {
+  // Check if player is in calibration period
+  if (player) {
+    const totalMatches = (player.wins || 0) + (player.losses || 0);
+    if (totalMatches < ELO_CONFIG.CALIBRATION_MATCHES) {
+      return { name: 'Calibrating', color: '#9B59B6', icon: '⚡' };
+    }
+  }
+  
   if (elo >= 3000) return { name: 'Grandmaster', color: '#FFD700', icon: '👑' };
   if (elo >= 2400) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
   if (elo >= 2000) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
@@ -184,6 +192,81 @@ export function getELOTier(elo) {
   if (elo >= 1000) return { name: 'Learning', color: '#E67E22', icon: '📚' };
   if (elo >= 800) return { name: 'Beginner', color: '#DDA0DD', icon: '🥚' };
   return { name: 'Unrated', color: '#95A5A6', icon: '❓' };
+}
+
+/**
+ * Format ELO display for a player (handles calibration period)
+ * @param {Object} player - Player object with ELO and match history
+ * @param {boolean} useSessionELO - Whether to use session ELO instead of global
+ * @returns {string} Formatted ELO display
+ */
+export function formatELODisplay(player, useSessionELO = false) {
+  if (!player) return 'TBD';
+  
+  const totalMatches = (player.wins || 0) + (player.losses || 0);
+  const sessionMatches = (player.sessionWins || 0) + (player.sessionLosses || 0);
+  
+  // Check if in calibration period
+  if (useSessionELO) {
+    // For session ELO, show TBD if fewer than calibration matches in session
+    if (sessionMatches < ELO_CONFIG.CALIBRATION_MATCHES) {
+      return 'TBD';
+    }
+    return Math.round(player.sessionElo || calculateInitialELO(player.sessionWins || 0, player.sessionLosses || 0)).toString();
+  } else {
+    // For global ELO, show TBD if fewer than calibration matches overall
+    if (totalMatches < ELO_CONFIG.CALIBRATION_MATCHES) {
+      return 'TBD';
+    }
+    return Math.round(player.elo || calculateInitialELO(player.wins || 0, player.losses || 0)).toString();
+  }
+}
+
+/**
+ * Format team ELO display (handles calibration period for team members)
+ * @param {Object} player1 - First team player
+ * @param {Object} player2 - Second team player
+ * @param {boolean} useSessionELO - Whether to use session ELO instead of global
+ * @returns {string} Formatted team ELO display
+ */
+export function formatTeamELODisplay(player1, player2, useSessionELO = false) {
+  if (!player1 || !player2) return 'TBD';
+  
+  // Check if any team member is in calibration
+  const player1Matches = useSessionELO 
+    ? (player1.sessionWins || 0) + (player1.sessionLosses || 0)
+    : (player1.wins || 0) + (player1.losses || 0);
+  const player2Matches = useSessionELO 
+    ? (player2.sessionWins || 0) + (player2.sessionLosses || 0)
+    : (player2.wins || 0) + (player2.losses || 0);
+  
+  // // If any player is calibrating, show TBD for team
+  // if (player1Matches < ELO_CONFIG.CALIBRATION_MATCHES || player2Matches < ELO_CONFIG.CALIBRATION_MATCHES) {
+  //   return 'TBD';
+  // }
+  
+  // Calculate team ELO normally
+  const player1ELO = useSessionELO 
+    ? (player1.sessionElo || calculateInitialELO(player1.sessionWins || 0, player1.sessionLosses || 0))
+    : (player1.elo || calculateInitialELO(player1.wins || 0, player1.losses || 0));
+  const player2ELO = useSessionELO 
+    ? (player2.sessionElo || calculateInitialELO(player2.sessionWins || 0, player2.sessionLosses || 0))
+    : (player2.elo || calculateInitialELO(player2.wins || 0, player2.losses || 0));
+  
+  const teamELO = calculateTeamELO(player1ELO, player2ELO);
+  return Math.round(teamELO).toString();
+}
+
+// URL utilities for session names
+export function sessionNameToUrl(sessionName) {
+  return sessionName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+export function urlToSessionName(urlName, sessions) {
+  // Find session that matches the URL format
+  return sessions.find(s => 
+    s && sessionNameToUrl(s.name) === urlName.toLowerCase()
+  );
 }
 
 // Sort players by ELO (highest first)

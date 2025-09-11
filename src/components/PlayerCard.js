@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { getELOTier, calculateInitialELO } from '../utils/helpers';
+import { getELOTier, calculateInitialELO, formatELODisplay } from '../utils/helpers';
 
 const PlayerCard = ({ player, onEdit, onRemove, onToggleActive, getTimeAgo, disabled, sessionMode = false }) => {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   
   // Use session stats for display
   const playerELO = player.elo || calculateInitialELO(player.wins || 0, player.losses || 0);
-  const eloTier = getELOTier(playerELO);
+  const eloTier = getELOTier(playerELO, player);
   const sessionWins = player.sessionWins || 0;
   const sessionLosses = player.sessionLosses || 0;
   const sessionMatches = player.sessionMatchCount || 0;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { sortPlayersByELO, sortPlayersByWins, getELOTier, calculateInitialELO } from '../utils/helpers';
+import { sortPlayersByELO, sortPlayersByWins, getELOTier, calculateInitialELO, formatELODisplay } from '../utils/helpers';
 
 const Scoreboard = ({ players }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -75,14 +75,14 @@ const Scoreboard = ({ players }) => {
                     <div className="player-name-row">
                       <span className="player-name">{player.name}</span>
                       {viewMode === 'lifetime' && (
-                        <span className="tier-badge" style={{ color: getELOTier(player.displayElo).color }}>
-                          {getELOTier(player.displayElo).icon} {getELOTier(player.displayElo).name}
+                        <span className="tier-badge" style={{ color: getELOTier(player.displayElo, player).color }}>
+                          {getELOTier(player.displayElo, player).icon} {getELOTier(player.displayElo, player).name}
                         </span>
                       )}
                     </div>
                     <div className="player-stats">
                       {viewMode === 'lifetime' && (
-                        <span className="elo-score">ELO: {player.displayElo}</span>
+                        <span className="elo-score">ELO: {formatELODisplay(player, false)}</span>
                       )}
                       <span className="win-loss">
                         {player.displayWins}W - {player.displayLosses}L
@@ -99,55 +99,13 @@ const Scoreboard = ({ players }) => {
   }
 
   return (
-    <div className="scoreboard minimized">
-      <div className="scoreboard-header" onClick={toggleExpanded}>
-        <h4>🏆 {isMobile 
-          ? (viewMode === 'session' ? 'Session' : 'Global')
-          : (viewMode === 'session' ? 'Session' : 'Lifetime')
-        }</h4>
-        <div className="header-controls">
-          <button 
-            className="view-mode-toggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleViewMode();
-            }}
-            title={`Switch to ${viewMode === 'session' ? 'lifetime' : 'session'} view`}
-          >
-            {viewMode === 'session' ? '📊' : '⏱️'}
-          </button>
-          <button 
-            className="scoreboard-toggle"
-            title="Expand scoreboard"
-          >
-            ⛶
-          </button>
-        </div>
-      </div>
-      <div className="scoreboard-content">
-        <div className="top-players">
-          {topPlayers.map((player, index) => {
-            return (
-              <div key={player.id} className="top-player-item">
-                <span className="mini-rank">#{index + 1}</span>
-                <span className="mini-name">{player.name}</span>
-                <span className="mini-elo">
-                  {viewMode === 'session' 
-                    ? `${player.displayWins}W`
-                    : (() => {
-                        const tier = getELOTier(player.displayElo);
-                        return (
-                          <span style={{ color: tier.color }}>
-                            {tier.icon} {player.displayElo}
-                          </span>
-                        );
-                      })()
-                  }
-                </span>
-              </div>
-            );
-          })}
-        </div>
+    <div 
+      className="scoreboard minimized"
+      onClick={toggleExpanded}
+      title="Click to view rankings"
+    >
+      <div className="scoreboard-icon">
+        🏆
       </div>
     </div>
   );

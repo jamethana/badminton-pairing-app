@@ -2455,8 +2455,25 @@ code {
 .scoreboard.minimized {
   bottom: 20px;
   right: 20px;
-  width: 200px;
-  max-height: 180px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.scoreboard.minimized:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scoreboard-icon {
+  font-size: 24px;
+  user-select: none;
 }
 
 .scoreboard.expanded {
@@ -2708,11 +2725,14 @@ code {
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .scoreboard.minimized {
-    width: 160px;
+    width: 45px;
+    height: 45px;
     bottom: 80px; /* Account for mobile FAB */
     right: 8px;
-    max-height: 120px; /* Reduced height */
-    box-shadow: var(--shadow-sm); /* Smaller shadow */
+  }
+  
+  .scoreboard-icon {
+    font-size: 20px;
   }
   
   .scoreboard.expanded {
@@ -2745,36 +2765,6 @@ code {
   }
   
   /* Mobile minimized view optimizations */
-  .scoreboard.minimized .top-players {
-    gap: 4px; /* Reduced gap between items */
-  }
-  
-  .scoreboard.minimized .top-player-item {
-    padding: 4px 6px; /* Reduced padding */
-    font-size: 11px; /* Smaller font */
-  }
-  
-  .scoreboard.minimized .mini-rank {
-    font-size: 10px;
-    min-width: 20px; /* Reduced width */
-  }
-  
-  .scoreboard.minimized .mini-name {
-    font-size: 11px;
-    max-width: 60px; /* Further reduced for mobile */
-  }
-  
-  .scoreboard.minimized .mini-elo {
-    font-size: 10px;
-  }
-  
-  .scoreboard.minimized .view-mode-toggle,
-  .scoreboard.minimized .scoreboard-toggle {
-    font-size: 10px;
-    padding: 4px;
-    min-width: 24px;
-    height: 24px;
-  }
   
   /* Make tier badges smaller on mobile */
   .tier-badge {
@@ -2790,39 +2780,15 @@ code {
 /* Extra small mobile screens */
 @media (max-width: 480px) {
   .scoreboard.minimized {
-    width: 140px; /* Even smaller on phones */
-    max-height: 100px;
+    width: 40px; /* Even smaller on phones */
+    height: 40px;
     right: 6px;
   }
   
-  .scoreboard.minimized .scoreboard-header {
-    padding: 6px 8px;
+  .scoreboard-icon {
+    font-size: 18px;
   }
   
-  .scoreboard.minimized .scoreboard-header h4 {
-    font-size: 11px;
-  }
-  
-  .scoreboard.minimized .scoreboard-content {
-    padding: 6px;
-  }
-  
-  .scoreboard.minimized .top-player-item {
-    padding: 3px 4px;
-    font-size: 10px;
-  }
-  
-  .scoreboard.minimized .mini-name {
-    max-width: 45px; /* Very compact for small screens */
-  }
-  
-  .scoreboard.minimized .view-mode-toggle,
-  .scoreboard.minimized .scoreboard-toggle {
-    font-size: 9px;
-    min-width: 20px;
-    height: 20px;
-    padding: 2px;
-  }
   
   .name-edit-group {
     gap: 4px;
@@ -3384,6 +3350,27 @@ code {
   color: var(--text-muted);
 }
 
+/* Home Navigation */
+.home-navigation {
+  margin: 16px 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.home-btn {
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.home-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
 .create-session-section {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
@@ -3496,7 +3483,7 @@ code {
 
 .no-sessions-content {
   text-align: center;
-  max-width: 500px;
+  max-width: 800px;
   width: 100%;
 }
 
@@ -3514,6 +3501,74 @@ code {
   color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
+}
+
+/* Existing sessions display */
+.existing-sessions {
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.existing-sessions h3 {
+  color: var(--text-primary);
+  font-size: 20px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.session-card {
+  background: var(--background-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-name {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.session-details {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 4px 0;
+}
+
+.session-arrow {
+  color: var(--primary-color);
+  font-size: 24px;
+  font-weight: bold;
+  margin-left: 16px;
+  transition: transform 0.3s ease;
+}
+
+.session-card:hover .session-arrow {
+  transform: translateX(5px);
 }
 
 .create-first-session {
@@ -3827,6 +3882,27 @@ code {
   
   .welcome-message h2 {
     font-size: 24px;
+  }
+  
+  .sessions-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .session-card {
+    padding: 16px;
+  }
+  
+  .session-name {
+    font-size: 16px;
+  }
+  
+  .session-details {
+    font-size: 13px;
+  }
+  
+  .session-arrow {
+    font-size: 20px;
   }
   
   .welcome-leaderboard {

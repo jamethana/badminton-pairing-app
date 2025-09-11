@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import SessionHamburgerMenu from './components/SessionHamburgerMenu';
 import SessionPlayerManagement from './components/SessionPlayerManagement';
 import CurrentMatches from './components/CurrentMatches';
@@ -19,11 +20,18 @@ import {
   getSessionPlayerStats,
   updateSessionPlayerStats,
   getELOTier,
-  ELO_CONFIG
+  formatELODisplay,
+  ELO_CONFIG,
+  sessionNameToUrl,
+  urlToSessionName
 } from './utils/helpers';
 import { generateSmartMatch, getMatchPreview } from './utils/smartMatching';
 
 function App() {
+  // Router hooks for URL navigation
+  const navigate = useNavigate();
+  const { sessionName } = useParams();
+  
   // Global storage with automatic Supabase integration
   const [globalPlayers, setGlobalPlayers, playersInfo] = useSupabaseStorage('badminton-global-players', []);
   const [sessions, setSessions, sessionsInfo] = useSupabaseStorage('badminton-sessions', []);
@@ -35,6 +43,7 @@ function App() {
   
   // UI state
   const [notification, setNotification] = useState(null);
+  const [isNavigatingHome, setIsNavigatingHome] = useState(false);
   
   // Check if data is still loading
   const isDataLoading = playersInfo?.isLoading || sessionsInfo?.isLoading;
@@ -45,19 +54,44 @@ function App() {
   const safeSessions = sessions || [];
   const safeMatches = matches || [];
 
-  // Initialize current session if valid session exists
+  // Sync URL with current session
   useEffect(() => {
-    const activeSessions = safeSessions.filter(s => s && (s.isActive !== false || s.is_active !== false));
-    
-    // If we have a currentSessionId but it's no longer valid (session was ended)
-    if (currentSessionId && !activeSessions.find(s => s.id === currentSessionId)) {
-      setCurrentSessionId(null);
+    if (sessionName && safeSessions.length > 0) {
+      // Find session by name from URL
+      const sessionFromUrl = urlToSessionName(sessionName, safeSessions);
+      
+      if (sessionFromUrl && (sessionFromUrl.isActive !== false && sessionFromUrl.is_active !== false)) {
+        // URL has valid session name, set it as current
+        if (currentSessionId !== sessionFromUrl.id) {
+          setCurrentSessionId(sessionFromUrl.id);
+        }
+      } else {
+        // URL has invalid session name, redirect to home
+        setCurrentSessionId(null); // Clear current session
+        navigate('/');
+      }
+    } else if (!sessionName && currentSessionId && !isNavigatingHome) {
+      // No session in URL but we have a current session, update URL
+      const currentSession = safeSessions.find(s => s.id === currentSessionId);
+      if (currentSession) {
+        const urlName = sessionNameToUrl(currentSession.name);
+        navigate(`/${urlName}`, { replace: true });
+      }
     }
-    // Only auto-select a session on initial load when no session is selected
-    else if (!currentSessionId && activeSessions.length > 0) {
-      setCurrentSessionId(activeSessions[0].id);
+  }, [sessionName, safeSessions, currentSessionId, setCurrentSessionId, navigate, isNavigatingHome]);
+
+  // Clean up invalid current session (when session was ended)
+  useEffect(() => {
+    if (!sessionName) {
+      const activeSessions = safeSessions.filter(s => s && (s.isActive !== false || s.is_active !== false));
+      
+      // If we have a currentSessionId but it's no longer valid (session was ended)
+      if (currentSessionId && !activeSessions.find(s => s.id === currentSessionId)) {
+        setCurrentSessionId(null);
+      }
+      // Don't auto-select sessions - let users choose from welcome page
     }
-  }, [safeSessions, currentSessionId, setCurrentSessionId]);
+  }, [sessionName, safeSessions, currentSessionId, setCurrentSessionId]);
 
   // Initialize court states for existing sessions that might not have them
   useEffect(() => {
@@ -257,15 +291,28 @@ function App() {
   }, [safeMatches, currentSessionId, safeGlobalPlayers, updateSession]);
 
   const handleSessionSelect = useCallback((sessionId) => {
-    setCurrentSessionId(sessionId);
-    showNotification(`Switched to session: ${safeSessions.find(s => s && s.id === sessionId)?.name}`);
-  }, [safeSessions, setCurrentSessionId, showNotification]);
+    const session = safeSessions.find(s => s && s.id === sessionId);
+    if (session) {
+      setCurrentSessionId(sessionId);
+      
+      // Navigate to the session URL
+      const urlName = sessionNameToUrl(session.name);
+      navigate(`/${urlName}`);
+      
+      showNotification(`Switched to session: ${session.name}`);
+    }
+  }, [safeSessions, setCurrentSessionId, navigate, showNotification]);
 
   const handleSessionCreate = useCallback((newSession) => {
     setSessions(prev => [...prev, newSession]);
     setCurrentSessionId(newSession.id);
+    
+    // Navigate to the new session URL
+    const urlName = sessionNameToUrl(newSession.name);
+    navigate(`/${urlName}`);
+    
     showNotification(`Created new session: ${newSession.name}`);
-  }, [setSessions, setCurrentSessionId, showNotification]);
+  }, [setSessions, setCurrentSessionId, navigate, showNotification]);
 
 
   const handleSessionEnd = useCallback((sessionId) => {
@@ -289,11 +336,22 @@ function App() {
     // Let the user manually select another session if they want
     if (targetSessionId === currentSessionId) {
       setCurrentSessionId(null);
+      navigate('/'); // Navigate to home page
       showNotification('Session ended - returned to main menu');
     } else {
       showNotification('Session ended');
     }
-  }, [currentSessionId, setSessions, setCurrentSessionId, showNotification]);
+  }, [currentSessionId, setSessions, setCurrentSessionId, navigate, showNotification]);
+
+  const handleNavigateHome = useCallback(() => {
+    setIsNavigatingHome(true);
+    setCurrentSessionId(null);
+    navigate('/', { replace: true });
+    showNotification('Returned to welcome page');
+    
+    // Clear the flag after navigation
+    setTimeout(() => setIsNavigatingHome(false), 100);
+  }, [setCurrentSessionId, navigate, showNotification]);
 
   const handleAddPlayerToSession = useCallback((playerId) => {
     if (!currentSession) return;
@@ -1014,12 +1072,49 @@ function App() {
             <div className="no-sessions-content">
               <div className="welcome-message">
                 <h2>Welcome to Badminton Pairing! 🏸</h2>
-                <p>Get started by creating your first badminton session. You'll be able to organize matches, track player stats, and manage courts all in one place.</p>
+                {safeSessions.length === 0 ? (
+                  <p>Get started by creating your first badminton session. You'll be able to organize matches, track player stats, and manage courts all in one place.</p>
+                ) : (
+                  <p>Choose an existing session or create a new one to get started.</p>
+                )}
               </div>
+              
+              {/* Show existing sessions if any */}
+              {safeSessions.length > 0 && (
+                <div className="existing-sessions">
+                  <h3>Available Sessions</h3>
+                  <div className="sessions-grid">
+                    {safeSessions
+                      .filter(session => session && (session.isActive !== false && session.is_active !== false))
+                      .map(session => (
+                        <div 
+                          key={session.id} 
+                          className="session-card"
+                          onClick={() => handleSessionSelect(session.id)}
+                        >
+                          <div className="session-info">
+                            <h4 className="session-name">{session.name}</h4>
+                            <p className="session-details">
+                              Created: {new Date(session.createdAt).toLocaleDateString()}
+                            </p>
+                            {session.lastActiveAt && (
+                              <p className="session-details">
+                                Last active: {new Date(session.lastActiveAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                          <div className="session-arrow">→</div>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
               
               <div className="create-first-session">
                 <CreateFirstSessionButton
                   onSessionCreate={handleSessionCreate}
+                  existingSessions={safeSessions}
                 />
               </div>
               
@@ -1037,14 +1132,14 @@ function App() {
                       .slice(0, 10)
                       .map((player, index) => {
                         const elo = player.elo || calculateInitialELO(player.wins || 0, player.losses || 0);
-                        const tier = getELOTier(elo);
+                        const tier = getELOTier(elo, player);
                         return (
                           <div key={player.id} className="leaderboard-item">
                             <span className="rank">#{index + 1}</span>
                             <div className="player-info">
                               <span className="player-name">{player.name}</span>
                               <span className="player-stats">
-                                {player.wins || 0}W - {player.losses || 0}L • ELO: {elo}
+                                {player.wins || 0}W - {player.losses || 0}L • ELO: {formatELODisplay(player, false)}
                               </span>
                             </div>
                             <span className="tier-badge" style={{ color: tier.color }}>
@@ -1098,6 +1193,7 @@ function App() {
           onSessionCreate={handleSessionCreate}
           onSessionEnd={handleSessionEnd}
           onUpdateSession={updateSession}
+          onNavigateHome={handleNavigateHome}
         />
           <h1 className="app-title">🏸 Badminton Pairing App</h1>
         </header>

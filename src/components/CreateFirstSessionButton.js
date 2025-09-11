@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
 import { createNewSession } from '../utils/helpers';
 
-const CreateFirstSessionButton = ({ onSessionCreate }) => {
+const CreateFirstSessionButton = ({ onSessionCreate, existingSessions = [] }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
 
   const handleCreateSession = (e) => {
     e.preventDefault();
     if (newSessionName.trim()) {
+      // Check for duplicate session names
+      const existingSession = existingSessions.find(s => 
+        s.name.toLowerCase() === newSessionName.trim().toLowerCase()
+      );
+      
+      if (existingSession) {
+        alert(`Session "${newSessionName.trim()}" already exists. Please choose a different name.`);
+        return;
+      }
+      
       const newSession = createNewSession(newSessionName.trim());
       onSessionCreate(newSession);
       setNewSessionName('');
