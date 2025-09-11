@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { generateId, getELOTier } from '../utils/helpers';
+import { getMatchPreview } from '../utils/smartMatching';
 import Modal from './Modal';
 
 const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
@@ -238,6 +239,20 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                     </div>
                   ))}
                 </div>
+                {/* Team 1 ELO */}
+                {matchType === 'doubles' && assignedPlayers.length === 4 && (
+                  <div className="team-elo-display">
+                    {(() => {
+                      const preview = getMatchPreview(
+                        assignedPlayers[0],
+                        assignedPlayers[1],
+                        assignedPlayers[2],
+                        assignedPlayers[3]
+                      );
+                      return <span className="team-elo-number">Team ELO: {preview.team1ELO}</span>;
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Small VS Divider */}
@@ -268,6 +283,20 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
                     </div>
                   ))}
                 </div>
+                {/* Team 2 ELO */}
+                {matchType === 'doubles' && assignedPlayers.length === 4 && (
+                  <div className="team-elo-display">
+                    {(() => {
+                      const preview = getMatchPreview(
+                        assignedPlayers[0],
+                        assignedPlayers[1],
+                        assignedPlayers[2],
+                        assignedPlayers[3]
+                      );
+                      return <span className="team-elo-number">Team ELO: {preview.team2ELO}</span>;
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           </div>

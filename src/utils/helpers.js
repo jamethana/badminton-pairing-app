@@ -35,7 +35,7 @@ export const ELO_CONFIG = {
   MIN_ELO: 100,              // Minimum possible ELO
   MAX_ELO: 3000,             // Maximum possible ELO
   K_FACTOR_BASE: 32,         // Base K-factor for ELO changes
-  K_FACTOR_NEW_PLAYER: 40,   // Higher K-factor for new players (first 20 matches)
+  K_FACTOR_NEW_PLAYER: 100,   // Higher K-factor for new players (first 20 matches)
   K_FACTOR_EXPERIENCED: 16,  // Lower K-factor for experienced players (>100 matches)
   CALIBRATION_MATCHES: 20,   // Number of matches considered calibration period
   EXPERIENCED_MATCHES: 100,  // Number of matches to be considered experienced
@@ -181,15 +181,15 @@ export function updateELO(currentELO, isWin, opponentELO = ELO_CONFIG.STARTING_E
  * @returns {Object} Tier information with name, color, and icon
  */
 export function getELOTier(elo) {
-  if (elo >= 2400) return { name: 'Grandmaster', color: '#FFD700', icon: '👑' };
-  if (elo >= 2200) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
+  if (elo >= 3000) return { name: 'Grandmaster', color: '#FFD700', icon: '👑' };
+  if (elo >= 2400) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
   if (elo >= 2000) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
   if (elo >= 1800) return { name: 'Advanced', color: '#45B7D1', icon: '🎯' };
   if (elo >= 1600) return { name: 'Intermediate', color: '#96CEB4', icon: '🌟' };
   if (elo >= 1400) return { name: 'Improving', color: '#F39C12', icon: '📈' };
-  if (elo >= 1200) return { name: 'Beginner', color: '#F1B40F', icon: '🌱' };
+  if (elo >= 1200) return { name: 'Novice', color: '#F1B40F', icon: '🌱' };
   if (elo >= 1000) return { name: 'Learning', color: '#E67E22', icon: '📚' };
-  if (elo >= 800) return { name: 'Novice', color: '#DDA0DD', icon: '🥚' };
+  if (elo >= 800) return { name: 'Beginner', color: '#DDA0DD', icon: '🥚' };
   return { name: 'Unrated', color: '#95A5A6', icon: '❓' };
 }
 
@@ -267,7 +267,14 @@ export function createNewSession(name) {
     playerIds: [], // IDs of players invited to this session
     courtCount: 4,
     currentMatches: [],
-    courtStates: courtStates
+    courtStates: courtStates,
+    // Smart matching settings
+    smartMatching: {
+      enabled: false, // Start with smart matching disabled
+      eloRange: 500,  // Maximum ELO difference for matching
+      teamBalance: 250, // Maximum team ELO difference
+      varietyWeight: 0.2 // How much to weight partnership variety
+    }
   };
 }
 

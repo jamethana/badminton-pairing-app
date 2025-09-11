@@ -21,6 +21,7 @@ import {
   getELOTier,
   ELO_CONFIG
 } from './utils/helpers';
+import { generateSmartMatch, getMatchPreview } from './utils/smartMatching';
 
 function App() {
   // Global storage with automatic Supabase integration
@@ -179,13 +180,16 @@ function App() {
 
   // Session update function (define early so other functions can use it)
   const updateSession = useCallback((updates) => {
+    console.log('🔧 updateSession called with:', updates);
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
-        return {
+        const updatedSession = {
           ...session,
           ...updates,
           lastActiveAt: new Date().toISOString()
         };
+        console.log('📝 Updated session:', updatedSession);
+        return updatedSession;
       }
       return session;
     }));
@@ -769,31 +773,45 @@ function App() {
       if (activePlayers.length - usedPlayers.size < 4) break;
 
       const availablePlayers = activePlayers.filter(p => !usedPlayers.has(p.id));
-      const selectedPlayers = [];
       
-      // Select 4 random players
-      for (let j = 0; j < 4; j++) {
-        const randomIndex = Math.floor(Math.random() * availablePlayers.length);
-        const player = availablePlayers[randomIndex];
-        selectedPlayers.push(player);
-        usedPlayers.add(player.id);
-        availablePlayers.splice(randomIndex, 1);
-      }
+      // Use smart matching if enabled, otherwise fall back to random
+      const useSmartMatching = currentSession.smartMatching?.enabled || false;
+      const matchSelection = generateSmartMatch(availablePlayers, safeMatches, useSmartMatching);
+      
+      if (!matchSelection) break; // Not enough players available
+      
+      // Mark selected players as used
+      matchSelection.players.forEach(player => usedPlayers.add(player.id));
+      
+      // Get match preview for logging
+      const preview = getMatchPreview(
+        matchSelection.teams.team1.player1,
+        matchSelection.teams.team1.player2,
+        matchSelection.teams.team2.player1,
+        matchSelection.teams.team2.player2
+      );
+      
+      console.log(`🎯 Court ${i} match generated (${matchSelection.method}):`, {
+        team1ELO: preview.team1ELO,
+        team2ELO: preview.team2ELO,
+        balance: preview.balanceLabel,
+        score: matchSelection.score?.total || 0
+      });
 
-      // Simple team formation (first 2 vs last 2)
       const match = {
         id: generateId(),
         courtId: i,
-        team1: {
-          player1: selectedPlayers[0],
-          player2: selectedPlayers[1]
-        },
-        team2: {
-          player1: selectedPlayers[2],
-          player2: selectedPlayers[3]
-        },
+        matchType: 'doubles',
+        team1: matchSelection.teams.team1,
+        team2: matchSelection.teams.team2,
         startTime: new Date().toISOString(),
-        completed: false
+        completed: false,
+        // Store matching metadata for analytics
+        matchingData: {
+          method: matchSelection.method,
+          score: matchSelection.score?.total || 0,
+          teamELOs: preview
+        }
       };
 
       newMatches.push(match);
@@ -1079,6 +1097,7 @@ function App() {
           onSessionSelect={handleSessionSelect}
           onSessionCreate={handleSessionCreate}
           onSessionEnd={handleSessionEnd}
+          onUpdateSession={updateSession}
         />
           <h1 className="app-title">🏸 Badminton Pairing App</h1>
         </header>

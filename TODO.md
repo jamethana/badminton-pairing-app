@@ -3,7 +3,7 @@
 ## 🎯 High Priority Features
 
 ### 1. Revamp ELO System
-**Status**: Not Started  
+**Status**: Done
 **Priority**: High  
 **Description**: Improve the current ELO calculation system to be more accurate and fair.
 
@@ -27,7 +27,7 @@
 ---
 
 ### 2. Add Smart Matching Toggle
-**Status**: Not Started  
+**Status**: ✅ **COMPLETED**
 **Priority**: High  
 **Description**: Add option to enable intelligent player matching based on skill levels.
 
@@ -44,11 +44,13 @@
 - **Toggle Option**: Allow users to switch between random and smart matching
 
 **Smart Matching Features:**
-- **ELO Range Matching**: Keep players within ±50 ELO range when possible
-- **Team Balance**: Ensure team total ELO is within ±25 points
+- **ELO Range Matching**: Keep players within ±500 ELO range when possible
+- **Team Balance**: Ensure team total ELO is within ±250 points
 - **Partnership Tracking**: Avoid repeating same partnerships too often
 - **Opponent Variety**: Track who played against whom recently
 - **Skill Development**: Occasionally pair lower/higher skill players for growth
+- **Varied Matches**: Since we only have few people per session, we don't want to always match same people with eachother. Matching need to be varied to an extent.
+- **User Experience**: In the match preview, add estimated team ELO preview. 
 
 **Implementation Notes:**
 - Add toggle in session settings or match generation UI

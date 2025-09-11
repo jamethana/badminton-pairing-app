@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PlayerCard from './PlayerCard';
 import PlayerEditModal from './PlayerEditModal';
-import { getSessionPlayerStats } from '../utils/helpers';
+import { getSessionPlayerStats, getELOTier } from '../utils/helpers';
 
 const SessionPlayerManagement = ({
   globalPlayers,
@@ -184,7 +184,8 @@ const SessionPlayerManagement = ({
               >
                 <span className="player-name">{player.name}</span>
                 <span className="player-lifetime-stats">
-                  Lifetime: {player.wins || 0}W - {player.losses || 0}L (ELO: {player.elo || 1200})
+                  {/* Lifetime: {player.wins || 0}W - {player.losses || 0}L  */}
+                  {getELOTier(player.elo || 1200).name}
                 </span>
                 <button className="invite-btn">+ Invite</button>
               </div>

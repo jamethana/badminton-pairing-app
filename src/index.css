@@ -2636,9 +2636,9 @@ code {
 }
 
 .elo-score {
-  font-weight: bold;
-  font-size: 16px;
-  color: var(--primary-color);
+  /* font-weight: bold; */
+  font-size: 12px;
+  color: var(--secondary-color);
 }
 
 .win-loss {
@@ -3860,5 +3860,27 @@ code {
   .match-type-btn {
     padding: 4px 8px;
     font-size: 10px;
+  }
+}
+
+/* ======================
+   TEAM ELO DISPLAY STYLES  
+   ====================== */
+
+.team-elo-display {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.team-elo-number {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Mobile responsiveness for team ELO display */
+@media (max-width: 480px) {
+  .team-elo-number {
+    font-size: 11px;
   }
 } 

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import { createNewSession } from '../utils/helpers';
+import SmartMatchingSettings from './SmartMatchingSettings';
 
 const SessionHamburgerMenu = ({ 
   sessions, 
   currentSessionId, 
   onSessionSelect, 
   onSessionCreate, 
-  onSessionEnd
+  onSessionEnd,
+  onUpdateSession
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -98,6 +100,14 @@ const SessionHamburgerMenu = ({
                   End Session
                 </button>
               </div>
+              
+              {/* Smart Matching Settings */}
+              {onUpdateSession && (
+                <SmartMatchingSettings
+                  session={currentSession}
+                  onUpdateSettings={(updates) => onUpdateSession(updates)}
+                />
+              )}
             </div>
           )}
 
