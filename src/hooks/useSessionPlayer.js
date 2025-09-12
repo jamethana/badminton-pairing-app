@@ -64,7 +64,10 @@ export function useSessionPlayer(sessionId, playerId) {
     try {
       const { data, error: updateError } = await supabaseClient
         .from(TABLES.SESSION_PLAYERS)
-        .update(updates)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
         .eq('session_id', sessionId)
         .eq('player_id', playerId)
         .select()

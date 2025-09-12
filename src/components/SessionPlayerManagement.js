@@ -1,61 +1,87 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PlayerCard from './PlayerCard';
 import PlayerEditModal from './PlayerEditModal';
+import { useSessionPlayers } from '../hooks/usePlayerManagement';
 import { getSessionPlayerStats, getELOTier, formatELODisplay } from '../utils/helpers';
+import { createSupabaseClient, TABLES } from '../config/supabase';
 
 const SessionPlayerManagement = ({
-  globalPlayers,
-  sessionPlayers,
   sessionId,
+  globalPlayers,
   occupiedPlayerIds,
   onAddPlayerToSession,
-  onRemovePlayerFromSession,
   onUpdateGlobalPlayer,
-  onToggleSessionPlayerActive,
   onCreateNewPlayer
 }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [filterText, setFilterText] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [animatingPlayers, setAnimatingPlayers] = useState(new Set()); // Track animating players
-  const [removingPlayers, setRemovingPlayers] = useState(new Set()); // Track players being removed
-  const [inviteAnimatingPlayers, setInviteAnimatingPlayers] = useState(new Set()); // Track invite section animations
+  const [supabaseClient, setSupabaseClient] = useState(null);
+  
+  const { sessionPlayerIds, isLoading } = useSessionPlayers(sessionId);
 
-  // Animation helper for adding players
-  const animatePlayerAdd = (playerId, callback) => {
-    setAnimatingPlayers(prev => new Set(prev).add(playerId));
+  // Initialize Supabase client
+  useEffect(() => {
+    const initClient = async () => {
+      const client = await createSupabaseClient();
+      setSupabaseClient(client);
+    };
+    initClient();
+  }, []);
+
+  const getTimeAgo = (timestamp) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - time) / (1000 * 60));
     
-    // Execute add after brief delay for animation
-    setTimeout(() => {
-      callback();
-      // Remove from animating after animation completes
-      setTimeout(() => {
-        setAnimatingPlayers(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(playerId);
-          return newSet;
-        });
-      }, 300); // Match CSS animation duration
-    }, 50);
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
   };
 
-  // Animation helper for removing players
-  const animatePlayerRemove = (playerId, callback) => {
-    setRemovingPlayers(prev => new Set(prev).add(playerId));
-    
-    // Execute remove after animation
-    setTimeout(() => {
-      callback();
-      setRemovingPlayers(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(playerId);
-        return newSet;
-      });
-    }, 250); // Allow time for exit animation
+  // Create session player relationship directly in Supabase
+  const createSessionPlayerRelationship = async (playerId, playerData) => {
+    if (!supabaseClient || !sessionId || !playerId) {
+      return { success: false, message: 'Missing required data' };
+    }
+
+    try {
+      const sessionPlayerData = {
+        session_id: sessionId,
+        player_id: playerId,
+        joined_at: new Date().toISOString(),
+        session_matches: 0,
+        session_wins: 0,
+        session_losses: 0,
+        session_elo_start: playerData.elo || 1200,
+        session_elo_current: playerData.elo || 1200,
+        session_elo_peak: playerData.elo || 1200,
+        is_active_in_session: true
+      };
+
+      const { data, error } = await supabaseClient
+        .from(TABLES.SESSION_PLAYERS)
+        .insert(sessionPlayerData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Created session player relationship for ${playerData.name}`);
+      return { success: true, message: 'Player added to session', data };
+    } catch (error) {
+      console.error('Error creating session player relationship:', error);
+      return { success: false, message: error.message };
+    }
   };
 
-  const handleAddPlayer = (e) => {
+  const handleAddPlayer = async (e) => {
     e.preventDefault();
     if (newPlayerName.trim()) {
       // Check if player already exists globally
@@ -65,7 +91,7 @@ const SessionPlayerManagement = ({
       
       if (existingPlayer) {
         // Check if already in session
-        if (sessionPlayers.some(sp => sp.id === existingPlayer.id)) {
+        if (sessionPlayerIds.some(sp => sp.player_id === existingPlayer.id)) {
           alert('Player is already in this session');
           return;
         }
@@ -76,13 +102,14 @@ const SessionPlayerManagement = ({
           return;
         }
         
-        // Add existing player to session with animation
-        animatePlayerAdd(existingPlayer.id, () => {
-          onAddPlayerToSession(existingPlayer.id);
-        });
+        // Add existing player to session
+        await createSessionPlayerRelationship(existingPlayer.id, existingPlayer);
       } else {
         // Create new global player and add to session
-        onCreateNewPlayer(newPlayerName.trim());
+        const result = await onCreateNewPlayer(newPlayerName.trim());
+        if (result && result.data) {
+          await createSessionPlayerRelationship(result.data.id, result.data);
+        }
       }
       
       setNewPlayerName('');
@@ -106,63 +133,41 @@ const SessionPlayerManagement = ({
   };
 
   const handleRemovePlayerFromSession = (playerId) => {
-    animatePlayerRemove(playerId, () => {
-      onRemovePlayerFromSession(playerId);
-    });
+    // The efficient player component handles its own removal
+    // This is just a callback for any additional cleanup
+    console.log(`📝 Player ${playerId} removed from session ${sessionId}`);
   };
 
-  const handleToggleActive = (id, updatedPlayer) => {
-    // Use the dedicated session player toggle function
-    if (onToggleSessionPlayerActive) {
-      onToggleSessionPlayerActive(id, updatedPlayer.isActive);
+  const handleInvitePlayer = async (playerId) => {
+    const playerData = globalPlayers.find(p => p.id === playerId);
+    if (playerData) {
+      await createSessionPlayerRelationship(playerId, playerData);
     }
   };
 
-  const handleInvitePlayer = (playerId) => {
-    // Animate the invite card disappearing
-    setInviteAnimatingPlayers(prev => new Set(prev).add(playerId));
-    
-    // Start the session player add animation
-    animatePlayerAdd(playerId, () => {
-      onAddPlayerToSession(playerId);
-      
-      // Clean up invite animation state after invite section updates
-      setTimeout(() => {
-        setInviteAnimatingPlayers(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(playerId);
-          return newSet;
-        });
-      }, 300);
-    });
-  };
-
-  const getTimeAgo = (timestamp) => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInMinutes = Math.floor((now - time) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
-  };
-
-  // Filter session players
-  const filteredPlayers = sessionPlayers.filter(player =>
-    player.name.toLowerCase().includes(filterText.toLowerCase())
-  );
+  // Filter session players by name
+  const filteredSessionPlayerIds = sessionPlayerIds.filter(sp => {
+    const globalPlayer = globalPlayers.find(p => p.id === sp.player_id);
+    return globalPlayer && globalPlayer.name.toLowerCase().includes(filterText.toLowerCase());
+  });
 
   // Available global players not in this session or other active sessions
   const availableGlobalPlayers = globalPlayers.filter(player =>
-    !sessionPlayers.some(sp => sp.id === player.id) &&
+    !sessionPlayerIds.some(sp => sp.player_id === player.id) &&
     !occupiedPlayerIds.includes(player.id) &&
     player.name.toLowerCase().includes(filterText.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="card">
+        <div className="section-header">
+          <h2 className="section-title">Session Players</h2>
+        </div>
+        <div className="loading-message">Loading session players...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="card">
@@ -198,7 +203,7 @@ const SessionPlayerManagement = ({
       {filterText && (
         <div className="filter-info">
           <small style={{ color: 'var(--text-muted)' }}>
-            Session: {filteredPlayers.length} players
+            Session: {filteredSessionPlayerIds.length} players
             {availableGlobalPlayers.length > 0 && (
               <span style={{ color: 'var(--primary-color)' }}>
                 {' '}• Available: {availableGlobalPlayers.length} players
@@ -211,26 +216,24 @@ const SessionPlayerManagement = ({
       {/* Session Players */}
       <div className="player-stats-container-compact">
         <div className="player-stats-grid-compact">
-          {filteredPlayers.map((player) => (
-            <div
-              key={player.id}
-              className={`${
-                animatingPlayers.has(player.id) ? 'player-entering' : ''
-              } ${
-                removingPlayers.has(player.id) ? 'player-exiting' : ''
-              }`}
-            >
+          {filteredSessionPlayerIds.map((sessionPlayerInfo) => {
+            const globalPlayer = globalPlayers.find(p => p.id === sessionPlayerInfo.player_id);
+            if (!globalPlayer) return null;
+
+            return (
               <PlayerCard
-                player={player}
+                key={`${sessionId}-${sessionPlayerInfo.player_id}`}
+                sessionId={sessionId}
+                playerId={sessionPlayerInfo.player_id}
+                playerName={globalPlayer.name}
+                globalPlayerData={globalPlayer}
                 onEdit={handleEditPlayer}
                 onRemove={handleRemovePlayerFromSession}
-                onToggleActive={handleToggleActive}
                 getTimeAgo={getTimeAgo}
                 disabled={false}
-                sessionMode={true}
               />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -246,14 +249,11 @@ const SessionPlayerManagement = ({
             {availableGlobalPlayers.map(player => (
               <div
                 key={player.id}
-                className={`invite-player-card ${
-                  inviteAnimatingPlayers.has(player.id) ? 'player-exiting' : ''
-                }`}
+                className="invite-player-card"
                 onClick={() => handleInvitePlayer(player.id)}
               >
                 <span className="player-name">{player.name}</span>
                 <span className="player-lifetime-stats">
-                  {/* Lifetime: {player.wins || 0}W - {player.losses || 0}L  */}
                   {getELOTier(player.elo || 1200, player).name}
                 </span>
                 <button className="invite-btn">+ Invite</button>

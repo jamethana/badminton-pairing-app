@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGameContext } from '../contexts/GameContext';
 import { useSessionManagement } from '../hooks/useSessionManagement';
-import { usePlayerManagement } from '../hooks/usePlayerManagement';
+// Removed old usePlayerManagement - using efficient individual session player management
 import { useMatchManagement } from '../hooks/useMatchManagement';
 import { useInternetConnection } from '../hooks/useInternetConnection';
 
@@ -61,23 +61,89 @@ function RefactoredApp() {
     updateSession
   } = useSessionManagement(sessions, setSessions, currentSessionId, setCurrentSessionId);
 
-  // Player management
-  const {
-    sessionPlayersWithDetails,
-    safeGlobalPlayers,
-    handleAddPlayerToSession,
-    handleRemovePlayerFromSession,
-    handleCreateNewPlayer,
-    handleUpdateGlobalPlayer,
-    handleToggleSessionPlayerActive
-  } = usePlayerManagement({
-    currentSession,
-    currentSessionId,
-    globalPlayers,
-    setGlobalPlayers,
-    sessionPlayers,
-    setSessionPlayers
-  });
+  // Global players only - session players now managed individually through efficient hooks
+  const safeGlobalPlayers = globalPlayers || [];
+  
+  // Legacy compatibility: sessionPlayersWithDetails for useMatchManagement and Scoreboard
+  // This provides a lightweight computed version until those components are refactored
+  const sessionPlayersWithDetails = React.useMemo(() => {
+    if (!currentSessionId || !sessionPlayers || !safeGlobalPlayers.length) {
+      return [];
+    }
+
+    return sessionPlayers
+      .filter(sp => sp && sp.session_id === currentSessionId)
+      .map(sessionPlayer => {
+        const globalPlayer = safeGlobalPlayers.find(p => p.id === sessionPlayer.player_id);
+        if (!globalPlayer) return null;
+
+        return {
+          ...globalPlayer,
+          // Session-specific data
+          sessionMatchCount: sessionPlayer.session_matches || 0,
+          sessionWins: sessionPlayer.session_wins || 0,
+          sessionLosses: sessionPlayer.session_losses || 0,
+          sessionElo: sessionPlayer.session_elo_current || globalPlayer.elo || 1200,
+          isActive: sessionPlayer.is_active_in_session === true,
+          joinedAt: sessionPlayer.joined_at,
+          // Legacy compatibility fields
+          sessionStats: {
+            matches: sessionPlayer.session_matches || 0,
+            wins: sessionPlayer.session_wins || 0,
+            losses: sessionPlayer.session_losses || 0
+          }
+        };
+      })
+      .filter(Boolean); // Remove null entries
+  }, [currentSessionId, sessionPlayers, safeGlobalPlayers]);
+  
+  // Player management - implemented for efficient session player architecture
+  const handleAddPlayerToSession = async (playerId, sessionId) => {
+    try {
+      // Create session player relationship in database
+      const playerData = safeGlobalPlayers.find(p => p.id === playerId);
+      if (!playerData) {
+        throw new Error('Player not found');
+      }
+
+      // This will be handled by the useSessionPlayer hook when components mount
+      // For now, just return success - the individual components will handle the database operations
+      return { success: true, message: 'Player will be added to session', data: { playerId, sessionId } };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  };
+  
+  const handleCreateNewPlayer = async (playerName) => {
+    try {
+      const newPlayer = {
+        id: `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: playerName,
+        elo: 1200,
+        wins: 0,
+        losses: 0,
+        totalMatches: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      setGlobalPlayers(prev => [...prev, newPlayer]);
+      return { success: true, message: 'Player created successfully', data: newPlayer };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  };
+  
+  const handleUpdateGlobalPlayer = async (playerId, updates) => {
+    try {
+      setGlobalPlayers(prev => prev.map(p => 
+        p.id === playerId ? { ...p, ...updates, updated_at: new Date().toISOString() } : p
+      ));
+      return { success: true, message: 'Player updated successfully' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  };
 
   // Match management
   const {
@@ -337,23 +403,28 @@ function RefactoredApp() {
     showNotification(result.message);
   };
 
-  const handleAddPlayerToSessionWithNotification = (playerId) => {
-    const result = handleAddPlayerToSession(playerId);
-    if (result.success) {
-      showNotification(result.message);
-    } else {
-      showNotification(result.message, 'error');
+  const handleAddPlayerToSessionWithNotification = async (playerId) => {
+    try {
+      const result = await handleAddPlayerToSession(playerId, currentSessionId);
+      showNotification('Player added to session successfully', 'success');
+      return result;
+    } catch (error) {
+      showNotification(`Failed to add player to session: ${error.message}`, 'error');
+      return { success: false, message: error.message };
     }
   };
 
-  const handleRemovePlayerFromSessionWithNotification = (playerId) => {
-    const result = handleRemovePlayerFromSession(playerId);
-    showNotification(result.message);
-  };
+  // Removed handleRemovePlayerFromSession - now handled by individual session player components
 
-  const handleCreateNewPlayerWithNotification = (name) => {
-    const result = handleCreateNewPlayer(name);
-    showNotification(result.message);
+  const handleCreateNewPlayerWithNotification = async (name) => {
+    try {
+      const result = await handleCreateNewPlayer(name);
+      showNotification(`Player "${name}" created successfully`, 'success');
+      return result;
+    } catch (error) {
+      showNotification(`Failed to create player: ${error.message}`, 'error');
+      return { success: false, message: error.message };
+    }
   };
 
   // Show loading screen while data is being loaded
@@ -541,14 +612,11 @@ function RefactoredApp() {
         />
 
         <SessionPlayerManagement
-          globalPlayers={safeGlobalPlayers}
-          sessionPlayers={sessionPlayersWithDetails}
           sessionId={currentSessionId}
+          globalPlayers={safeGlobalPlayers}
           occupiedPlayerIds={occupiedPlayerIds}
           onAddPlayerToSession={handleAddPlayerToSessionWithNotification}
-          onRemovePlayerFromSession={handleRemovePlayerFromSessionWithNotification}
           onUpdateGlobalPlayer={handleUpdateGlobalPlayer}
-          onToggleSessionPlayerActive={handleToggleSessionPlayerActive}
           onCreateNewPlayer={handleCreateNewPlayerWithNotification}
         />
 

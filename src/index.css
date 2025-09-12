@@ -5690,6 +5690,305 @@ code {
   padding: 0 24px 20px 24px;
 }
 
+/* Compact Session Player Cards */
+.session-player-card-compact {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.session-player-card-compact:hover:not(.disabled) {
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: rgba(124, 58, 237, 0.02);
+}
+
+.session-player-card-compact.active {
+  border-color: var(--success-color);
+  background: rgba(34, 197, 94, 0.02);
+}
+
+.session-player-card-compact.inactive {
+  opacity: 0.6;
+  background: var(--bg-tertiary);
+  border-color: var(--border-light);
+}
+
+.session-player-card-compact.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Compact Player Main Section */
+.session-player-main-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-player-avatar-compact {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.15);
+}
+
+.avatar-initial-compact {
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.session-player-info-compact {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-player-header-compact {
+  margin-bottom: 2px;
+}
+
+.session-player-name-compact {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.session-edit-btn-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.session-edit-btn-compact:hover:not(:disabled) {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+  transform: scale(1.05);
+}
+
+.session-player-tier-compact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tier-icon-compact {
+  font-size: 12px;
+}
+
+.tier-name-compact {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.session-player-stats-compact {
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.session-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Loading States for Efficient Session Players */
+.session-player-card-compact.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.loading-avatar {
+  background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+
+.loading-text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+@keyframes loadingPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.stat-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.session-move-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.session-move-btn:hover:not(:disabled) {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+  transform: scale(1.05);
+}
+
+
+/* Stats Row */
+.session-player-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-value.wins {
+  color: var(--success-color);
+}
+
+.stat-value.losses {
+  color: var(--danger-color);
+}
+
+.stat-value.matches {
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+/* Footer */
+.session-player-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.last-activity {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-remove-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.session-remove-btn:hover:not(:disabled) {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.session-remove-btn.confirm {
+  background: var(--warning-color);
+  border-color: var(--warning-color);
+  color: white;
+  animation: confirmPulse 1s ease-in-out infinite;
+}
+
+.session-remove-btn.confirm:hover {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  animation: none;
+}
+
+
 /* Smart Matching Advanced */
 .smart-matching-advanced {
   background: var(--bg-secondary);
@@ -7081,6 +7380,57 @@ code {
   .range-value {
     text-align: center;
     min-width: auto;
+  }
+
+  /* Compact Session Player Cards Mobile */
+  .session-player-card-compact {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .session-player-main-compact {
+    gap: 8px;
+  }
+
+  .session-player-avatar-compact {
+    width: 32px;
+    height: 32px;
+  }
+
+  .avatar-initial-compact {
+    font-size: 12px;
+  }
+
+  .session-player-name-compact {
+    font-size: 13px;
+  }
+
+  .session-edit-btn-compact {
+    width: 18px;
+    height: 18px;
+  }
+
+  .session-edit-btn-compact svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .tier-name-compact {
+    font-size: 10px;
+  }
+
+  .stat-text {
+    font-size: 10px;
+  }
+
+  .session-move-btn {
+    width: 20px;
+    height: 20px;
+  }
+
+  .session-move-btn svg {
+    width: 10px;
+    height: 10px;
   }
 
   .danger-zone {
