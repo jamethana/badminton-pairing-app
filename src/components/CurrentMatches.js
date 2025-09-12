@@ -7,12 +7,14 @@ const CurrentMatches = ({
   courtStates,
   courtCount,
   availablePool,
+  currentSession,
   onCompleteMatch,
   onFillCourt,
   onAddCourt,
   onRemoveCourt,
   onGenerateMatches,
-  onClearMatches
+  onClearMatches,
+  onUpdateSession
 }) => {
   const [showCourtOptions, setShowCourtOptions] = useState(null);
   const [showEmptyCourtModal, setShowEmptyCourtModal] = useState(null);
@@ -145,8 +147,10 @@ const CurrentMatches = ({
         <EmptyCourtModal
           court={showEmptyCourtModal}
           availablePool={availablePool}
+          currentSession={currentSession}
           onFillCourt={handleFillCourt}
           onClose={() => setShowEmptyCourtModal(null)}
+          onUpdateSession={onUpdateSession}
         />
       )}
 

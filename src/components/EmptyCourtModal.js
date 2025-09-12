@@ -1,22 +1,63 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { generateId, getELOTier, formatELODisplay, formatTeamELODisplay } from '../utils/helpers';
-import { getMatchPreview } from '../utils/smartMatching';
+import { getMatchPreview, generateSmartMatch } from '../utils/smartMatching';
 import Modal from './Modal';
 
-const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
+const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, onClose, onUpdateSession }) => {
   const [assignedPlayers, setAssignedPlayers] = useState([]);
   const [remainingPlayers, setRemainingPlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState([]);
   const [matchType, setMatchType] = useState('doubles'); // 'singles' or 'doubles'
 
-  // Initialize with players when modal opens - only once
+  // Get smart matching settings
+  const smartMatching = currentSession?.smartMatching || {
+    enabled: false,
+    eloRange: 500,
+    teamBalance: 250,
+    varietyWeight: 0.2
+  };
+
+  // Handle smart matching toggle
+  const handleToggleSmartMatching = () => {
+    if (onUpdateSession) {
+      const newSettings = {
+        smartMatching: {
+          ...smartMatching,
+          enabled: !smartMatching.enabled
+        }
+      };
+      onUpdateSession(newSettings);
+    }
+  };
+
+  // Initialize with players when modal opens or when smart matching setting changes
   useEffect(() => {
     const playersNeeded = matchType === 'singles' ? 2 : 4;
     if (availablePool.length >= playersNeeded) {
-      const shuffled = [...availablePool].sort(() => Math.random() - 0.5);
-      setAssignedPlayers(shuffled.slice(0, playersNeeded));
-      setRemainingPlayers(shuffled.slice(playersNeeded));
+      if (smartMatching.enabled && matchType === 'doubles') {
+        // Use smart matching for doubles (no randomness on initial load)
+        const matches = currentSession?.currentMatches || [];
+        const smartSelection = generateSmartMatch(availablePool, matches, true, false);
+        
+        if (smartSelection && smartSelection.players) {
+          setAssignedPlayers(smartSelection.players);
+          const remainingPool = availablePool.filter(p => 
+            !smartSelection.players.some(sp => sp.id === p.id)
+          );
+          setRemainingPlayers(remainingPool);
+        } else {
+          // Fallback to random if smart matching fails
+          const shuffled = [...availablePool].sort(() => Math.random() - 0.5);
+          setAssignedPlayers(shuffled.slice(0, playersNeeded));
+          setRemainingPlayers(shuffled.slice(playersNeeded));
+        }
+      } else {
+        // Use random selection for singles or when smart matching is disabled
+        const shuffled = [...availablePool].sort(() => Math.random() - 0.5);
+        setAssignedPlayers(shuffled.slice(0, playersNeeded));
+        setRemainingPlayers(shuffled.slice(playersNeeded));
+      }
       setSelectedPlayer(null);
       setSelectedAvailablePlayer(null);
     }
@@ -142,14 +183,31 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
     
     // Combine assigned and remaining players
     const allAvailablePlayers = [...assignedPlayers, ...remainingPlayers];
-    
-    // Shuffle all players
-    const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
-    
-    // Set new assigned players based on match type
     const playersNeeded = matchType === 'singles' ? 2 : 4;
-    setAssignedPlayers(shuffled.slice(0, playersNeeded));
-    setRemainingPlayers(shuffled.slice(playersNeeded));
+    
+    if (smartMatching.enabled && matchType === 'doubles') {
+      // Use smart matching with randomness for shuffle - this adds variety!
+      const matches = currentSession?.currentMatches || [];
+      const smartSelection = generateSmartMatch(allAvailablePlayers, matches, true, true);
+      
+      if (smartSelection && smartSelection.players) {
+        setAssignedPlayers(smartSelection.players);
+        const remainingPool = allAvailablePlayers.filter(p => 
+          !smartSelection.players.some(sp => sp.id === p.id)
+        );
+        setRemainingPlayers(remainingPool);
+      } else {
+        // Fallback to random shuffle
+        const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
+        setAssignedPlayers(shuffled.slice(0, playersNeeded));
+        setRemainingPlayers(shuffled.slice(playersNeeded));
+      }
+    } else {
+      // Use random shuffle for singles or when smart matching is disabled
+      const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
+      setAssignedPlayers(shuffled.slice(0, playersNeeded));
+      setRemainingPlayers(shuffled.slice(playersNeeded));
+    }
   };
 
   const playersNeeded = matchType === 'singles' ? 2 : 4;
@@ -310,14 +368,41 @@ const EmptyCourtModal = ({ court, availablePool, onFillCourt, onClose }) => {
             >
               Confirm Match
             </button>
-            <button 
-              className="btn btn-outline shuffle-btn"
-              onClick={handleShufflePlayers}
-              title="Shuffle players"
-              disabled={selectedPlayer || selectedAvailablePlayer}
-            >
-              🔀 Randomize
-            </button>
+            
+            <div className="shuffle-controls">
+              <button 
+                className="btn btn-outline shuffle-btn"
+                onClick={handleShufflePlayers}
+                title={
+                  smartMatching.enabled && matchType === 'doubles' 
+                    ? "Smart shuffle - picks from top 25% of good matches" 
+                    : "Random shuffle"
+                }
+                disabled={selectedPlayer || selectedAvailablePlayer}
+              >
+                Shuffle
+              </button>
+              
+              {/* Inline Smart Matching Toggle - only show for doubles */}
+              {matchType === 'doubles' && (
+                <div className="smart-toggle-inline">
+                  <div className="smart-label-stack">
+                    <span className="smart-label-top">Smart</span>
+                    <span className="smart-label-bottom">Shuffle</span>
+                  </div>
+                  <label className="iphone-toggle">
+                    <input
+                      type="checkbox"
+                      checked={smartMatching.enabled}
+                      onChange={handleToggleSmartMatching}
+                      className="iphone-toggle-input"
+                    />
+                    <span className="iphone-toggle-slider"></span>
+                  </label>
+                </div>
+              )}
+            </div>
+            
             <button className="btn btn-outline" onClick={handleCancel}>
               Cancel
             </button>

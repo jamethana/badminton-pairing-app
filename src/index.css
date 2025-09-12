@@ -2857,17 +2857,98 @@ code {
   color: var(--text-primary);
 }
 
+/* Shuffle Controls Container */
+.shuffle-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Inline Smart Toggle */
+.smart-toggle-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.smart-label-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.smart-label-top {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 1px;
+}
+
+.smart-label-bottom {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* iPhone-style Toggle Switch - Compact */
+.iphone-toggle {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.iphone-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.iphone-toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #cdd1d9;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.iphone-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.iphone-toggle-input:checked + .iphone-toggle-slider {
+  background: var(--primary-color);
+}
+
+.iphone-toggle-input:checked + .iphone-toggle-slider:before {
+  transform: translateX(12px);
+}
+
+.iphone-toggle:hover .iphone-toggle-slider {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(124, 58, 237, 0.1);
+}
+
+
 /* Match Preview Shuffle Button */
 .shuffle-btn {
-  font-size: 12px;
-  padding: 8px 12px;
-  min-height: auto;
   display: flex;
   align-items: center;
   gap: 4px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  transition: all 0.2s ease;
 }
 
 .shuffle-btn:hover:not(:disabled) {
@@ -2988,8 +3069,6 @@ code {
 /* Mobile responsiveness for shuffle button */
 @media (max-width: 768px) {
   .shuffle-btn {
-    font-size: 11px;
-    padding: 6px 10px;
     gap: 2px;
   }
   

@@ -308,9 +308,9 @@ export function useMatchManagement({
 
       const availablePlayers = activePlayers.filter(p => !usedPlayers.has(p.id));
       
-      // Use smart matching if enabled
+      // Use smart matching if enabled (no randomness for automatic generation)
       const useSmartMatching = currentSession.smartMatching?.enabled || false;
-      const matchSelection = generateSmartMatch(availablePlayers, safeMatches, useSmartMatching);
+      const matchSelection = generateSmartMatch(availablePlayers, safeMatches, useSmartMatching, false);
       
       if (!matchSelection) break;
       

@@ -443,12 +443,14 @@ function RefactoredApp() {
           courtStates={currentSession.courtStates || []}
           courtCount={currentSession.courtCount || 4}
           availablePool={availablePool}
+          currentSession={currentSession}
           onCompleteMatch={handleCompleteMatch}
           onFillCourt={handleFillEmptyCourt}
           onAddCourt={handleAddCourt}
           onRemoveCourt={handleRemoveCourt}
           onGenerateMatches={handleGenerateMatches}
           onClearMatches={handleClearMatches}
+          onUpdateSession={updateSession}
           isCompletingMatch={isCompletingMatch}
         />
 

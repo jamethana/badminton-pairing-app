@@ -35,15 +35,18 @@ const SmartMatchingSettings = ({ session, onUpdateSettings }) => {
     <div className="smart-matching-settings">
       <div className="setting-group">
         <div className="setting-header">
-          <label className="setting-label">
-            <input
-              type="checkbox"
-              checked={smartMatching.enabled}
-              onChange={handleToggleEnabled}
-              className="setting-checkbox"
-            />
-            <span className="setting-title">🎯 Smart Matching</span>
-          </label>
+          <div className="setting-label">
+            <span className="setting-title">🎯 Smart Matching </span>
+            <label className="iphone-toggle">
+              <input
+                type="checkbox"
+                checked={smartMatching.enabled}
+                onChange={handleToggleEnabled}
+                className="iphone-toggle-input"
+              />
+              <span className="iphone-toggle-slider"></span>
+            </label>
+          </div>
           <button
             type="button"
             className="btn btn-ghost btn-sm"
@@ -185,16 +188,9 @@ const SmartMatchingSettings = ({ session, onUpdateSettings }) => {
 
         .setting-label {
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          gap: 8px;
           font-weight: 500;
-          cursor: pointer;
-        }
-
-        .setting-checkbox {
-          width: 18px;
-          height: 18px;
-          cursor: pointer;
         }
 
         .setting-title {

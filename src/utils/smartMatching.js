@@ -180,16 +180,15 @@ function generateTeamCombinations(players) {
 }
 
 /**
- * Smart player selection algorithm
- * Selects best 4 players and optimal team arrangement
+ * Smart player selection algorithm with controlled randomness
+ * Finds good matches and randomly selects from top options
  */
-export function selectSmartPlayers(availablePlayers, matches, courtNumber = 0) {
+export function selectSmartPlayers(availablePlayers, matches, courtNumber = 0, addRandomness = false) {
   if (availablePlayers.length < 4) {
     return null; // Not enough players
   }
   
-  let bestSelection = null;
-  let bestScore = -1;
+  const allSelections = [];
   
   // Try different combinations of 4 players
   for (let i = 0; i < availablePlayers.length - 3; i++) {
@@ -216,21 +215,36 @@ export function selectSmartPlayers(availablePlayers, matches, courtNumber = 0) {
               matches
             );
             
-            if (score.total > bestScore) {
-              bestScore = score.total;
-              bestSelection = {
-                players: playerGroup,
-                teams: combination,
-                score: score
-              };
-            }
+            allSelections.push({
+              players: playerGroup,
+              teams: combination,
+              score: score
+            });
           }
         }
       }
     }
   }
   
-  return bestSelection;
+  if (allSelections.length === 0) {
+    return null;
+  }
+  
+  // Sort by score (best first)
+  allSelections.sort((a, b) => b.score.total - a.score.total);
+  
+  if (!addRandomness) {
+    // Return the absolute best match (original behavior)
+    return allSelections[0];
+  }
+  
+  // Add controlled randomness: select from top 25% of matches
+  const topCount = Math.max(1, Math.ceil(allSelections.length * 0.25));
+  const topSelections = allSelections.slice(0, topCount);
+  
+  // Randomly select from the top options
+  const randomIndex = Math.floor(Math.random() * topSelections.length);
+  return topSelections[randomIndex];
 }
 
 /**
@@ -257,12 +271,12 @@ export function selectRandomPlayers(availablePlayers) {
  * Main smart matching function
  * Returns best player selection with optimal team arrangement
  */
-export function generateSmartMatch(availablePlayers, matches, useSmartMatching = true) {
+export function generateSmartMatch(availablePlayers, matches, useSmartMatching = true, addRandomness = false) {
   if (!useSmartMatching) {
     return selectRandomPlayers(availablePlayers);
   }
   
-  const smartSelection = selectSmartPlayers(availablePlayers, matches);
+  const smartSelection = selectSmartPlayers(availablePlayers, matches, 0, addRandomness);
   
   // Fallback to random if smart matching fails
   if (!smartSelection) {
@@ -271,7 +285,7 @@ export function generateSmartMatch(availablePlayers, matches, useSmartMatching =
   
   return {
     ...smartSelection,
-    method: 'smart'
+    method: addRandomness ? 'smart-random' : 'smart'
   };
 }
 
