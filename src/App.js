@@ -14,6 +14,8 @@ function App() {
         <Routes>
           <Route path="/" element={<RefactoredApp />} />
           <Route path="/:sessionName" element={<RefactoredApp />} />
+          {/* Catch-all route for any unmatched URLs - redirect to home */}
+          <Route path="*" element={<RefactoredApp />} />
         </Routes>
       </Router>
     </GameProvider>

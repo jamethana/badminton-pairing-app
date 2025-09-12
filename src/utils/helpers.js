@@ -263,10 +263,27 @@ export function sessionNameToUrl(sessionName) {
 }
 
 export function urlToSessionName(urlName, sessions) {
+  // Validate inputs
+  if (!urlName || !sessions || !Array.isArray(sessions)) {
+    return null;
+  }
+
+  const normalizedUrlName = urlName.toLowerCase().trim();
+  
   // Find session that matches the URL format
-  return sessions.find(s => 
-    s && sessionNameToUrl(s.name) === urlName.toLowerCase()
-  );
+  const matchedSession = sessions.find(s => {
+    if (!s || !s.name) return false;
+    
+    try {
+      const sessionUrl = sessionNameToUrl(s.name);
+      return sessionUrl === normalizedUrlName;
+    } catch (error) {
+      console.warn('Error converting session name to URL:', error);
+      return false;
+    }
+  });
+
+  return matchedSession || null;
 }
 
 // Sort players by ELO (highest first)

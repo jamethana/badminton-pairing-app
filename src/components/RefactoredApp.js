@@ -25,6 +25,7 @@ import {
 function RefactoredApp() {
   // Router params
   const { sessionName } = useParams();
+  const location = window.location;
   
   // Internet connection requirement
   const { isOnline, isLoading: connectionLoading, error: connectionError } = useInternetConnection();
@@ -169,24 +170,62 @@ function RefactoredApp() {
     updateSession
   });
 
-  // Sync URL with current session
+  // Robust URL resolution with fallback to welcome page
   useEffect(() => {
-    if (sessionName && safeSessions.length > 0) {
+    // Skip if no session name in URL
+    if (!sessionName) {
+      return;
+    }
+
+    console.log(`🔍 Resolving session URL: "${sessionName}"`);
+    console.log(`📊 Available sessions: ${safeSessions.length}, Data loading: ${isDataLoading}`);
+
+    // Set up a timeout to handle cases where data never loads
+    const timeoutId = setTimeout(() => {
+      if (safeSessions.length === 0 && sessionName) {
+        console.log('⏰ Timeout waiting for sessions to load - redirecting to welcome page');
+        setCurrentSessionId(null);
+        showNotification('Unable to load session data - redirected to welcome page', 'error');
+        handleNavigateHome();
+      }
+    }, 5000); // 5 second timeout
+
+    // Skip if data is still loading and we haven't waited too long
+    if (isDataLoading || safeSessions.length === 0) {
+      console.log('⏳ Waiting for sessions to load...');
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Clear timeout since we have data
+    clearTimeout(timeoutId);
+
+    try {
       // Find session by name from URL
       const sessionFromUrl = urlToSessionName(sessionName, safeSessions);
       
       if (sessionFromUrl && (sessionFromUrl.isActive !== false && sessionFromUrl.is_active !== false)) {
+        console.log(`✅ Found valid session: "${sessionFromUrl.name}"`);
         // URL has valid session name, set it as current
         if (currentSessionId !== sessionFromUrl.id) {
           setCurrentSessionId(sessionFromUrl.id);
         }
       } else {
-        // URL has invalid session name, redirect to home
+        console.log(`❌ Invalid session URL: "${sessionName}" - redirecting to welcome page`);
+        // URL has invalid session name or session is inactive, redirect to home
         setCurrentSessionId(null);
+        showNotification(`Session "${sessionName}" not found or is no longer active`, 'error');
         handleNavigateHome();
       }
+    } catch (error) {
+      console.error('🚨 Error resolving session URL:', error);
+      // Any error in URL resolution should redirect to welcome page
+      setCurrentSessionId(null);
+      showNotification('Error loading session - redirected to welcome page', 'error');
+      handleNavigateHome();
     }
-  }, [sessionName, safeSessions, currentSessionId, setCurrentSessionId, handleNavigateHome]);
+
+    return () => clearTimeout(timeoutId);
+  }, [sessionName, safeSessions, currentSessionId, setCurrentSessionId, handleNavigateHome, isDataLoading, showNotification]);
 
   // Handle navigation to home page and clean up invalid sessions
   useEffect(() => {
@@ -197,6 +236,22 @@ function RefactoredApp() {
       }
     }
   }, [sessionName, currentSessionId, setCurrentSessionId]);
+
+  // Handle invalid URLs (like deep paths or malformed URLs)
+  useEffect(() => {
+    const pathname = location.pathname;
+    const basePath = process.env.NODE_ENV === 'production' ? '/badminton-pairing-app' : '';
+    const relativePath = pathname.replace(basePath, '');
+    
+    // Check for invalid URL patterns (paths with more than one segment beyond base)
+    const pathSegments = relativePath.split('/').filter(Boolean);
+    
+    if (pathSegments.length > 1) {
+      console.log(`🚨 Invalid URL detected: ${pathname} - redirecting to welcome page`);
+      showNotification('Invalid URL - redirected to welcome page', 'error');
+      handleNavigateHome();
+    }
+  }, [location.pathname, showNotification, handleNavigateHome]);
 
   // Initialize court states for existing sessions that might not have them
   useEffect(() => {
