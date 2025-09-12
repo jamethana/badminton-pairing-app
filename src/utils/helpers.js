@@ -182,15 +182,15 @@ export function getELOTier(elo, player = null) {
     }
   }
   
-  if (elo >= 3000) return { name: 'Grandmaster', color: '#FFD700', icon: '👑' };
-  if (elo >= 2400) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
-  if (elo >= 2000) return { name: 'Expert', color: '#4ECDC4', icon: '⭐' };
-  if (elo >= 1800) return { name: 'Advanced', color: '#45B7D1', icon: '🎯' };
-  if (elo >= 1600) return { name: 'Intermediate', color: '#96CEB4', icon: '🌟' };
-  if (elo >= 1400) return { name: 'Improving', color: '#F39C12', icon: '📈' };
-  if (elo >= 1200) return { name: 'Novice', color: '#F1B40F', icon: '🌱' };
-  if (elo >= 1000) return { name: 'Learning', color: '#E67E22', icon: '📚' };
-  if (elo >= 800) return { name: 'Beginner', color: '#DDA0DD', icon: '🥚' };
+  if (elo >= 2500) return { name: 'Grandmaster', color: '#FFD700', icon: '👑' };
+  if (elo >= 2000) return { name: 'Master', color: '#FF6B6B', icon: '🔥' };
+  if (elo >= 1800) return { name: 'Elite', color: '#4ECDC4', icon: '⭐' };
+  if (elo >= 1600) return { name: 'Expert', color: '#45B7D1', icon: '🎯' };
+  if (elo >= 1400) return { name: 'Advanced', color: '#96CEB4', icon: '🌟' };
+  if (elo >= 1200) return { name: 'Intermediate', color: '#F39C12', icon: '📈' };
+  if (elo >= 1000) return { name: 'Beginner', color: '#F1B40F', icon: '🌱' };
+  if (elo >= 500) return { name: 'Novice', color: '#E67E22', icon: '📚' };
+  if (elo >= 200) return { name: 'Child', color: '#DDA0DD', icon: '🥚' };
   return { name: 'Unrated', color: '#95A5A6', icon: '❓' };
 }
 

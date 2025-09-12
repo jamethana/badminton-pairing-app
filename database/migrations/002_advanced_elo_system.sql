@@ -104,15 +104,15 @@ SELECT
     RANK() OVER (ORDER BY p.current_elo DESC) as rank,
     ROUND(p.total_wins::DECIMAL / NULLIF(p.total_matches, 0) * 100, 1) as win_percentage,
     CASE 
-        WHEN p.current_elo >= 2400 THEN 'Grandmaster'
-        WHEN p.current_elo >= 2200 THEN 'Master'
-        WHEN p.current_elo >= 2000 THEN 'Expert'
-        WHEN p.current_elo >= 1800 THEN 'Advanced'
-        WHEN p.current_elo >= 1600 THEN 'Intermediate'
-        WHEN p.current_elo >= 1400 THEN 'Improving'
-        WHEN p.current_elo >= 1200 THEN 'Beginner'
-        WHEN p.current_elo >= 1000 THEN 'Learning'
-        WHEN p.current_elo >= 800 THEN 'Novice'
+        WHEN p.current_elo >= 2500 THEN 'Grandmaster'
+        WHEN p.current_elo >= 2000 THEN 'Master'
+        WHEN p.current_elo >= 1800 THEN 'Elite'
+        WHEN p.current_elo >= 1600 THEN 'Expert'
+        WHEN p.current_elo >= 1400 THEN 'Advanced'
+        WHEN p.current_elo >= 1200 THEN 'Intemediated'
+        WHEN p.current_elo >= 1000 THEN 'Beginner'
+        WHEN p.current_elo >= 500 THEN 'Novice'
+        WHEN p.current_elo >= 200  THEN 'Child'
         ELSE 'Unrated'
     END as tier_name
 FROM players p
