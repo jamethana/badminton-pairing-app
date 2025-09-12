@@ -37,14 +37,14 @@ const SmartMatchingSettings = ({ session, onUpdateSettings }) => {
         <div className="setting-header">
           <div className="setting-label">
             <span className="setting-title">🎯 Smart Matching </span>
-            <label className="iphone-toggle">
+            <label className="i-toggle">
               <input
                 type="checkbox"
                 checked={smartMatching.enabled}
                 onChange={handleToggleEnabled}
-                className="iphone-toggle-input"
+                className="i-toggle-input"
               />
-              <span className="iphone-toggle-slider"></span>
+              <span className="i-toggle-slider"></span>
             </label>
           </div>
           <button

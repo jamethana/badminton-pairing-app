@@ -12,6 +12,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const [animatingPlayers, setAnimatingPlayers] = useState(new Set()); // Track which players are animating
   const [draggedPlayer, setDraggedPlayer] = useState(null); // Track dragged player
   const [dragOverZone, setDragOverZone] = useState(null); // Track drag over zones
+  const [touchDragState, setTouchDragState] = useState(null); // Track touch drag state
 
   // Get smart matching settings
   const smartMatching = currentSession?.smartMatching || {
@@ -91,8 +92,11 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
 
   const handlePlayerClick = (player, index) => {
     if (selectedAvailablePlayer) {
-      // Swap mode: replace court player with available player
+      // Swap mode: replace court player with available player (works for empty slots too)
       swapPlayer(index, selectedAvailablePlayer);
+    } else if (!player) {
+      // Empty slot clicked - do nothing unless there's a selected available player
+      return;
     } else if (!selectedPlayer) {
       // Swap mode: select court player to replace
       setSelectedPlayer({ player, index });
@@ -103,6 +107,14 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
       // Swap mode: swap two court players
       swapCourtPlayers(selectedPlayer.index, index);
     }
+  };
+
+  const handleEmptySlotClick = (index) => {
+    if (selectedAvailablePlayer) {
+      // Place the selected available player in the empty slot
+      swapPlayer(index, selectedAvailablePlayer);
+    }
+    // If no available player is selected, do nothing (empty slot stays empty)
   };
 
   const handleAvailablePlayerClick = (player) => {
@@ -121,8 +133,29 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const swapPlayer = (courtIndex, newPlayer) => {
     const oldPlayer = assignedPlayers[courtIndex];
     
-    // Animate the swap
-    animateSwap([oldPlayer.id, newPlayer.id], () => {
+    // If there's an old player, animate the swap; otherwise just place the new player
+    if (oldPlayer) {
+      animateSwap([oldPlayer.id, newPlayer.id], () => {
+        setAssignedPlayers(prev => {
+          const newAssigned = [...prev];
+          newAssigned[courtIndex] = newPlayer;
+          return newAssigned;
+        });
+        
+        setRemainingPlayers(prev => {
+          const newRemaining = [...prev];
+          // Remove new player from available pool
+          const newPlayerIndex = newRemaining.findIndex(p => p.id === newPlayer.id);
+          if (newPlayerIndex !== -1) {
+            newRemaining.splice(newPlayerIndex, 1);
+          }
+          // Add old player back to available pool
+          newRemaining.push(oldPlayer);
+          return newRemaining;
+        });
+      });
+    } else {
+      // No old player, just place the new player
       setAssignedPlayers(prev => {
         const newAssigned = [...prev];
         newAssigned[courtIndex] = newPlayer;
@@ -136,11 +169,9 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
         if (newPlayerIndex !== -1) {
           newRemaining.splice(newPlayerIndex, 1);
         }
-        // Add old player back to available pool
-        newRemaining.push(oldPlayer);
         return newRemaining;
       });
-    });
+    }
     
     // Reset selection
     setSelectedPlayer(null);
@@ -287,9 +318,9 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
       // Swap players within assigned team
       swapCourtPlayers(sourceIndex, targetIndex);
     } else if (source === 'assigned' && targetZone === 'available') {
-      // Move from assigned to available
+      // Move from assigned to available - replace with null to maintain indexing
       const newAssigned = [...assignedPlayers];
-      newAssigned.splice(sourceIndex, 1);
+      newAssigned[sourceIndex] = null;
       setAssignedPlayers(newAssigned);
       setRemainingPlayers(prev => [...prev, player]);
     } else if (source === 'available' && targetZone === 'assigned') {
@@ -299,6 +330,93 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
       }
     }
     
+    setDraggedPlayer(null);
+  };
+
+  // Touch event handlers for mobile drag and drop
+  const handleTouchStart = (e, player, source, index = null) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    setTouchDragState({
+      player,
+      source,
+      index,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      currentX: touch.clientX,
+      currentY: touch.clientY,
+      isDragging: false,
+      element: e.currentTarget
+    });
+    setDraggedPlayer({ player, source, index });
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchDragState) return;
+    
+    e.preventDefault();
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchDragState.startX);
+    const deltaY = Math.abs(touch.clientY - touchDragState.startY);
+    
+    // Start dragging if moved more than 10px
+    if (!touchDragState.isDragging && (deltaX > 10 || deltaY > 10)) {
+      setTouchDragState(prev => ({ ...prev, isDragging: true }));
+      // Add visual feedback for dragging
+      touchDragState.element.classList.add('touch-dragging');
+    }
+    
+    if (touchDragState.isDragging) {
+      setTouchDragState(prev => ({
+        ...prev,
+        currentX: touch.clientX,
+        currentY: touch.clientY
+      }));
+      
+      // Find element under touch point
+      const elementUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+      const dropZone = elementUnder?.closest('[data-drop-zone]');
+      
+      if (dropZone) {
+        const zone = dropZone.getAttribute('data-drop-zone');
+        const index = dropZone.getAttribute('data-drop-index');
+        setDragOverZone({ zone, index: index ? parseInt(index) : null });
+      } else {
+        setDragOverZone(null);
+      }
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchDragState) return;
+    
+    e.preventDefault();
+    
+    // Remove visual feedback
+    if (touchDragState.element) {
+      touchDragState.element.classList.remove('touch-dragging');
+    }
+    
+    if (touchDragState.isDragging) {
+      // Find final drop target
+      const elementUnder = document.elementFromPoint(touchDragState.currentX, touchDragState.currentY);
+      const dropZone = elementUnder?.closest('[data-drop-zone]');
+      
+      if (dropZone) {
+        const targetZone = dropZone.getAttribute('data-drop-zone');
+        const targetIndex = dropZone.getAttribute('data-drop-index');
+        
+        // Simulate drop
+        handleDrop(
+          { preventDefault: () => {} },
+          targetZone,
+          targetIndex ? parseInt(targetIndex) : null
+        );
+      }
+    }
+    
+    setTouchDragState(null);
+    setDragOverZone(null);
     setDraggedPlayer(null);
   };
 
@@ -337,208 +455,280 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} className="court-modal">
-      <div className="modal-content fill-court-modal" onClick={(e) => e.stopPropagation()}>
-        {/* <div className="modal-header">
-          <h3 className="modal-title">Fill Court {court.id + 1}</h3>
-        </div> */}
+    <Modal isOpen={true} onClose={onClose} className="court-modal modern-empty-court">
+      <div className="modern-modal-wrapper" onClick={(e) => e.stopPropagation()}>
         
-        <div className="modal-body">
-          {/* Match Preview */}
-          <div className="match-preview">
-            <div className="preview-header">
-              <h4 className="preview-title">Match Preview</h4>
-              <div className="match-type-toggle">
+        {/* Modern Header */}
+        <div className="modern-modal-header">
+          <div className="court-info-section">
+            <div className="court-badge">
+              <span className="court-icon">🏸</span>
+              <span className="court-label">Court {court.id + 1}</span>
+            </div>
+            <div className="match-type-header">
+              <div className="match-type-cards">
                 <button 
-                  className={`match-type-btn ${matchType === 'singles' ? 'active' : ''}`}
+                  className={`match-type-card ${matchType === 'singles' ? 'active' : ''}`}
                   onClick={() => setMatchType('singles')}
+                  title="Singles (1 vs 1)"
                 >
-                  1v1 Singles
+                  <div className="match-type-icon">👤</div>
                 </button>
                 <button 
-                  className={`match-type-btn ${matchType === 'doubles' ? 'active' : ''}`}
+                  className={`match-type-card ${matchType === 'doubles' ? 'active' : ''}`}
                   onClick={() => setMatchType('doubles')}
+                  title="Doubles (2 vs 2)"
                 >
-                  2v2 Doubles
+                  <div className="match-type-icon">👥</div>
                 </button>
               </div>
             </div>
+          </div>
+          <button className="close-btn-modern" onClick={onClose}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div 
+          className="modern-modal-body"
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Match Preview */}
+          <div className="match-preview-modern">
             
-            <div className="teams-container">
+            <div className="teams-container-modern">
               {/* Team 1 */}
-              <div className="team-preview team-1">
-                <div className="team-players">
-                  {assignedPlayers.slice(0, matchType === 'singles' ? 1 : 2).map((player, index) => (
-                    <div 
-                      key={player.id} 
-                      draggable="true"
-                      className={`player-slot clickable draggable ${
-                        selectedPlayer?.index === index ? 'selected' : ''
-                      } ${
-                        selectedAvailablePlayer ? 'swap-ready' : ''
-                      } ${
-                        animatingPlayers.has(player.id) ? 'player-flying' : ''
-                      } ${
-                        dragOverZone?.zone === 'assigned' && dragOverZone?.index === index ? 'drag-over' : ''
-                      }`}
-                      onClick={() => handlePlayerClick(player, index)}
-                      onDragStart={(e) => handleDragStart(e, player, 'assigned', index)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={handleDragOver}
-                      onDragEnter={(e) => handleDragEnter(e, 'assigned', index)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, 'assigned', index)}
-                    >
-                      <div className="player-info">
-                        <span className="player-name">{player.name}</span>
-                        <span className="player-stats">
-                          {/* {player.wins}W - {player.losses}L */}
-                          {/* {player.elo} */}
-                          {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
-                        </span>
-                      </div>
+              <div className="team-card team-1">
+                <div className="team-header">
+                  <span className="team-label">Team 1</span>
+                  {matchType === 'doubles' && assignedPlayers.length === 4 && (
+                    <div className="team-rating">
+                      {(() => {
+                        const rating = formatTeamELODisplay(assignedPlayers[0], assignedPlayers[1], false);
+                        return <span className="rating-value">{rating}</span>;
+                      })()}
                     </div>
-                  ))}
+                  )}
                 </div>
-                {/* Team 1 ELO */}
-                {matchType === 'doubles' && assignedPlayers.length === 4 && (
-                  <div className="team-elo-display">
-                    {(() => {
-                      const preview = getMatchPreview(
-                        assignedPlayers[0],
-                        assignedPlayers[1],
-                        assignedPlayers[2],
-                        assignedPlayers[3]
-                      );
-                      return <span className="team-elo-number">Rating: {formatTeamELODisplay(assignedPlayers[0], assignedPlayers[1], false)}</span>;
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {/* Small VS Divider */}
-              <div className="vs-divider-small">
-                <span className="vs-text-small">VS</span>
-              </div>
-
-              {/* Team 2 */}
-              <div className="team-preview team-2">
-                <div className="team-players">
-                  {assignedPlayers.slice(matchType === 'singles' ? 1 : 2, matchType === 'singles' ? 2 : 4).map((player, index) => {
-                    const actualIndex = index + (matchType === 'singles' ? 1 : 2);
+                <div className="team-players-modern">
+                  {Array.from({ length: matchType === 'singles' ? 1 : 2 }, (_, index) => {
+                    const player = assignedPlayers[index];
                     return (
-                    <div 
-                      key={player.id} 
-                      draggable="true"
-                      className={`player-slot clickable draggable ${
-                        selectedPlayer?.index === actualIndex ? 'selected' : ''
-                      } ${
-                        selectedAvailablePlayer ? 'swap-ready' : ''
-                      } ${
-                        animatingPlayers.has(player.id) ? 'player-flying' : ''
-                      } ${
-                        dragOverZone?.zone === 'assigned' && dragOverZone?.index === actualIndex ? 'drag-over' : ''
-                    }`}
-                      onClick={() => handlePlayerClick(player, actualIndex)}
-                      onDragStart={(e) => handleDragStart(e, player, 'assigned', actualIndex)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={handleDragOver}
-                      onDragEnter={(e) => handleDragEnter(e, 'assigned', actualIndex)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, 'assigned', actualIndex)}
-                    >
-                      <div className="player-info">
-                        <span className="player-name">{player.name}</span>
-                        <span className="player-stats">
-                          {/* {player.wins}W - {player.losses}L */}
-                          {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
-                        </span>
+                      <div 
+                        key={player ? player.id : `empty-${index}`} 
+                        draggable={player ? "true" : "false"}
+                        data-drop-zone="assigned"
+                        data-drop-index={index}
+                        className={`player-card-modern ${player ? 'clickable draggable' : 'empty-slot'} ${
+                          selectedPlayer?.index === index ? 'selected' : ''
+                        } ${
+                          selectedAvailablePlayer ? 'swap-ready' : ''
+                        } ${
+                          player && animatingPlayers.has(player.id) ? 'player-flying' : ''
+                        } ${
+                          dragOverZone?.zone === 'assigned' && dragOverZone?.index === index ? 'drag-over' : ''
+                        }`}
+                        onClick={() => player ? handlePlayerClick(player, index) : handleEmptySlotClick(index)}
+                        onDragStart={player ? (e) => handleDragStart(e, player, 'assigned', index) : undefined}
+                        onDragEnd={player ? handleDragEnd : undefined}
+                        onDragOver={handleDragOver}
+                        onDragEnter={(e) => handleDragEnter(e, 'assigned', index)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, 'assigned', index)}
+                        onTouchStart={player ? (e) => handleTouchStart(e, player, 'assigned', index) : undefined}
+                      >
+                        {player ? (
+                          <>
+                            <div className="player-avatar">
+                              <span className="avatar-initial">{player.name.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="player-details">
+                              <span className="player-name-modern">{player.name}</span>
+                              <span className="player-tier">
+                                {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
+                              </span>
+                            </div>
+                            <div className="drag-handle">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <circle cx="9" cy="12" r="1" fill="currentColor"/>
+                                <circle cx="15" cy="12" r="1" fill="currentColor"/>
+                                <circle cx="9" cy="6" r="1" fill="currentColor"/>
+                                <circle cx="15" cy="6" r="1" fill="currentColor"/>
+                                <circle cx="9" cy="18" r="1" fill="currentColor"/>
+                                <circle cx="15" cy="18" r="1" fill="currentColor"/>
+                              </svg>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="empty-slot-content">
+                            <div className="empty-slot-icon">+</div>
+                            <div className="empty-slot-text">Drop player here</div>
+                          </div>
+                        )}
                       </div>
-                    </div>
                     );
                   })}
                 </div>
-                {/* Team 2 ELO */}
-                {matchType === 'doubles' && assignedPlayers.length === 4 && (
-                  <div className="team-elo-display">
-                    {(() => {
-                      const preview = getMatchPreview(
-                        assignedPlayers[0],
-                        assignedPlayers[1],
-                        assignedPlayers[2],
-                        assignedPlayers[3]
-                      );
-                      return <span className="team-elo-number">Rating: {formatTeamELODisplay(assignedPlayers[2], assignedPlayers[3], false)}</span>;
-                    })()}
+              </div>
+
+
+              {/* Team 2 */}
+              <div className="team-card team-2">
+                <div className="team-header">
+                  <span className="team-label">Team 2</span>
+                  {matchType === 'doubles' && assignedPlayers.length === 4 && (
+                    <div className="team-rating">
+                      {(() => {
+                        const rating = formatTeamELODisplay(assignedPlayers[2], assignedPlayers[3], false);
+                        return <span className="rating-value">{rating}</span>;
+                      })()}
+                    </div>
+                  )}
+                </div>
+                <div className="team-players-modern">
+                  {Array.from({ length: matchType === 'singles' ? 1 : 2 }, (_, index) => {
+                    const actualIndex = index + (matchType === 'singles' ? 1 : 2);
+                    const player = assignedPlayers[actualIndex];
+                    return (
+                      <div 
+                        key={player ? player.id : `empty-${actualIndex}`} 
+                        draggable={player ? "true" : "false"}
+                        data-drop-zone="assigned"
+                        data-drop-index={actualIndex}
+                        className={`player-card-modern ${player ? 'clickable draggable' : 'empty-slot'} ${
+                          selectedPlayer?.index === actualIndex ? 'selected' : ''
+                        } ${
+                          selectedAvailablePlayer ? 'swap-ready' : ''
+                        } ${
+                          player && animatingPlayers.has(player.id) ? 'player-flying' : ''
+                        } ${
+                          dragOverZone?.zone === 'assigned' && dragOverZone?.index === actualIndex ? 'drag-over' : ''
+                        }`}
+                        onClick={() => player ? handlePlayerClick(player, actualIndex) : handleEmptySlotClick(actualIndex)}
+                        onDragStart={player ? (e) => handleDragStart(e, player, 'assigned', actualIndex) : undefined}
+                        onDragEnd={player ? handleDragEnd : undefined}
+                        onDragOver={handleDragOver}
+                        onDragEnter={(e) => handleDragEnter(e, 'assigned', actualIndex)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, 'assigned', actualIndex)}
+                        onTouchStart={player ? (e) => handleTouchStart(e, player, 'assigned', actualIndex) : undefined}
+                      >
+                        {player ? (
+                          <>
+                            <div className="player-avatar">
+                              <span className="avatar-initial">{player.name.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="player-details">
+                              <span className="player-name-modern">{player.name}</span>
+                              <span className="player-tier">
+                                {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
+                              </span>
+                            </div>
+                            <div className="drag-handle">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <circle cx="9" cy="12" r="1" fill="currentColor"/>
+                                <circle cx="15" cy="12" r="1" fill="currentColor"/>
+                                <circle cx="9" cy="6" r="1" fill="currentColor"/>
+                                <circle cx="15" cy="6" r="1" fill="currentColor"/>
+                                <circle cx="9" cy="18" r="1" fill="currentColor"/>
+                                <circle cx="15" cy="18" r="1" fill="currentColor"/>
+                              </svg>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="empty-slot-content">
+                            <div className="empty-slot-icon">+</div>
+                            <div className="empty-slot-text">Drop player here</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modern Action Controls */}
+          <div className="action-controls-modern">
+            <div className="primary-actions">
+              <button 
+                className="btn-modern btn-primary-modern" 
+                onClick={handleFillCourt}
+                disabled={selectedPlayer || selectedAvailablePlayer}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+                Start Match
+              </button>
+              
+              <div className="shuffle-section-modern">
+                <button 
+                  className="btn-modern btn-shuffle-modern"
+                  onClick={handleShufflePlayers}
+                  title={
+                    smartMatching.enabled && matchType === 'doubles' 
+                      ? "Smart shuffle - picks from top 25% of good matches" 
+                      : "Random shuffle"
+                  }
+                  disabled={selectedPlayer || selectedAvailablePlayer}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6m-6-10.5a7.5 7.5 0 1 1-10.5 10.5 7.5 7.5 0 0 1 10.5-10.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  {smartMatching.enabled && matchType === 'doubles' ? 'Smart Shuffle' : 'Dumb Shuffle'}
+                </button>
+                
+                {/* Smart Toggle for doubles */}
+                {matchType === 'doubles' && (
+                  <div className="smart-toggle-modern">
+                    <span className="toggle-label">Smart</span>
+                    <label className="i-toggle">
+                      <input
+                        type="checkbox"
+                        checked={smartMatching.enabled}
+                        onChange={handleToggleSmartMatching}
+                        className="i-toggle-input"
+                      />
+                      <span className="i-toggle-slider"></span>
+                    </label>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Action Buttons Between Sections */}
-          <div className="modal-actions-middle">
-            <button 
-              className="btn btn-primary" 
-              onClick={handleFillCourt}
-              disabled={selectedPlayer || selectedAvailablePlayer}
-            >
-              Confirm Match
-            </button>
-            
-            <div className="shuffle-controls">
-              <button 
-                className="btn btn-outline shuffle-btn"
-                onClick={handleShufflePlayers}
-                title={
-                  smartMatching.enabled && matchType === 'doubles' 
-                    ? "Smart shuffle - picks from top 25% of good matches" 
-                    : "Random shuffle"
-                }
-                disabled={selectedPlayer || selectedAvailablePlayer}
-              >
-                Shuffle
-              </button>
-              
-              {/* Inline Smart Matching Toggle - only show for doubles */}
-              {matchType === 'doubles' && (
-                <div className="smart-toggle-inline">
-                  <div className="smart-label-stack">
-                    <span className="smart-label-top">Smart</span>
-                    <span className="smart-label-bottom">Shuffle</span>
-                  </div>
-                  <label className="iphone-toggle">
-                    <input
-                      type="checkbox"
-                      checked={smartMatching.enabled}
-                      onChange={handleToggleSmartMatching}
-                      className="iphone-toggle-input"
-                    />
-                    <span className="iphone-toggle-slider"></span>
-                  </label>
-                </div>
-              )}
-            </div>
-            
-            <button className="btn btn-outline" onClick={handleCancel}>
-              Cancel
-            </button>
-          </div>
-
           {/* Available Players Section */}
-          <div className="available-players-section">
-            <div className="section-header">
-              <h5 className="section-title">Available Players</h5>
-              <span className="player-count">{remainingPlayers.length} players</span>
+          <div className="available-players-section-modern">
+            <div className="section-header-modern">
+              <div className="section-title-modern">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2"/>
+                  <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+                Available Players
+              </div>
+              <div className="player-count-badge-modern">
+                <span className="count-number">{remainingPlayers.length}</span>
+                <span className="count-number">players</span>
+              </div>
             </div>
             
             {remainingPlayers.length > 0 ? (
-              <div className="available-players-grid">
+              <div className="available-players-grid-modern">
                 {remainingPlayers.map(player => (
                   <div 
                     key={player.id} 
                     draggable="true"
-                    className={`available-player-card clickable draggable ${
+                    data-drop-zone="available"
+                    className={`available-player-card-modern clickable draggable ${
                       selectedAvailablePlayer?.id === player.id ? 'selected' : ''
                     } ${
                       selectedPlayer ? 'swap-ready' : ''
@@ -554,27 +744,38 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                     onDragEnter={(e) => handleDragEnter(e, 'available')}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, 'available')}
+                    onTouchStart={(e) => handleTouchStart(e, player, 'available')}
                   >
-                    <div className="player-info">
-                      <span className="player-name">{player.name}</span>
-                      <span className="player-stats">
-                        {/* {player.wins}W - {player.losses}L */}
+                    <div className="player-avatar">
+                      <span className="avatar-initial">{player.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="player-details">
+                      <span className="player-name-modern">{player.name}</span>
+                      <span className="player-tier">
                         {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                       </span>
                     </div>
-                    <div className="player-actions">
-                      {/* <span className="action-hint">
-                        {selectedPlayer ? 'Click to swap' : 'Click to select'}
-                      </span> */}
+                    <div className="add-player-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M12 8v8m-4-4h8" stroke="currentColor" strokeWidth="2"/>
+                      </svg>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="no-players-message">
-                <div className="empty-state-icon">👥</div>
-                <p className="empty-state-title">All players assigned!</p>
-                <p className="empty-state-subtitle">Everyone is ready to play</p>
+              <div className="no-players-message-modern">
+                <div className="empty-state-icon-modern">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2"/>
+                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </div>
+                <p className="empty-state-title-modern">All players assigned!</p>
+                <p className="empty-state-subtitle-modern">Everyone is ready to play 🎉</p>
               </div>
             )}
           </div>
