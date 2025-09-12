@@ -588,6 +588,9 @@ function App() {
       // Collect ELO changes for history
       const eloChanges = [];
       
+      // Collect session player updates to batch them
+      const sessionPlayerUpdates = [];
+      
       setGlobalPlayers(prev => {
         console.log(`🔄 Updating global players stats`);
         return prev.map(globalPlayer => {
@@ -664,59 +667,14 @@ function App() {
             created_at: new Date().toISOString()
           });
           
-          // Update session stats in session_players table
-          // Update session stats - target ALL instances of this player in this session
-          // Update session stats by directly modifying the cleaned array
-          
-          // Find the player in the cleaned array and update directly
-          const playerInCleanedArray = cleanedSessionPlayers.find(sp => {
-            const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sp.player_id);
-            return sessionPlayerGlobal && sessionPlayerGlobal.name === globalPlayer.name;
+          // Collect session player update for batching
+          sessionPlayerUpdates.push({
+            playerId: globalPlayer.id,
+            playerName: globalPlayer.name,
+            isWinner,
+            isLoser,
+            newELO
           });
-          
-          if (playerInCleanedArray) {
-            // Update the player directly
-            playerInCleanedArray.session_wins = (playerInCleanedArray.session_wins || 0) + (isWinner ? 1 : 0);
-            playerInCleanedArray.session_losses = (playerInCleanedArray.session_losses || 0) + (isLoser ? 1 : 0);
-            playerInCleanedArray.session_matches = (playerInCleanedArray.session_matches || 0) + 1;
-            playerInCleanedArray.session_elo_current = newELO;
-            // Update peak ELO if new ELO is higher
-            playerInCleanedArray.session_elo_peak = Math.max(playerInCleanedArray.session_elo_peak || newELO, newELO);
-            playerInCleanedArray.last_match_time = new Date().toISOString();
-          }
-          
-          // Also update the full sessionPlayers array for consistency
-          setSessionPlayers(prevSessionPlayers => {
-            return prevSessionPlayers.map((sessionPlayer) => {
-              const isCurrentSession = sessionPlayer.session_id === currentSessionId;
-              const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sessionPlayer.player_id);
-              const isCurrentPlayer = sessionPlayerGlobal && sessionPlayerGlobal.name === globalPlayer.name;
-              
-              if (isCurrentSession && isCurrentPlayer) {
-                return {
-                  ...sessionPlayer,
-                  session_wins: (sessionPlayer.session_wins || 0) + (isWinner ? 1 : 0),
-                  session_losses: (sessionPlayer.session_losses || 0) + (isLoser ? 1 : 0),
-                  session_matches: (sessionPlayer.session_matches || 0) + 1,
-                  session_elo_current: newELO,
-                  // Update peak ELO if new ELO is higher
-                  session_elo_peak: Math.max(sessionPlayer.session_elo_peak || newELO, newELO),
-                  last_match_time: new Date().toISOString()
-                };
-              }
-              return sessionPlayer;
-            });
-          });
-          
-          // Update session stats in global player (for backward compatibility)
-          const sessionStats = getSessionPlayerStats(globalPlayer, currentSessionId);
-          const updatedSessionStats = {
-            ...sessionStats,
-            sessionWins: (sessionStats.sessionWins || 0) + (isWinner ? 1 : 0),
-            sessionLosses: (sessionStats.sessionLosses || 0) + (isLoser ? 1 : 0),
-            sessionMatchCount: (sessionStats.sessionMatchCount || 0) + 1,
-            sessionLastMatchTime: new Date().toISOString()
-          };
           
           return {
             ...globalPlayer,
@@ -726,17 +684,45 @@ function App() {
             matchCount: (globalPlayer.matchCount || 0) + 1,
             lastMatchTime: new Date().toISOString(),
             elo: newELO,
-            confidence: confidence,
-            // Update session stats
-            sessionStats: {
-              ...globalPlayer.sessionStats,
-              [currentSessionId]: updatedSessionStats
-            }
+            confidence: confidence
+            // Session stats are now managed via sessionPlayers array only
           };
         }
         return globalPlayer;
         });
       });
+      
+      // Batch update session players (single database operation instead of 4 separate ones)
+      if (sessionPlayerUpdates.length > 0) {
+        console.log(`📊 Batch updating session stats for ${sessionPlayerUpdates.length} players`);
+        setSessionPlayers(prevSessionPlayers => {
+          return prevSessionPlayers.map((sessionPlayer) => {
+            const isCurrentSession = sessionPlayer.session_id === currentSessionId;
+            if (!isCurrentSession) return sessionPlayer;
+            
+            // Find if this session player needs updating
+            const updateInfo = sessionPlayerUpdates.find(update => {
+              const sessionPlayerGlobal = safeGlobalPlayers.find(p => p.id === sessionPlayer.player_id);
+              return sessionPlayerGlobal && sessionPlayerGlobal.id === update.playerId;
+            });
+            
+            if (updateInfo) {
+              console.log(`📊 Updating session stats for ${updateInfo.playerName}: wins ${sessionPlayer.session_wins || 0} → ${(sessionPlayer.session_wins || 0) + (updateInfo.isWinner ? 1 : 0)}`);
+              return {
+                ...sessionPlayer,
+                session_wins: (sessionPlayer.session_wins || 0) + (updateInfo.isWinner ? 1 : 0),
+                session_losses: (sessionPlayer.session_losses || 0) + (updateInfo.isLoser ? 1 : 0),
+                session_matches: (sessionPlayer.session_matches || 0) + 1,
+                session_elo_current: updateInfo.newELO,
+                // Update peak ELO if new ELO is higher
+                session_elo_peak: Math.max(sessionPlayer.session_elo_peak || updateInfo.newELO, updateInfo.newELO),
+                last_match_time: new Date().toISOString()
+              };
+            }
+            return sessionPlayer;
+          });
+        });
+      }
       
       // Save ELO history (will sync to Supabase)
       if (eloChanges.length > 0) {
@@ -969,8 +955,10 @@ function App() {
     if (matchData) {
       console.log(`🚀 Creating match - Supabase first approach`);
       
-      // Create match in Supabase first to get proper UUID (no custom IDs)
+      // Create match with temporary ID that will be replaced by Supabase UUID
+      const tempMatchId = generateId(); // Temporary ID for local tracking
       const dbMatchData = {
+        id: tempMatchId, // Use temporary ID until Supabase assigns UUID
         session_name: currentSession.name,
         court_number: courtId,
         started_at: new Date().toISOString(),
@@ -994,8 +982,14 @@ function App() {
       // Save to Supabase - this will INSERT and get UUID back
       setMatches(prev => [...prev, dbMatchData]);
       
-      // Let the reconstruction effect handle UI updates with proper UUID
-      showNotification('Court filled - match will appear with Supabase UUID');
+      // Clear currentMatches to trigger reconstruction with proper UUIDs from Supabase
+      // This ensures UI state gets synced with database UUIDs after Supabase assigns them
+      updateSession({
+        currentMatches: [], // Clear to trigger reconstruction
+        courtStates: currentSession.courtStates.map(c => ({ ...c, isOccupied: false, currentMatch: null }))
+      });
+      
+      showNotification('Court filled - match saved to database');
       return;
     } else {
       // Fallback to random selection

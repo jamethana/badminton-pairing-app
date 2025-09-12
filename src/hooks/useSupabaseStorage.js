@@ -662,20 +662,20 @@ export function useSupabaseStorage(key, initialValue) {
     console.log(`💾 Saving ${sessionPlayersData.length} session players to Supabase`);
     
     // Get player and session mappings to resolve UUIDs
-    const { data: players } = await supabaseClient
+    let { data: players } = await supabaseClient
       .from(TABLES.PLAYERS)
       .select('id, name');
     
-    const { data: sessions } = await supabaseClient
+    let { data: sessions } = await supabaseClient
       .from(TABLES.SESSIONS)
       .select('id, name');
     
-    const playersByName = players?.reduce((acc, p) => {
+    let playersByName = players?.reduce((acc, p) => {
       acc[p.name] = p.id;
       return acc;
     }, {}) || {};
     
-    const sessionsByName = sessions?.reduce((acc, s) => {
+    let sessionsByName = sessions?.reduce((acc, s) => {
       acc[s.name] = s.id;
       return acc;
     }, {}) || {};
@@ -704,12 +704,48 @@ export function useSupabaseStorage(key, initialValue) {
         continue;
       }
       
-      const playerUuid = playersByName[playerName];
-      const sessionUuid = sessionsByName[sessionName];
+      let playerUuid = playersByName[playerName];
+      let sessionUuid = sessionsByName[sessionName];
       
+      // If UUID mapping is missing, refresh mappings (handles newly created players/sessions)
       if (!playerUuid || !sessionUuid) {
-        console.log(`⚠️ Skipping session player - missing UUID mapping: ${playerName} in ${sessionName}`);
-        continue;
+        console.log(`🔄 Refreshing UUID mappings for missing ${!playerUuid ? 'player' : 'session'}: ${playerName} in ${sessionName}`);
+        
+        // Refresh player mappings if player UUID is missing
+        if (!playerUuid) {
+          const { data: refreshedPlayers } = await supabaseClient
+            .from(TABLES.PLAYERS)
+            .select('id, name');
+          
+          playersByName = refreshedPlayers?.reduce((acc, p) => {
+            acc[p.name] = p.id;
+            return acc;
+          }, {}) || {};
+          
+          playerUuid = playersByName[playerName];
+        }
+        
+        // Refresh session mappings if session UUID is missing
+        if (!sessionUuid) {
+          const { data: refreshedSessions } = await supabaseClient
+            .from(TABLES.SESSIONS)
+            .select('id, name');
+          
+          sessionsByName = refreshedSessions?.reduce((acc, s) => {
+            acc[s.name] = s.id;
+            return acc;
+          }, {}) || {};
+          
+          sessionUuid = sessionsByName[sessionName];
+        }
+        
+        // If still missing after refresh, skip this session player
+        if (!playerUuid || !sessionUuid) {
+          console.log(`⚠️ Skipping session player - UUID mapping still missing after refresh: ${playerName} in ${sessionName}`);
+          continue;
+        }
+        
+        console.log(`✅ UUID mapping resolved: ${playerName} → ${playerUuid}, ${sessionName} → ${sessionUuid}`);
       }
       
       // Ensure peak ELO is at least as high as current ELO to satisfy constraint
@@ -836,6 +872,10 @@ export function useSupabaseStorage(key, initialValue) {
       // Check if this is a new match (custom ID) or existing match (UUID)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(match.id);
       
+      // Only UPDATE if it's a real UUID from Supabase
+      // Temporary IDs should always INSERT (Supabase will generate proper UUID)
+      const shouldUpdate = isUUID;
+      
       const matchData = {
         session_id: sessionsByName[sessionName],
         court_number: match.court_number || 0,
@@ -855,9 +895,9 @@ export function useSupabaseStorage(key, initialValue) {
       };
 
       let error;
-      if (isUUID) {
+      if (shouldUpdate) {
         // Existing match: UPDATE using UUID
-        console.log(`📝 Updating changed match: ${match.id}`);
+        console.log(`📝 Updating existing match: ${match.id} (UUID: ${isUUID})`);
         
         const { error: updateError } = await supabaseClient
           .from(TABLES.MATCHES)
@@ -871,17 +911,52 @@ export function useSupabaseStorage(key, initialValue) {
           console.log(`✅ Updated match: ${match.id}`);
         }
       } else {
-        // New match with custom ID: INSERT without ID (let Supabase generate UUID)
-        console.log(`➕ Inserting new match: ${match.id}`);
-        const { error: insertError } = await supabaseClient
-          .from(TABLES.MATCHES)
-          .insert(matchData);
-        
-        error = insertError;
-        if (error) {
-          console.error('❌ Insert failed:', error);
+        // Temporary ID: Check if there's an existing incomplete match on this court/session to update
+        if (match.completed_at || match.cancelled_at) {
+          // This is a completed/cancelled match - find existing incomplete match to update
+          console.log(`🔍 Looking for existing incomplete match to update (court: ${match.court_number}, session: ${sessionName})`);
+          
+          const { data: existingIncompleteMatches } = await supabaseClient
+            .from(TABLES.MATCHES)
+            .select('id')
+            .eq('session_id', sessionsByName[sessionName])
+            .eq('court_number', match.court_number || 0)
+            .is('completed_at', null)
+            .is('cancelled_at', null);
+          
+          if (existingIncompleteMatches && existingIncompleteMatches.length > 0) {
+            // Update the existing incomplete match
+            const existingMatchId = existingIncompleteMatches[0].id;
+            console.log(`📝 Updating existing incomplete match: ${existingMatchId}`);
+            
+            ({ error } = await supabaseClient
+              .from(TABLES.MATCHES)
+              .update(matchData)
+              .eq('id', existingMatchId));
+              
+            if (error) {
+              console.error('❌ Update failed:', error);
+            } else {
+              console.log(`✅ Updated existing match: ${existingMatchId}`);
+            }
+          } else {
+            console.log(`⚠️ No existing incomplete match found, inserting new record`);
+            ({ error } = await supabaseClient
+              .from(TABLES.MATCHES)
+              .insert(matchData));
+          }
         } else {
-          console.log(`✅ Inserted new match: ${match.id}`);
+          // New incomplete match: INSERT without ID (let Supabase generate UUID)
+          console.log(`➕ Inserting new match: ${match.id} (temp ID will be replaced by Supabase UUID)`);
+          ({ error } = await supabaseClient
+            .from(TABLES.MATCHES)
+            .insert(matchData));
+          
+          if (error) {
+            console.error('❌ Insert failed:', error);
+          } else {
+            console.log(`✅ Inserted new match: ${match.id} (Supabase assigned new UUID)`);
+          }
         }
       }
     }
