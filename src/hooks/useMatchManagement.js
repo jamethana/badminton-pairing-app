@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { 
   generateId, 
   calculateInitialELO, 
@@ -8,6 +8,7 @@ import {
   ELO_CONFIG
 } from '../utils/helpers';
 import { generateSmartMatch, getMatchPreview } from '../utils/smartMatching';
+import { createSupabaseClient, TABLES } from '../config/supabase';
 
 /**
  * Custom hook for managing match operations
@@ -27,10 +28,46 @@ export function useMatchManagement({
   updateSession
 }) {
   const [isCompletingMatch, setIsCompletingMatch] = useState(false);
+  const [supabaseClient, setSupabaseClient] = useState(null);
+
+  // Initialize Supabase client for direct session player updates
+  useEffect(() => {
+    const initClient = async () => {
+      const client = await createSupabaseClient();
+      setSupabaseClient(client);
+    };
+    initClient();
+  }, []);
 
   // Safe arrays
   const safeGlobalPlayers = globalPlayers || [];
   const safeMatches = matches || [];
+
+  // Update session player stats directly in Supabase (for efficient architecture)
+  const updateSessionPlayerStats = useCallback(async (playerId, sessionId, updates) => {
+    if (!supabaseClient || !playerId || !sessionId) {
+      console.warn('⚠️ Cannot update session player stats: missing client or IDs');
+      return { success: false, message: 'Missing required data' };
+    }
+
+    try {
+      const { data, error } = await supabaseClient
+        .from(TABLES.SESSION_PLAYERS)
+        .update(updates)
+        .eq('session_id', sessionId)
+        .eq('player_id', playerId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Updated session player stats for ${playerId}:`, updates);
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Error updating session player stats:', error);
+      return { success: false, message: error.message };
+    }
+  }, [supabaseClient]);
 
   // Available pool for current session
   const availablePool = sessionPlayersWithDetails.filter(player => {
@@ -234,8 +271,9 @@ export function useMatchManagement({
         });
       });
       
-      // Update session players
+      // Update session players (both old architecture and efficient architecture)
       if (sessionPlayerUpdates.length > 0) {
+        // OLD ARCHITECTURE: Update sessionPlayers array for legacy compatibility
         setSessionPlayers(prevSessionPlayers => {
           return prevSessionPlayers.map((sessionPlayer) => {
             const isCurrentSession = sessionPlayer.session_id === currentSessionId;
@@ -260,6 +298,35 @@ export function useMatchManagement({
             return sessionPlayer;
           });
         });
+
+        // NEW EFFICIENT ARCHITECTURE: Update individual session player records in Supabase
+        console.log(`📊 Updating session player stats for ${sessionPlayerUpdates.length} players`);
+        await Promise.all(sessionPlayerUpdates.map(async (updateInfo) => {
+          const sessionPlayerStats = {
+            session_wins: sessionPlayer => (sessionPlayer.session_wins || 0) + (updateInfo.isWinner ? 1 : 0),
+            session_losses: sessionPlayer => (sessionPlayer.session_losses || 0) + (updateInfo.isLoser ? 1 : 0),
+            session_matches: sessionPlayer => (sessionPlayer.session_matches || 0) + 1,
+            session_elo_current: updateInfo.newELO,
+            session_elo_peak: sessionPlayer => Math.max(sessionPlayer.session_elo_peak || updateInfo.newELO, updateInfo.newELO)
+          };
+
+          // Get current session player data to calculate incremental updates
+          const currentSessionPlayer = sessionPlayers.find(sp => 
+            sp.session_id === currentSessionId && sp.player_id === updateInfo.playerId
+          );
+
+          if (currentSessionPlayer) {
+            const updates = {
+              session_wins: (currentSessionPlayer.session_wins || 0) + (updateInfo.isWinner ? 1 : 0),
+              session_losses: (currentSessionPlayer.session_losses || 0) + (updateInfo.isLoser ? 1 : 0),
+              session_matches: (currentSessionPlayer.session_matches || 0) + 1,
+              session_elo_current: updateInfo.newELO,
+              session_elo_peak: Math.max(currentSessionPlayer.session_elo_peak || updateInfo.newELO, updateInfo.newELO)
+            };
+
+            await updateSessionPlayerStats(updateInfo.playerId, currentSessionId, updates);
+          }
+        }));
       }
       
       // Save ELO history

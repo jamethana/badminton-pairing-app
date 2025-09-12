@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSessionPlayer } from '../hooks/usePlayerManagement';
 import { getELOTier, calculateInitialELO, formatELODisplay } from '../utils/helpers';
 
@@ -13,6 +13,7 @@ const PlayerCard = ({
   disabled = false 
 }) => {
   const { sessionPlayer, isLoading, toggleActive, removeFromSession } = useSessionPlayer(sessionId, playerId);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   if (isLoading) {
     return (
@@ -76,22 +77,60 @@ const PlayerCard = ({
     }
   };
 
-  const handleRemove = async (e) => {
+  const handleMoveToAvailable = async (e) => {
     e.stopPropagation();
-    if (disabled) return;
+    if (disabled || isRemoving) return;
     
-    console.log(`🚮 Removing player ${playerName} from session`);
-    const result = await removeFromSession();
-    if (result.success && onRemove) {
-      onRemove(playerId);
-    } else {
-      console.error('Failed to remove player:', result.message);
+    // Start removal animation
+    setIsRemoving(true);
+    console.log(`📤 Moving player ${playerName} to available players section`);
+    
+    // Actually remove the session player record from database
+    if (!sessionId || !playerId) {
+      console.error('Missing sessionId or playerId');
+      setIsRemoving(false);
+      return;
+    }
+
+    try {
+      // Import Supabase client locally for this specific operation
+      const { createSupabaseClient, TABLES } = await import('../config/supabase');
+      const supabaseClient = await createSupabaseClient();
+      
+      if (!supabaseClient) {
+        console.error('Failed to get Supabase client');
+        setIsRemoving(false);
+        return;
+      }
+
+      // Wait for animation to start
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Delete the session player record completely
+      const { error } = await supabaseClient
+        .from(TABLES.SESSION_PLAYERS)
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('player_id', playerId);
+
+      if (error) throw error;
+
+      console.log(`✅ Successfully moved player ${playerName} to available players`);
+      
+      // Call the parent's onRemove callback for immediate UI update
+      if (onRemove) {
+        onRemove(playerId);
+      }
+      
+    } catch (error) {
+      console.error('Failed to move player to available section:', error);
+      setIsRemoving(false);
     }
   };
 
   return (
     <div 
-      className={`session-player-card-compact ${isActive ? 'active' : 'inactive'} ${disabled ? 'disabled' : ''}`}
+      className={`session-player-card-compact ${isActive ? 'active' : 'inactive'} ${disabled ? 'disabled' : ''} ${isRemoving ? 'removing' : ''}`}
       onClick={handleToggleActive}
     >
       <div className="session-player-main-compact">
@@ -127,10 +166,10 @@ const PlayerCard = ({
           </button>
           
           <button
-            className="session-move-btn"
-            onClick={handleRemove}
-            title="Move to available players"
-            disabled={disabled}
+            className={`session-move-btn ${isRemoving ? 'removing' : ''}`}
+            onClick={handleMoveToAvailable}
+            title={isRemoving ? "Moving player..." : "Move to available players"}
+            disabled={disabled || isRemoving}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

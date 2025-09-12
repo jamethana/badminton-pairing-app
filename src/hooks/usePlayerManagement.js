@@ -39,8 +39,14 @@ export function useSessionPlayer(sessionId, playerId) {
           .eq('player_id', playerId)
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          throw fetchError;
+        if (fetchError) {
+          // PGRST116 = no rows returned (this is expected when player not in session)
+          if (fetchError.code === 'PGRST116') {
+            console.log(`ℹ️ Session player ${playerId} not found in session ${sessionId} (expected when not in session)`);
+          } else {
+            console.warn(`⚠️ Error fetching session player ${playerId}:`, fetchError.code, fetchError.message);
+            // Don't throw for other errors, just log them and continue with null data
+          }
         }
 
         setSessionPlayer(data || null);
@@ -53,6 +59,40 @@ export function useSessionPlayer(sessionId, playerId) {
     };
 
     loadSessionPlayer();
+
+    // Set up real-time subscription for this specific session player
+    if (supabaseClient && sessionId && playerId) {
+      const subscription = supabaseClient
+        .channel(`session-player-${sessionId}-${playerId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: TABLES.SESSION_PLAYERS,
+            filter: `session_id=eq.${sessionId}&player_id=eq.${playerId}`
+          },
+          (payload) => {
+            console.log(`🔄 Individual session player update for ${playerId}:`, payload);
+            
+            if (payload.eventType === 'DELETE') {
+              console.log(`❌ Session player ${playerId} was deleted, setting to null`);
+              setSessionPlayer(null);
+            } else if (payload.eventType === 'UPDATE') {
+              console.log(`✏️ Session player ${playerId} was updated:`, payload.new);
+              setSessionPlayer(payload.new);
+            } else if (payload.eventType === 'INSERT') {
+              console.log(`➕ Session player ${playerId} was created:`, payload.new);
+              setSessionPlayer(payload.new);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
   }, [sessionId, playerId, supabaseClient]);
 
   // Update individual session player
@@ -213,6 +253,7 @@ export function useSessionPlayers(sessionId) {
         },
         (payload) => {
           console.log('🔄 Session player real-time update:', payload);
+          console.log('📋 Event type:', payload.eventType, 'Affected player:', payload.old?.player_id || payload.new?.player_id);
           // Refresh the list when changes occur
           loadSessionPlayerIds();
         }

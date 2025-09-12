@@ -18,8 +18,10 @@ const SessionPlayerManagement = ({
   const [filterText, setFilterText] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [supabaseClient, setSupabaseClient] = useState(null);
+  const [addingPlayerId, setAddingPlayerId] = useState(null); // Track which player is being added
   
   const { sessionPlayerIds, isLoading } = useSessionPlayers(sessionId);
+  const [localSessionPlayerIds, setLocalSessionPlayerIds] = useState([]);
 
   // Initialize Supabase client
   useEffect(() => {
@@ -29,6 +31,11 @@ const SessionPlayerManagement = ({
     };
     initClient();
   }, []);
+
+  // Sync sessionPlayerIds from hook to local state
+  useEffect(() => {
+    setLocalSessionPlayerIds(sessionPlayerIds);
+  }, [sessionPlayerIds]);
 
   const getTimeAgo = (timestamp) => {
     const now = new Date();
@@ -91,7 +98,7 @@ const SessionPlayerManagement = ({
       
       if (existingPlayer) {
         // Check if already in session
-        if (sessionPlayerIds.some(sp => sp.player_id === existingPlayer.id)) {
+        if (localSessionPlayerIds.some(sp => sp.player_id === existingPlayer.id)) {
           alert('Player is already in this session');
           return;
         }
@@ -103,12 +110,12 @@ const SessionPlayerManagement = ({
         }
         
         // Add existing player to session
-        await createSessionPlayerRelationship(existingPlayer.id, existingPlayer);
+        await handleInvitePlayer(existingPlayer.id);
       } else {
         // Create new global player and add to session
         const result = await onCreateNewPlayer(newPlayerName.trim());
         if (result && result.data) {
-          await createSessionPlayerRelationship(result.data.id, result.data);
+          await handleInvitePlayer(result.data.id);
         }
       }
       
@@ -133,27 +140,49 @@ const SessionPlayerManagement = ({
   };
 
   const handleRemovePlayerFromSession = (playerId) => {
-    // The efficient player component handles its own removal
-    // This is just a callback for any additional cleanup
     console.log(`📝 Player ${playerId} removed from session ${sessionId}`);
+    
+    // Optimistic update: immediately remove from local state
+    setLocalSessionPlayerIds(prev => prev.filter(sp => sp.player_id !== playerId));
   };
 
   const handleInvitePlayer = async (playerId) => {
     const playerData = globalPlayers.find(p => p.id === playerId);
     if (playerData) {
-      await createSessionPlayerRelationship(playerId, playerData);
+      // Set loading state
+      setAddingPlayerId(playerId);
+      
+      console.log(`📥 Adding player ${playerData.name} to session`);
+      const result = await createSessionPlayerRelationship(playerId, playerData);
+      
+      if (result.success) {
+        // Add a small delay to ensure database consistency before updating UI
+        setTimeout(() => {
+          setLocalSessionPlayerIds(prev => [...prev, { 
+            player_id: playerId, 
+            is_active_in_session: true 
+          }]);
+          console.log(`✅ Player ${playerData.name} added to local state`);
+          
+          // Clear loading state
+          setAddingPlayerId(null);
+        }, 400); // Increased to 400ms for smoother animation
+      } else {
+        console.error('Failed to add player to session:', result.message);
+        setAddingPlayerId(null);
+      }
     }
   };
 
   // Filter session players by name
-  const filteredSessionPlayerIds = sessionPlayerIds.filter(sp => {
+  const filteredSessionPlayerIds = localSessionPlayerIds.filter(sp => {
     const globalPlayer = globalPlayers.find(p => p.id === sp.player_id);
     return globalPlayer && globalPlayer.name.toLowerCase().includes(filterText.toLowerCase());
   });
 
   // Available global players not in this session or other active sessions
   const availableGlobalPlayers = globalPlayers.filter(player =>
-    !sessionPlayerIds.some(sp => sp.player_id === player.id) &&
+    !localSessionPlayerIds.some(sp => sp.player_id === player.id) &&
     !occupiedPlayerIds.includes(player.id) &&
     player.name.toLowerCase().includes(filterText.toLowerCase())
   );
@@ -249,14 +278,21 @@ const SessionPlayerManagement = ({
             {availableGlobalPlayers.map(player => (
               <div
                 key={player.id}
-                className="invite-player-card"
-                onClick={() => handleInvitePlayer(player.id)}
+                className={`invite-player-card ${addingPlayerId === player.id ? 'adding' : ''}`}
+                onClick={() => !addingPlayerId && handleInvitePlayer(player.id)}
               >
                 <span className="player-name">{player.name}</span>
                 <span className="player-lifetime-stats">
                   {getELOTier(player.elo || 1200, player).name}
                 </span>
-                <button className="invite-btn">+ Invite</button>
+                {addingPlayerId === player.id ? (
+                  <button className="invite-btn loading">
+                    <div className="loading-spinner"></div>
+                    Adding...
+                  </button>
+                ) : (
+                  <button className="invite-btn">+ Invite</button>
+                )}
               </div>
             ))}
             </div>

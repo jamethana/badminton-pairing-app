@@ -5820,6 +5820,21 @@ code {
   flex-shrink: 0;
 }
 
+.session-move-btn.removing {
+  opacity: 0.5;
+  pointer-events: none;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 /* Loading States for Efficient Session Players */
 .session-player-card-compact.loading {
   opacity: 0.7;
@@ -5849,6 +5864,115 @@ code {
   }
   50% {
     opacity: 1;
+  }
+}
+
+/* Player Addition Animations */
+.invite-player-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(1);
+  opacity: 1;
+}
+
+.invite-player-card.adding {
+  transform: scale(0.95);
+  opacity: 0.7;
+  pointer-events: none;
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  border: 2px dashed var(--primary-color);
+}
+
+.invite-player-card.adding .player-name {
+  color: var(--text-muted);
+}
+
+.invite-btn {
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.invite-btn.loading {
+  background: var(--primary-color);
+  color: white;
+  pointer-events: none;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Session Player Addition Animation */
+.session-player-card-compact {
+  animation: slideInFromRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(30px);
+    opacity: 0;
+    scale: 0.9;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* Player Removal Animation */
+.session-player-card-compact.removing {
+  animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideOutToRight {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    transform: translateX(-30px);
+    opacity: 0;
+    scale: 0.9;
+  }
+}
+
+/* Moving Player Transition */
+.invite-player-card.moving {
+  animation: moveToSession 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: 1000;
+  position: relative;
+}
+
+@keyframes moveToSession {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+    opacity: 0.8;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    transform: translateY(-40px) scale(0.95);
+    opacity: 0;
   }
 }
 
