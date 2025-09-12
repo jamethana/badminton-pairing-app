@@ -9,22 +9,24 @@ export function useSupabaseStorage(key, initialValue) {
 
   // Initialize data source and load data
   useEffect(() => {
+    let isMounted = true;
+    
     const initializeStorage = async () => {
       try {
         // Enable Supabase sync for session_players
         if (key === 'badminton_session_players') {
           console.log(`🚀 Enabling full Supabase sync for ${key}`);
           const client = await createSupabaseClient();
-          if (client) {
+          if (client && isMounted) {
             setSupabaseClient(client);
             setUseSupabase(true);
             await loadFromSupabase(client, key);
-          } else {
+          } else if (isMounted) {
             console.log(`📁 Using localStorage for ${key}`);
             setUseSupabase(false);
             loadFromLocalStorage();
           }
-          setIsLoading(false);
+          if (isMounted) setIsLoading(false);
           return;
         }
         
@@ -32,42 +34,54 @@ export function useSupabaseStorage(key, initialValue) {
         if (key === 'badminton_elo_history') {
           console.log(`📊 ELO history - Supabase sync enabled but not auto-loading`);
           const client = await createSupabaseClient();
-          if (client) {
+          if (client && isMounted) {
             setSupabaseClient(client);
             setUseSupabase(true);
           }
-          setStoredValue(initialValue || []);
-          setIsLoading(false);
+          if (isMounted) {
+            setStoredValue(initialValue || []);
+            setIsLoading(false);
+          }
           return;
         }
         
-        // Enable Supabase for other data types
-        console.log(`🚀 Enabling full Supabase sync for ${key}`);
+        // Enable Supabase for other data types (with reduced logging)
+        if (key === 'badminton_matches' || key === 'badminton-global-players' || key === 'badminton-sessions') {
+          console.log(`🚀 Enabling full Supabase sync for ${key}`);
+        }
         
-        
-        // First, try to connect to Supabase for other data types
+        // Get shared Supabase client (singleton pattern prevents multiple connections)
         const client = await createSupabaseClient();
         
-        if (client) {
-          console.log(`✅ Supabase available for ${key}`);
+        if (client && isMounted) {
+          if (key === 'badminton_matches' || key === 'badminton-global-players' || key === 'badminton-sessions') {
+            console.log(`✅ Supabase available for ${key}`);
+          }
           setSupabaseClient(client);
           setUseSupabase(true);
           await loadFromSupabase(client, key);
-        } else {
+        } else if (isMounted) {
           console.log(`📁 Using localStorage for ${key}`);
           setUseSupabase(false);
           loadFromLocalStorage();
         }
       } catch (error) {
         console.error(`Error initializing storage for ${key}:`, error);
-        setUseSupabase(false);
-        loadFromLocalStorage();
+        if (isMounted) {
+          setUseSupabase(false);
+          loadFromLocalStorage();
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     initializeStorage();
+    
+    // Cleanup function to prevent state updates on unmounted components
+    return () => {
+      isMounted = false;
+    };
   }, [key]);
 
   // Load data from localStorage
@@ -459,8 +473,12 @@ export function useSupabaseStorage(key, initialValue) {
       
       if (useSupabase && supabaseClient) {
         try {
-          // Saving to Supabase
-          await saveToSupabase(cleanedValue);
+          // For matches, detect what changed and only sync the differences
+          if (key === 'badminton_matches') {
+            await saveMatchesDeltaToSupabase(cleanedValue, storedValue);
+          } else {
+            await saveToSupabase(cleanedValue);
+          }
         } catch (supabaseError) {
           console.warn(`Supabase save failed for ${key}, falling back to localStorage:`, supabaseError);
           // Fallback to localStorage only if Supabase fails
@@ -739,9 +757,41 @@ export function useSupabaseStorage(key, initialValue) {
     console.log(`✅ Session players saved to Supabase`);
   };
 
-  // Save matches to Supabase
-  const saveMatchesToSupabase = async (matches) => {
-    // Saving matches to Supabase
+  // Delta-based match saving - only process new or changed matches
+  const saveMatchesDeltaToSupabase = async (newMatches, previousMatches) => {
+    console.log(`🔄 Delta sync: ${newMatches.length} new vs ${previousMatches.length} previous matches`);
+    
+    // Quick exit if no changes
+    if (newMatches.length === previousMatches.length) {
+      const hasChanges = newMatches.some((newMatch, index) => {
+        const prevMatch = previousMatches[index];
+        return !prevMatch || JSON.stringify(newMatch) !== JSON.stringify(prevMatch);
+      });
+      
+      if (!hasChanges) {
+        console.log('📝 No changes detected, skipping Supabase sync');
+        return;
+      }
+    }
+    
+    // Find new matches (not in previous array)
+    const previousMatchIds = new Set(previousMatches.map(m => m.id));
+    const newMatchesToSync = newMatches.filter(match => !previousMatchIds.has(match.id));
+    
+    // Find changed matches (same ID but different content)
+    const changedMatches = newMatches.filter(newMatch => {
+      const prevMatch = previousMatches.find(p => p.id === newMatch.id);
+      return prevMatch && JSON.stringify(newMatch) !== JSON.stringify(prevMatch);
+    });
+    
+    const matchesToProcess = [...newMatchesToSync, ...changedMatches];
+    
+    if (matchesToProcess.length === 0) {
+      console.log('📝 No new or changed matches to sync');
+      return;
+    }
+    
+    console.log(`💾 Syncing ${matchesToProcess.length} matches (${newMatchesToSync.length} new, ${changedMatches.length} changed)`);
     
     // Get player and session mappings first
     const { data: players } = await supabaseClient
@@ -762,16 +812,12 @@ export function useSupabaseStorage(key, initialValue) {
       return acc;
     }, {}) || {};
     
-    // Filter matches to only process relevant ones
-    const relevantMatches = matches.filter(match => 
-      match && 
-      match.session_name && // Has session name
-      (match.team1_player1_name || match.team1_player1_id) // Has player data
-    );
-    
-    console.log(`💾 Processing ${relevantMatches.length} relevant matches (filtered from ${matches.length})`);
-    
-    for (const match of relevantMatches) {
+    // Process only the matches that changed
+    for (const match of matchesToProcess) {
+      if (!match || !match.session_name || !(match.team1_player1_name || match.team1_player1_id)) {
+        console.log(`⚠️ Skipping invalid match:`, match?.id);
+        continue;
+      }
       
       // Skip if we can't resolve all required relationships
       const team1Player1Name = match.team1_player1_name || 'Unknown';
@@ -783,7 +829,7 @@ export function useSupabaseStorage(key, initialValue) {
       if (!playersByName[team1Player1Name] || !playersByName[team1Player2Name] || 
           !playersByName[team2Player1Name] || !playersByName[team2Player2Name] ||
           !sessionsByName[sessionName]) {
-        console.log(`⚠️ Skipping match - missing player or session relationships`);
+        console.log(`⚠️ Skipping match - missing player or session relationships for ${match.id}`);
         continue;
       }
       
@@ -811,72 +857,44 @@ export function useSupabaseStorage(key, initialValue) {
       let error;
       if (isUUID) {
         // Existing match: UPDATE using UUID
-        console.log(`📝 Updating existing match:`, match.id);
-        console.log(`📊 Update data:`, matchData);
+        console.log(`📝 Updating changed match: ${match.id}`);
         
-        const updateResult = await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from(TABLES.MATCHES)
           .update(matchData)
           .eq('id', match.id);
         
-        error = updateResult.error;
-        console.log(`📝 Update result:`, updateResult);
-        
+        error = updateError;
         if (error) {
           console.error('❌ Update failed:', error);
         } else {
-          console.log(`✅ Update successful for match:`, match.id);
+          console.log(`✅ Updated match: ${match.id}`);
         }
       } else {
-        // Custom ID match: Check if there's an existing incomplete match to update
-        if (match.completed_at || match.cancelled_at) {
-          // This is a completed/cancelled match - find existing incomplete match to update
-          console.log(`🔍 Looking for existing incomplete match to update (court: ${match.court_number}, session: ${sessionName})`);
-          
-          const { data: existingIncompleteMatches } = await supabaseClient
-            .from(TABLES.MATCHES)
-            .select('id')
-            .eq('session_id', sessionsByName[sessionName])
-            .eq('court_number', match.court_number || 0)
-            .is('completed_at', null)
-            .is('cancelled_at', null);
-          
-          if (existingIncompleteMatches && existingIncompleteMatches.length > 0) {
-            // Update the existing incomplete match
-            const existingMatchId = existingIncompleteMatches[0].id;
-            console.log(`📝 Updating existing incomplete match: ${existingMatchId}`);
-            
-            ({ error } = await supabaseClient
-              .from(TABLES.MATCHES)
-              .update(matchData)
-              .eq('id', existingMatchId));
-              
-            if (error) {
-              console.error('❌ Update failed:', error);
-            } else {
-              console.log(`✅ Updated existing match: ${existingMatchId}`);
-            }
-          } else {
-            console.log(`⚠️ No existing incomplete match found, inserting new record`);
-            ({ error } = await supabaseClient
-              .from(TABLES.MATCHES)
-              .insert(matchData));
-          }
+        // New match with custom ID: INSERT without ID (let Supabase generate UUID)
+        console.log(`➕ Inserting new match: ${match.id}`);
+        const { error: insertError } = await supabaseClient
+          .from(TABLES.MATCHES)
+          .insert(matchData);
+        
+        error = insertError;
+        if (error) {
+          console.error('❌ Insert failed:', error);
         } else {
-          // New incomplete match: INSERT without ID (let Supabase generate UUID)
-          console.log(`➕ Inserting new incomplete match:`, match.id);
-          ({ error } = await supabaseClient
-            .from(TABLES.MATCHES)
-            .insert(matchData));
-          
-          if (error) {
-            console.error('❌ Insert failed:', error);
-          } else {
-            console.log(`✅ Insert successful for match:`, match.id);
-          }
+          console.log(`✅ Inserted new match: ${match.id}`);
         }
       }
     }
+    
+    // Also save to localStorage as backup
+    saveToLocalStorage(newMatches);
+    console.log(`✅ Delta sync complete for badminton_matches`);
+  };
+
+  // Save matches to Supabase (legacy - kept for other potential callers)
+  const saveMatchesToSupabase = async (matches) => {
+    console.log(`⚠️ Using legacy saveMatchesToSupabase - consider using delta sync instead`);
+    await saveMatchesDeltaToSupabase(matches, []);
   };
 
   // Save ELO history to Supabase  

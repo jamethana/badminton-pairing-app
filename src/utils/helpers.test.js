@@ -234,24 +234,38 @@ describe('Helper Functions', () => {
     });
 
     describe('updateConfidence', () => {
-      test('should maintain confidence unchanged', () => {
-        expect(updateConfidence(1.0)).toBe(1.0);
-        expect(updateConfidence(0.8)).toBe(0.8);
-        expect(updateConfidence(0.6)).toBe(0.6);
+      test('should use calibration confidence for new players', () => {
+        // During calibration (first 10 matches), confidence should be lower but constrained by DB
+        expect(updateConfidence(1.0, 0)).toBeCloseTo(0.5, 1); // First match
+        expect(updateConfidence(1.0, 5)).toBeCloseTo(0.6, 1); // Mid calibration
+        expect(updateConfidence(1.0, 9)).toBeCloseTo(0.68, 1); // Late calibration
       });
 
-      test('should enforce minimum confidence', () => {
-        expect(updateConfidence(0.3)).toBe(0.5);
-        expect(updateConfidence(0.1)).toBe(0.5);
+      test('should maintain higher confidence for experienced players', () => {
+        // Post-calibration players should maintain higher confidence
+        expect(updateConfidence(0.8, 15)).toBeCloseTo(0.8, 1);
+        expect(updateConfidence(0.9, 50)).toBeCloseTo(0.9, 1);
+      });
+
+      test('should enforce minimum confidence bounds', () => {
+        // Both calibration and post-calibration minimum is 0.5 (DB constraint)
+        expect(updateConfidence(0.1, 5)).toBeGreaterThanOrEqual(0.5);
+        expect(updateConfidence(0.3, 15)).toBeGreaterThanOrEqual(0.5);
       });
 
       test('should enforce maximum confidence', () => {
-        expect(updateConfidence(1.2)).toBe(1.0);
-        expect(updateConfidence(1.5)).toBe(1.0);
+        expect(updateConfidence(1.2, 5)).toBeLessThanOrEqual(1.0);
+        expect(updateConfidence(1.5, 15)).toBeLessThanOrEqual(1.0);
       });
 
-      test('should handle default confidence', () => {
-        expect(updateConfidence()).toBe(1.0);
+      test('should adjust confidence based on match results', () => {
+        // Wins should increase confidence, losses should decrease it
+        const baseConfidence = updateConfidence(0.5, 5);
+        const winConfidence = updateConfidence(0.5, 5, 'win');
+        const lossConfidence = updateConfidence(0.5, 5, 'loss');
+        
+        expect(winConfidence).toBeGreaterThan(baseConfidence);
+        expect(lossConfidence).toBeLessThan(baseConfidence);
       });
     });
 

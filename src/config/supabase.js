@@ -61,54 +61,77 @@ export const MIGRATION_CONFIG = {
   KEEP_LOCAL_BACKUP: true
 };
 
-// Supabase client factory
+// Singleton Supabase client to prevent multiple instances
+let _supabaseClient = null;
+let _connectionPromise = null;
+
+// Supabase client factory with singleton pattern
 export async function createSupabaseClient() {
+  // Return existing client if already created
+  if (_supabaseClient) {
+    return _supabaseClient;
+  }
+  
+  // Return existing connection promise if in progress
+  if (_connectionPromise) {
+    return _connectionPromise;
+  }
+
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn('Supabase credentials not found. Running in localStorage mode.');
     return null;
   }
   
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
-    
-    // Test the connection with detailed logging
-    console.log('Testing Supabase connection...');
-    const { data, error } = await supabase.from('players').select('count', { count: 'exact', head: true });
-    
-    if (error) {
-      console.log('Supabase connection test error:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      
-      if (error.code === 'PGRST116' || error.code === '42P01') {
-        console.warn('⚠️ Supabase connected but tables not found. Run the database schema first!');
-      } else {
-        console.error('❌ Supabase connection failed:', error.message);
-        return null;
-      }
-    } else {
-      console.log('✅ Supabase client connected successfully with working tables');
-    
-    // Store config for admin tools
+  // Create connection promise to avoid multiple simultaneous connections
+  _connectionPromise = (async () => {
     try {
-      localStorage.setItem('supabase_config', JSON.stringify({
-        url: SUPABASE_URL,
-        key: SUPABASE_ANON_KEY
-      }));
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
+      
+      // Test the connection with detailed logging
+      console.log('Testing Supabase connection...');
+      const { data, error } = await supabase.from('players').select('count', { count: 'exact', head: true });
+      
+      if (error) {
+        console.log('Supabase connection test error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        if (error.code === 'PGRST116' || error.code === '42P01') {
+          console.warn('⚠️ Supabase connected but tables not found. Run the database schema first!');
+        } else {
+          console.error('❌ Supabase connection failed:', error.message);
+          _connectionPromise = null;
+          return null;
+        }
+      } else {
+        console.log('✅ Supabase client connected successfully with working tables');
+      
+      // Store config for admin tools
+      try {
+        localStorage.setItem('supabase_config', JSON.stringify({
+          url: SUPABASE_URL,
+          key: SUPABASE_ANON_KEY
+        }));
+      } catch (error) {
+        console.warn('Could not store Supabase config:', error);
+      }
+      }
+      
+      _supabaseClient = supabase;
+      _connectionPromise = null;
+      return supabase;
     } catch (error) {
-      console.warn('Could not store Supabase config:', error);
+      console.error('Error creating Supabase client:', error);
+      _connectionPromise = null;
+      return null;
     }
-    }
-    
-    return supabase;
-  } catch (error) {
-    console.error('Error creating Supabase client:', error);
-    return null;
-  }
+  })();
+  
+  return _connectionPromise;
 }
 
 // Real-time subscription setup

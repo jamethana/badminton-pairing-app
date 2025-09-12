@@ -423,7 +423,7 @@ function App() {
       losses: 0,
       lastMatchTime: null,
       elo: ELO_CONFIG.STARTING_ELO,
-      confidence: 1.0,
+      confidence: 0.5, // Start with minimum allowed confidence (will be updated after DB migration)
       sessionStats: {}
     };
 
@@ -600,7 +600,11 @@ function App() {
           // Get current player stats
           const currentELO = globalPlayer.elo || calculateInitialELO(globalPlayer.wins || 0, globalPlayer.losses || 0);
           const matchCount = globalPlayer.matchCount || 0;
-          const confidence = updateConfidence(globalPlayer.confidence || 1.0);
+          const confidence = updateConfidence(
+            globalPlayer.confidence || 1.0, 
+            matchCount, 
+            isWinner ? 'win' : 'loss'
+          );
           
           // Calculate team ELOs for proper opponent rating
           const playerTeam = isWinner ? winningTeam : losingTeam;
