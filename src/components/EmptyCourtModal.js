@@ -10,6 +10,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState([]);
   const [matchType, setMatchType] = useState('doubles'); // 'singles' or 'doubles'
   const [animatingPlayers, setAnimatingPlayers] = useState(new Set()); // Track which players are animating
+  const [draggedPlayer, setDraggedPlayer] = useState(null); // Track dragged player
+  const [dragOverZone, setDragOverZone] = useState(null); // Track drag over zones
 
   // Get smart matching settings
   const smartMatching = currentSession?.smartMatching || {
@@ -244,6 +246,62 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
     }
   };
 
+  // Drag and Drop handlers
+  const handleDragStart = (e, player, source, index = null) => {
+    setDraggedPlayer({ player, source, index });
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedPlayer(null);
+    setDragOverZone(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e, zone, index = null) => {
+    e.preventDefault();
+    setDragOverZone({ zone, index });
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOverZone(null);
+  };
+
+  const handleDrop = (e, targetZone, targetIndex = null) => {
+    e.preventDefault();
+    setDragOverZone(null);
+    
+    if (!draggedPlayer) return;
+    
+    const { player, source, index: sourceIndex } = draggedPlayer;
+    
+    // Handle different drop scenarios
+    if (source === 'assigned' && targetZone === 'assigned' && sourceIndex !== targetIndex) {
+      // Swap players within assigned team
+      swapCourtPlayers(sourceIndex, targetIndex);
+    } else if (source === 'assigned' && targetZone === 'available') {
+      // Move from assigned to available
+      const newAssigned = [...assignedPlayers];
+      newAssigned.splice(sourceIndex, 1);
+      setAssignedPlayers(newAssigned);
+      setRemainingPlayers(prev => [...prev, player]);
+    } else if (source === 'available' && targetZone === 'assigned') {
+      // Replace assigned player with available player
+      if (targetIndex !== null) {
+        swapPlayer(targetIndex, player);
+      }
+    }
+    
+    setDraggedPlayer(null);
+  };
+
   const playersNeeded = matchType === 'singles' ? 2 : 4;
   
   if (availablePool.length < playersNeeded) {
@@ -313,14 +371,23 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                   {assignedPlayers.slice(0, matchType === 'singles' ? 1 : 2).map((player, index) => (
                     <div 
                       key={player.id} 
-                      className={`player-slot clickable ${
+                      draggable="true"
+                      className={`player-slot clickable draggable ${
                         selectedPlayer?.index === index ? 'selected' : ''
                       } ${
                         selectedAvailablePlayer ? 'swap-ready' : ''
                       } ${
                         animatingPlayers.has(player.id) ? 'player-flying' : ''
+                      } ${
+                        dragOverZone?.zone === 'assigned' && dragOverZone?.index === index ? 'drag-over' : ''
                       }`}
                       onClick={() => handlePlayerClick(player, index)}
+                      onDragStart={(e) => handleDragStart(e, player, 'assigned', index)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, 'assigned', index)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'assigned', index)}
                     >
                       <div className="player-info">
                         <span className="player-name">{player.name}</span>
@@ -357,17 +424,28 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
               {/* Team 2 */}
               <div className="team-preview team-2">
                 <div className="team-players">
-                  {assignedPlayers.slice(matchType === 'singles' ? 1 : 2, matchType === 'singles' ? 2 : 4).map((player, index) => (
+                  {assignedPlayers.slice(matchType === 'singles' ? 1 : 2, matchType === 'singles' ? 2 : 4).map((player, index) => {
+                    const actualIndex = index + (matchType === 'singles' ? 1 : 2);
+                    return (
                     <div 
                       key={player.id} 
-                      className={`player-slot clickable ${
-                        selectedPlayer?.index === index + (matchType === 'singles' ? 1 : 2) ? 'selected' : ''
+                      draggable="true"
+                      className={`player-slot clickable draggable ${
+                        selectedPlayer?.index === actualIndex ? 'selected' : ''
                       } ${
                         selectedAvailablePlayer ? 'swap-ready' : ''
                       } ${
                         animatingPlayers.has(player.id) ? 'player-flying' : ''
+                      } ${
+                        dragOverZone?.zone === 'assigned' && dragOverZone?.index === actualIndex ? 'drag-over' : ''
                     }`}
-                      onClick={() => handlePlayerClick(player, index + (matchType === 'singles' ? 1 : 2))}
+                      onClick={() => handlePlayerClick(player, actualIndex)}
+                      onDragStart={(e) => handleDragStart(e, player, 'assigned', actualIndex)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, 'assigned', actualIndex)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'assigned', actualIndex)}
                     >
                       <div className="player-info">
                         <span className="player-name">{player.name}</span>
@@ -377,7 +455,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                         </span>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {/* Team 2 ELO */}
                 {matchType === 'doubles' && assignedPlayers.length === 4 && (
@@ -458,14 +537,23 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                 {remainingPlayers.map(player => (
                   <div 
                     key={player.id} 
-                    className={`available-player-card clickable ${
+                    draggable="true"
+                    className={`available-player-card clickable draggable ${
                       selectedAvailablePlayer?.id === player.id ? 'selected' : ''
                     } ${
                       selectedPlayer ? 'swap-ready' : ''
                     } ${
                       animatingPlayers.has(player.id) ? 'player-flying' : ''
+                    } ${
+                      dragOverZone?.zone === 'available' ? 'drag-over' : ''
                     }`}
                     onClick={() => handleAvailablePlayerClick(player)}
+                    onDragStart={(e) => handleDragStart(e, player, 'available')}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver}
+                    onDragEnter={(e) => handleDragEnter(e, 'available')}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, 'available')}
                   >
                     <div className="player-info">
                       <span className="player-name">{player.name}</span>
@@ -484,7 +572,9 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
               </div>
             ) : (
               <div className="no-players-message">
-                <p>No available players for swapping</p>
+                <div className="empty-state-icon">👥</div>
+                <p className="empty-state-title">All players assigned!</p>
+                <p className="empty-state-subtitle">Everyone is ready to play</p>
               </div>
             )}
           </div>

@@ -3,106 +3,126 @@ import { createSupabaseClient } from '../config/supabase';
 
 const ConnectionStatus = () => {
   const [connectionStatus, setConnectionStatus] = useState({
-    isConnected: false,
+    isOnline: false,
     isLoading: true,
-    storageMode: 'localStorage',
     error: null
   });
 
   useEffect(() => {
     const checkConnection = async () => {
       try {
+        // Check basic internet connectivity first
+        if (!navigator.onLine) {
+          setConnectionStatus({
+            isOnline: false,
+            isLoading: false,
+            error: 'No internet connection'
+          });
+          return;
+        }
+
         const supabaseClient = await createSupabaseClient();
         
-        if (supabaseClient) {
-          // Test the connection with a more thorough check
-          try {
-            const { data, error } = await supabaseClient
-              .from('players')
-              .select('count', { count: 'exact', head: true });
-            
-            if (error) {
-              if (error.code === 'PGRST116') {
-                // Table not found - database exists but no schema
-                setConnectionStatus({
-                  isConnected: false,
-                  isLoading: false,
-                  storageMode: 'localStorage',
-                  error: 'Database schema not created'
-                });
-              } else if (error.code === '42P01') {
-                // PostgreSQL table doesn't exist
-                setConnectionStatus({
-                  isConnected: false,
-                  isLoading: false,
-                  storageMode: 'localStorage',
-                  error: 'Tables not created in Supabase'
-                });
-              } else {
-                // Other connection error
-                setConnectionStatus({
-                  isConnected: false,
-                  isLoading: false,
-                  storageMode: 'localStorage',
-                  error: `Connection error: ${error.message}`
-                });
-              }
-            } else {
-              // Successfully connected and tables exist
+        if (!supabaseClient) {
+          setConnectionStatus({
+            isOnline: false,
+            isLoading: false,
+            error: 'Database not configured'
+          });
+          return;
+        }
+
+        // Test the connection with a more thorough check
+        try {
+          const { data, error } = await supabaseClient
+            .from('players')
+            .select('count', { count: 'exact', head: true });
+          
+          if (error) {
+            if (error.code === 'PGRST116' || error.code === '42P01') {
+              // Table not found - this means we're connected but schema needs setup
               setConnectionStatus({
-                isConnected: true,
+                isOnline: true,
                 isLoading: false,
-                storageMode: 'Supabase',
-                error: null
+                error: 'Database schema not created'
+              });
+            } else {
+              // Other connection error - likely network/internet issue
+              setConnectionStatus({
+                isOnline: false,
+                isLoading: false,
+                error: `Connection failed: ${error.message}`
               });
             }
-          } catch (queryError) {
+          } else {
+            // Successfully connected and tables exist
             setConnectionStatus({
-              isConnected: false,
+              isOnline: true,
               isLoading: false,
-              storageMode: 'localStorage',
-              error: `Query failed: ${queryError.message}`
+              error: null
             });
           }
-        } else {
+        } catch (queryError) {
           setConnectionStatus({
-            isConnected: false,
+            isOnline: false,
             isLoading: false,
-            storageMode: 'localStorage',
-            error: 'No Supabase credentials'
+            error: `Network error: ${queryError.message}`
           });
         }
       } catch (error) {
         setConnectionStatus({
-          isConnected: false,
+          isOnline: false,
           isLoading: false,
-          storageMode: 'localStorage',
           error: error.message
         });
       }
     };
 
+    // Listen for online/offline events
+    const handleOnline = () => checkConnection();
+    const handleOffline = () => {
+      setConnectionStatus({
+        isOnline: false,
+        isLoading: false,
+        error: 'Internet connection lost'
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     checkConnection();
+
+    // Check connection every 30 seconds
+    const interval = setInterval(checkConnection, 30000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
+    };
   }, []);
 
   const getStatusColor = () => {
     if (connectionStatus.isLoading) return '#f59e0b'; // amber
-    if (connectionStatus.isConnected) return '#10b981'; // green
-    return '#6b7280'; // gray
+    if (connectionStatus.isOnline) return '#10b981'; // green
+    return '#ef4444'; // red for offline
   };
 
   const getStatusText = () => {
-    if (connectionStatus.isLoading) return 'Checking...';
-    return connectionStatus.storageMode;
+    if (connectionStatus.isLoading) return 'Connecting...';
+    return connectionStatus.isOnline ? 'Online' : 'Offline';
   };
 
   const getTooltipText = () => {
-    const envVars = `ENV: URL=${process.env.REACT_APP_SUPABASE_URL ? 'SET' : 'NOT_SET'}, KEY=${process.env.REACT_APP_SUPABASE_ANON_KEY ? 'SET' : 'NOT_SET'}`;
-    
-    if (connectionStatus.isLoading) return `Checking database connection... ${envVars}`;
-    if (connectionStatus.isConnected) return `✅ ACTIVE: Using Supabase for data storage - data syncs across devices. ${envVars}`;
-    if (connectionStatus.error) return `Local storage mode - ${connectionStatus.error}. ${envVars}`;
-    return `Local storage mode - data stored locally only. ${envVars}`;
+    if (connectionStatus.isLoading) return 'Checking internet and database connection...';
+    if (connectionStatus.isOnline) {
+      if (connectionStatus.error) {
+        return `⚠️ Online but ${connectionStatus.error}`;
+      }
+      return '✅ Connected to internet and database';
+    }
+    return `❌ ${connectionStatus.error || 'No internet connection'}`;
   };
 
   return (

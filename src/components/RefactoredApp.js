@@ -4,6 +4,7 @@ import { useGameContext } from '../contexts/GameContext';
 import { useSessionManagement } from '../hooks/useSessionManagement';
 import { usePlayerManagement } from '../hooks/usePlayerManagement';
 import { useMatchManagement } from '../hooks/useMatchManagement';
+import { useInternetConnection } from '../hooks/useInternetConnection';
 
 // Components
 import SessionHamburgerMenu from './SessionHamburgerMenu';
@@ -13,6 +14,7 @@ import Notification from './Notification';
 import Scoreboard from './Scoreboard';
 import ConnectionStatus from './ConnectionStatus';
 import CreateFirstSessionButton from './CreateFirstSessionButton';
+import OfflineBlocker from './OfflineBlocker';
 
 // Utils
 import { 
@@ -23,6 +25,9 @@ import {
 function RefactoredApp() {
   // Router params
   const { sessionName } = useParams();
+  
+  // Internet connection requirement
+  const { isOnline, isLoading: connectionLoading, error: connectionError } = useInternetConnection();
   
   // Global context
   const {
@@ -220,6 +225,32 @@ function RefactoredApp() {
       });
     }
   }, [matches, currentSessionId, safeGlobalPlayers, updateSession, currentSession]);
+
+  // Block app if internet connection is required but not available
+  if (connectionLoading) {
+    return (
+      <div className="App">
+        <div className="container" style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          fontSize: '18px',
+          color: 'var(--text-secondary)'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔄</div>
+            <div>Connecting...</div>
+          </div>
+        </div>
+        <ConnectionStatus />
+      </div>
+    );
+  }
+
+  if (!isOnline) {
+    return <OfflineBlocker error={connectionError} />;
+  }
 
   // Get occupied player IDs from all active sessions
   const occupiedPlayerIds = (safeSessions || []).flatMap(session => {

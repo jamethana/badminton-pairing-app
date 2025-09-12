@@ -3000,6 +3000,276 @@ code {
   }
 }
 
+/* Enhanced Hover Effects for Player Cards */
+.player-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.player-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.available-player-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.available-player-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.invite-player-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.invite-player-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.15);
+  border-color: var(--primary-color);
+}
+
+.player-slot {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.player-slot:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced Button Hover Effects */
+.btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+}
+
+.btn-outline:hover {
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+}
+
+/* Court Card Hover Effects */
+.match-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.match-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.match-card.empty-court:hover {
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.15);
+  border-color: var(--primary-color);
+}
+
+/* Smooth State Transitions */
+.modal-overlay {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-content {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card {
+  transition: all 0.2s ease-out;
+}
+
+.section-header {
+  transition: all 0.2s ease-out;
+}
+
+/* Improved Modal Enter Animation */
+.modal-overlay {
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+.modal-content {
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Smooth Toggle Transitions */
+.setting-checkbox, .iphone-toggle-input {
+  transition: all 0.2s ease-out;
+}
+
+/* Enhanced Focus States */
+.input-field:focus {
+  transition: all 0.2s ease-out;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+}
+
+/* Navigation State Transitions */
+.app-header {
+  transition: all 0.3s ease-out;
+}
+
+.hamburger-menu-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hamburger-menu-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced Empty States */
+.empty-court-message {
+  text-align: center;
+  padding: 20px;
+  transition: all 0.2s ease-out;
+}
+
+.empty-court-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  animation: gentleBounce 2s ease-in-out infinite;
+}
+
+.empty-court-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 8px 0 4px 0;
+  font-size: 14px;
+}
+
+.empty-court-subtitle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin: 0 0 12px 0;
+}
+
+.available-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.count-badge {
+  background: var(--primary-color);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.count-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Empty State Components */
+.empty-state-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  opacity: 0.7;
+  animation: gentlePulse 3s ease-in-out infinite;
+}
+
+.empty-state-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  font-size: 14px;
+}
+
+.empty-state-subtitle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.no-players-message,
+.no-available-players {
+  text-align: center;
+  padding: 24px 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 2px dashed var(--border-color);
+}
+
+/* Gentle Animations for Empty States */
+@keyframes gentleBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+  60% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes gentlePulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+/* Drag and Drop Styles */
+.draggable {
+  cursor: grab;
+}
+
+.draggable:active {
+  cursor: grabbing;
+}
+
+.drag-over {
+  background: rgba(124, 58, 237, 0.1) !important;
+  border: 2px dashed var(--primary-color) !important;
+  transform: scale(1.02);
+}
+
+.player-slot.draggable:hover {
+  cursor: grab;
+}
+
+.available-player-card.draggable:hover {
+  cursor: grab;
+}
+
 /* iPhone-style Toggle Switch - Compact */
 .iphone-toggle {
   position: relative;

@@ -5,7 +5,7 @@ export function useSupabaseStorage(key, initialValue) {
   const [storedValue, setStoredValue] = useState(initialValue || []);
   const [isLoading, setIsLoading] = useState(true);
   const [supabaseClient, setSupabaseClient] = useState(null);
-  const [useSupabase, setUseSupabase] = useState(false);
+  const [useSupabase, setUseSupabase] = useState(true); // Always try to use Supabase first
 
   // Initialize data source and load data
   useEffect(() => {
@@ -13,63 +13,35 @@ export function useSupabaseStorage(key, initialValue) {
     
     const initializeStorage = async () => {
       try {
-        // Enable Supabase sync for session_players
-        if (key === 'badminton_session_players') {
-          console.log(`🚀 Enabling full Supabase sync for ${key}`);
-          const client = await createSupabaseClient();
-          if (client && isMounted) {
-            setSupabaseClient(client);
-            setUseSupabase(true);
-            await loadFromSupabase(client, key);
-          } else if (isMounted) {
-            console.log(`📁 Using localStorage for ${key}`);
-            setUseSupabase(false);
-            loadFromLocalStorage();
-          }
-          if (isMounted) setIsLoading(false);
-          return;
-        }
+        console.log(`🚀 Initializing Supabase storage for ${key}`);
         
-        // Special handling for ELO history - don't auto-load but keep Supabase sync
-        if (key === 'badminton_elo_history') {
-          console.log(`📊 ELO history - Supabase sync enabled but not auto-loading`);
-          const client = await createSupabaseClient();
-          if (client && isMounted) {
-            setSupabaseClient(client);
-            setUseSupabase(true);
-          }
-          if (isMounted) {
-            setStoredValue(initialValue || []);
-            setIsLoading(false);
-          }
-          return;
-        }
-        
-        // Enable Supabase for other data types (with reduced logging)
-        if (key === 'badminton_matches' || key === 'badminton-global-players' || key === 'badminton-sessions') {
-          console.log(`🚀 Enabling full Supabase sync for ${key}`);
-        }
-        
-        // Get shared Supabase client (singleton pattern prevents multiple connections)
+        // Get Supabase client (required for online-only operation)
         const client = await createSupabaseClient();
         
-        if (client && isMounted) {
-          if (key === 'badminton_matches' || key === 'badminton-global-players' || key === 'badminton-sessions') {
-            console.log(`✅ Supabase available for ${key}`);
-          }
+        if (!client) {
+          throw new Error('Supabase client not available - internet connection required');
+        }
+        
+        if (isMounted) {
           setSupabaseClient(client);
           setUseSupabase(true);
-          await loadFromSupabase(client, key);
-        } else if (isMounted) {
-          console.log(`📁 Using localStorage for ${key}`);
-          setUseSupabase(false);
-          loadFromLocalStorage();
+          
+          // Special handling for ELO history - don't auto-load but keep sync ready
+          if (key === 'badminton_elo_history') {
+            console.log(`📊 ELO history - Supabase sync ready but not auto-loading`);
+            setStoredValue(initialValue || []);
+          } else {
+            // Load data from Supabase for all other keys
+            await loadFromSupabase(client, key);
+          }
         }
       } catch (error) {
-        console.error(`Error initializing storage for ${key}:`, error);
+        console.error(`Error initializing Supabase storage for ${key}:`, error);
         if (isMounted) {
+          // In online-only mode, we don't fall back to localStorage
+          // The app should block access if Supabase is not available
           setUseSupabase(false);
-          loadFromLocalStorage();
+          setStoredValue(initialValue || []);
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -84,29 +56,7 @@ export function useSupabaseStorage(key, initialValue) {
     };
   }, [key]);
 
-  // Load data from localStorage
-  const loadFromLocalStorage = () => {
-    try {
-      const item = window.localStorage.getItem(key);
-      if (!item) {
-        setStoredValue(initialValue || []);
-        return;
-      }
-
-      const parsed = JSON.parse(item);
-      
-      // Filter out null/undefined items from arrays
-      if (Array.isArray(parsed)) {
-        const filtered = parsed.filter(item => item !== null && item !== undefined);
-        setStoredValue(filtered);
-      } else {
-        setStoredValue(parsed || initialValue || []);
-      }
-    } catch (error) {
-      console.error(`Error loading from localStorage (${key}):`, error);
-      setStoredValue(initialValue || []);
-    }
-  };
+  // Note: localStorage functions removed - app now requires internet connection
 
   // Load data from Supabase
   const loadFromSupabase = async (client, storageKey) => {
@@ -480,39 +430,24 @@ export function useSupabaseStorage(key, initialValue) {
             await saveToSupabase(cleanedValue);
           }
         } catch (supabaseError) {
-          console.warn(`Supabase save failed for ${key}, falling back to localStorage:`, supabaseError);
-          // Fallback to localStorage only if Supabase fails
-          saveToLocalStorage(cleanedValue);
+          console.error(`Failed to save to Supabase for ${key}:`, supabaseError);
+          // In online-only mode, we don't fall back to localStorage
+          // Revert the optimistic update
+          setStoredValue(storedValue);
+          throw supabaseError;
         }
       } else {
-        // Saving to localStorage only
-        saveToLocalStorage(cleanedValue);
+        throw new Error(`Supabase not available for ${key} - internet connection required`);
       }
     } catch (error) {
       console.error(`Error saving data for ${key}:`, error);
-      // Fallback: at least save to localStorage
-      const fallbackValue = typeof value === 'function' ? value(storedValue) : value;
-      saveToLocalStorage(fallbackValue);
-      setStoredValue(fallbackValue);
+      // Revert optimistic update on failure
+      setStoredValue(storedValue);
+      throw error;
     }
   }, [useSupabase, supabaseClient, storedValue, key]);
 
-  // Save to localStorage
-  const saveToLocalStorage = (value) => {
-    try {
-      if (value === undefined) {
-        window.localStorage.removeItem(key);
-      } else {
-        // Filter out null items before saving
-        const cleanValue = Array.isArray(value) 
-          ? value.filter(item => item !== null && item !== undefined)
-          : value;
-        window.localStorage.setItem(key, JSON.stringify(cleanValue));
-      }
-    } catch (error) {
-      console.error(`Error saving to localStorage (${key}):`, error);
-    }
-  };
+  // Note: localStorage save function removed - using Supabase only
 
   // Save to Supabase with proper CRUD operations
   const saveToSupabase = async (value) => {
@@ -543,8 +478,6 @@ export function useSupabaseStorage(key, initialValue) {
         // await saveSessionSettingsToSupabase(value);
       }
       
-      // Also save to localStorage as backup
-    saveToLocalStorage(value);
       console.log(`✅ Data saved to Supabase for ${key}`);
     } catch (error) {
       console.error(`❌ Error saving to Supabase for ${key}:`, error);
@@ -961,8 +894,6 @@ export function useSupabaseStorage(key, initialValue) {
       }
     }
     
-    // Also save to localStorage as backup
-    saveToLocalStorage(newMatches);
     console.log(`✅ Delta sync complete for badminton_matches`);
   };
 

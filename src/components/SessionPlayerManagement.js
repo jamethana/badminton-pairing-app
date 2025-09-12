@@ -261,9 +261,11 @@ const SessionPlayerManagement = ({
             ))}
             </div>
           ) : (
-            <p className="no-available-players">
-              No available players to invite. All global players are either in this session or in other active sessions.
-            </p>
+            <div className="no-available-players">
+              <div className="empty-state-icon">✨</div>
+              <p className="empty-state-title">Everyone's playing!</p>
+              <p className="empty-state-subtitle">All players are either in this session or actively playing elsewhere</p>
+            </div>
           )}
         </div>
       )}

@@ -126,9 +126,13 @@ const CurrentMatches = ({
               </div>
             ) : (
               <div className="empty-court-message">
+                <div className="empty-court-icon">🏸</div>
                 <h3>Court {court.id + 1}</h3>
-                <p>Click to fill with players</p>
-                <small>Available: {availablePool.length} players</small>
+                <p className="empty-court-subtitle">Click to assign players</p>
+                <div className="available-count">
+                  <span className="count-badge">{availablePool.length}</span>
+                  <span className="count-label">players available</span>
+                </div>
               </div>
             )}
           </div>
