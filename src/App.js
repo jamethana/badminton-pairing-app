@@ -7,7 +7,7 @@ import RefactoredApp from './components/RefactoredApp';
  * Main App component with Context Provider
  * Wraps the application with necessary providers and routing
  */
-function AppWithContext() {
+function App() {
   return (
     <GameProvider>
       <Router basename={process.env.NODE_ENV === 'production' ? '/badminton-pairing-app' : ''}>
@@ -20,4 +20,4 @@ function AppWithContext() {
   );
 }
 
-export default AppWithContext;
+export default App;
