@@ -9,6 +9,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState([]);
   const [matchType, setMatchType] = useState('doubles'); // 'singles' or 'doubles'
+  const [animatingPlayers, setAnimatingPlayers] = useState(new Set()); // Track which players are animating
 
   // Get smart matching settings
   const smartMatching = currentSession?.smartMatching || {
@@ -29,6 +30,29 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
       };
       onUpdateSession(newSettings);
     }
+  };
+
+  // Animation helper function
+  const animateSwap = (playerIds, callback) => {
+    // Add players to animating set
+    setAnimatingPlayers(prev => {
+      const newSet = new Set(prev);
+      playerIds.forEach(id => newSet.add(id));
+      return newSet;
+    });
+    
+    // Execute the swap after a short delay for animation
+    setTimeout(() => {
+      callback();
+      // Remove players from animating set after animation completes
+      setTimeout(() => {
+        setAnimatingPlayers(prev => {
+          const newSet = new Set(prev);
+          playerIds.forEach(id => newSet.delete(id));
+          return newSet;
+        });
+      }, 200); // Match animation duration
+    }, 50); // Small delay to trigger animation
   };
 
   // Initialize with players when modal opens or when smart matching setting changes
@@ -95,22 +119,25 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const swapPlayer = (courtIndex, newPlayer) => {
     const oldPlayer = assignedPlayers[courtIndex];
     
-    setAssignedPlayers(prev => {
-      const newAssigned = [...prev];
-      newAssigned[courtIndex] = newPlayer;
-      return newAssigned;
-    });
-    
-    setRemainingPlayers(prev => {
-      const newRemaining = [...prev];
-      // Remove new player from available pool
-      const newPlayerIndex = newRemaining.findIndex(p => p.id === newPlayer.id);
-      if (newPlayerIndex !== -1) {
-        newRemaining.splice(newPlayerIndex, 1);
-      }
-      // Add old player back to available pool
-      newRemaining.push(oldPlayer);
-      return newRemaining;
+    // Animate the swap
+    animateSwap([oldPlayer.id, newPlayer.id], () => {
+      setAssignedPlayers(prev => {
+        const newAssigned = [...prev];
+        newAssigned[courtIndex] = newPlayer;
+        return newAssigned;
+      });
+      
+      setRemainingPlayers(prev => {
+        const newRemaining = [...prev];
+        // Remove new player from available pool
+        const newPlayerIndex = newRemaining.findIndex(p => p.id === newPlayer.id);
+        if (newPlayerIndex !== -1) {
+          newRemaining.splice(newPlayerIndex, 1);
+        }
+        // Add old player back to available pool
+        newRemaining.push(oldPlayer);
+        return newRemaining;
+      });
     });
     
     // Reset selection
@@ -119,11 +146,18 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   };
 
   const swapCourtPlayers = (index1, index2) => {
-    setAssignedPlayers(prev => {
-      const newAssigned = [...prev];
-      [newAssigned[index1], newAssigned[index2]] = [newAssigned[index2], newAssigned[index1]];
-      return newAssigned;
+    const player1 = assignedPlayers[index1];
+    const player2 = assignedPlayers[index2];
+    
+    // Animate the swap
+    animateSwap([player1.id, player2.id], () => {
+      setAssignedPlayers(prev => {
+        const newAssigned = [...prev];
+        [newAssigned[index1], newAssigned[index2]] = [newAssigned[index2], newAssigned[index1]];
+        return newAssigned;
+      });
     });
+    
     setSelectedPlayer(null);
   };
 
@@ -283,6 +317,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                         selectedPlayer?.index === index ? 'selected' : ''
                       } ${
                         selectedAvailablePlayer ? 'swap-ready' : ''
+                      } ${
+                        animatingPlayers.has(player.id) ? 'player-flying' : ''
                       }`}
                       onClick={() => handlePlayerClick(player, index)}
                     >
@@ -328,6 +364,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                         selectedPlayer?.index === index + (matchType === 'singles' ? 1 : 2) ? 'selected' : ''
                       } ${
                         selectedAvailablePlayer ? 'swap-ready' : ''
+                      } ${
+                        animatingPlayers.has(player.id) ? 'player-flying' : ''
                     }`}
                       onClick={() => handlePlayerClick(player, index + (matchType === 'singles' ? 1 : 2))}
                     >
@@ -424,6 +462,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                       selectedAvailablePlayer?.id === player.id ? 'selected' : ''
                     } ${
                       selectedPlayer ? 'swap-ready' : ''
+                    } ${
+                      animatingPlayers.has(player.id) ? 'player-flying' : ''
                     }`}
                     onClick={() => handleAvailablePlayerClick(player)}
                   >

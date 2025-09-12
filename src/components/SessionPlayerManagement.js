@@ -18,6 +18,42 @@ const SessionPlayerManagement = ({
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [filterText, setFilterText] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [animatingPlayers, setAnimatingPlayers] = useState(new Set()); // Track animating players
+  const [removingPlayers, setRemovingPlayers] = useState(new Set()); // Track players being removed
+  const [inviteAnimatingPlayers, setInviteAnimatingPlayers] = useState(new Set()); // Track invite section animations
+
+  // Animation helper for adding players
+  const animatePlayerAdd = (playerId, callback) => {
+    setAnimatingPlayers(prev => new Set(prev).add(playerId));
+    
+    // Execute add after brief delay for animation
+    setTimeout(() => {
+      callback();
+      // Remove from animating after animation completes
+      setTimeout(() => {
+        setAnimatingPlayers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(playerId);
+          return newSet;
+        });
+      }, 300); // Match CSS animation duration
+    }, 50);
+  };
+
+  // Animation helper for removing players
+  const animatePlayerRemove = (playerId, callback) => {
+    setRemovingPlayers(prev => new Set(prev).add(playerId));
+    
+    // Execute remove after animation
+    setTimeout(() => {
+      callback();
+      setRemovingPlayers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(playerId);
+        return newSet;
+      });
+    }, 250); // Allow time for exit animation
+  };
 
   const handleAddPlayer = (e) => {
     e.preventDefault();
@@ -40,8 +76,10 @@ const SessionPlayerManagement = ({
           return;
         }
         
-        // Add existing player to session
-        onAddPlayerToSession(existingPlayer.id);
+        // Add existing player to session with animation
+        animatePlayerAdd(existingPlayer.id, () => {
+          onAddPlayerToSession(existingPlayer.id);
+        });
       } else {
         // Create new global player and add to session
         onCreateNewPlayer(newPlayerName.trim());
@@ -68,7 +106,9 @@ const SessionPlayerManagement = ({
   };
 
   const handleRemovePlayerFromSession = (playerId) => {
-    onRemovePlayerFromSession(playerId);
+    animatePlayerRemove(playerId, () => {
+      onRemovePlayerFromSession(playerId);
+    });
   };
 
   const handleToggleActive = (id, updatedPlayer) => {
@@ -76,6 +116,25 @@ const SessionPlayerManagement = ({
     if (onToggleSessionPlayerActive) {
       onToggleSessionPlayerActive(id, updatedPlayer.isActive);
     }
+  };
+
+  const handleInvitePlayer = (playerId) => {
+    // Animate the invite card disappearing
+    setInviteAnimatingPlayers(prev => new Set(prev).add(playerId));
+    
+    // Start the session player add animation
+    animatePlayerAdd(playerId, () => {
+      onAddPlayerToSession(playerId);
+      
+      // Clean up invite animation state after invite section updates
+      setTimeout(() => {
+        setInviteAnimatingPlayers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(playerId);
+          return newSet;
+        });
+      }, 300);
+    });
   };
 
   const getTimeAgo = (timestamp) => {
@@ -153,23 +212,31 @@ const SessionPlayerManagement = ({
       <div className="player-stats-container-compact">
         <div className="player-stats-grid-compact">
           {filteredPlayers.map((player) => (
-            <PlayerCard
+            <div
               key={player.id}
-              player={player}
-              onEdit={handleEditPlayer}
-              onRemove={handleRemovePlayerFromSession}
-              onToggleActive={handleToggleActive}
-              getTimeAgo={getTimeAgo}
-              disabled={false}
-              sessionMode={true}
-            />
+              className={`${
+                animatingPlayers.has(player.id) ? 'player-entering' : ''
+              } ${
+                removingPlayers.has(player.id) ? 'player-exiting' : ''
+              }`}
+            >
+              <PlayerCard
+                player={player}
+                onEdit={handleEditPlayer}
+                onRemove={handleRemovePlayerFromSession}
+                onToggleActive={handleToggleActive}
+                getTimeAgo={getTimeAgo}
+                disabled={false}
+                sessionMode={true}
+              />
+            </div>
           ))}
         </div>
       </div>
 
       {/* Available Players to Invite */}
       {showInviteModal && (
-        <div className="invite-section">
+        <div className="invite-section invite-section-entering">
           <h4>Available Players to Invite:</h4>
           <p className="invite-description">
             These are players from your global database who are not currently in this session or any other active session.
@@ -179,8 +246,10 @@ const SessionPlayerManagement = ({
             {availableGlobalPlayers.map(player => (
               <div
                 key={player.id}
-                className="invite-player-card"
-                onClick={() => onAddPlayerToSession(player.id)}
+                className={`invite-player-card ${
+                  inviteAnimatingPlayers.has(player.id) ? 'player-exiting' : ''
+                }`}
+                onClick={() => handleInvitePlayer(player.id)}
               >
                 <span className="player-name">{player.name}</span>
                 <span className="player-lifetime-stats">

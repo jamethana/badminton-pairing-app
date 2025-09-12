@@ -2891,6 +2891,115 @@ code {
   color: var(--text-secondary);
 }
 
+/* Player Swap Flying Animation */
+.player-flying {
+  animation: playerFly 0.2s ease-in-out;
+  z-index: 1000;
+  position: relative;
+}
+
+@keyframes playerFly {
+  0% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    transform: scale(1.1) rotate(2deg);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Session Player Entry Animation */
+.player-entering {
+  animation: playerEnter 0.3s ease-out;
+}
+
+@keyframes playerEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.9);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-10px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Session Player Exit Animation */
+.player-exiting {
+  animation: playerExit 0.25s ease-in forwards;
+}
+
+@keyframes playerExit {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95) translateX(10px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8) translateX(30px);
+  }
+}
+
+/* Invite Section Slide Animation */
+.invite-section-entering {
+  animation: inviteSectionSlide 0.3s ease-out;
+}
+
+@keyframes inviteSectionSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(-15px);
+    max-height: 0;
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 1000px;
+  }
+}
+
+/* Invite Player Cards Staggered Entry */
+.invite-players-grid .invite-player-card {
+  animation: inviteCardEnter 0.2s ease-out;
+  animation-fill-mode: both;
+}
+
+.invite-players-grid .invite-player-card:nth-child(1) { animation-delay: 0.05s; }
+.invite-players-grid .invite-player-card:nth-child(2) { animation-delay: 0.1s; }
+.invite-players-grid .invite-player-card:nth-child(3) { animation-delay: 0.15s; }
+.invite-players-grid .invite-player-card:nth-child(4) { animation-delay: 0.2s; }
+.invite-players-grid .invite-player-card:nth-child(5) { animation-delay: 0.25s; }
+.invite-players-grid .invite-player-card:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes inviteCardEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* iPhone-style Toggle Switch - Compact */
 .iphone-toggle {
   position: relative;
