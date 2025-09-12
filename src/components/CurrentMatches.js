@@ -67,26 +67,51 @@ const CurrentMatches = ({
 
   return (
     <div className={`card CurrentMatches ${isExpanded ? 'expanded' : ''}`}>
-      <div className="section-header">
-        <h2 className="section-title">Current Matches</h2>
-        <div className="section-actions">
-          <div className="court-management">
-            <button className="btn btn-outline" onClick={onRemoveCourt}>
-              -
-            </button>
-            <span className="court-count-display">
-              {courtCount} Court{courtCount !== 1 ? 's' : ''}
-            </span>
-            <button className="btn btn-outline" onClick={onAddCourt}>
-              +
-            </button>
+      <div className="section-header-modern">
+        <div className="section-title-group-modern">
+          <h2 className="section-title-modern">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="section-icon">
+              <rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="2"/>
+              <path d="M7 8h10M7 12h10" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+            Current Matches
+          </h2>
+          <div className="section-subtitle-modern">
+            Manage active courts and ongoing matches
           </div>
-          {/* <button className="btn btn-primary btn-lg" onClick={onGenerateMatches}>
-            Generate Matches
-          </button> */}
-          {/* <button className="btn btn-danger" onClick={handleClearMatches}>
-            Clear Matches
-          </button> */}
+        </div>
+        <div className="section-actions-modern">
+          <div className="court-management-modern">
+            <div className="court-controls-modern">
+              <button 
+                className="court-btn-modern court-btn-remove" 
+                onClick={onRemoveCourt}
+                title="Remove court"
+                aria-label="Remove court"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+              
+              <div className="court-count-display-modern">
+                <div className="court-count-number">{courtCount}</div>
+                <div className="court-count-label">Court{courtCount !== 1 ? 's' : ''}</div>
+              </div>
+              
+              <button 
+                className="court-btn-modern court-btn-add" 
+                onClick={onAddCourt}
+                title="Add court"
+                aria-label="Add court"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+            
+          </div>
         </div>
       </div>
 
@@ -98,30 +123,96 @@ const CurrentMatches = ({
             onClick={() => handleCourtClick(court)}
           >
             {court.isOccupied && court.currentMatch ? (
-              <div className="match-content">
-                <h3>
-                  Court {court.id + 1} 
-                  <span className="match-type-indicator">
-                    {court.currentMatch.matchType === 'singles' ? '(1v1)' : '(2v2)'}
-                  </span>
-                </h3>
-                <div className="teams">
-                  <div className="team team1">
-                    <div className="player">{court.currentMatch.team1.player1?.name}</div>
-                    {court.currentMatch.team1.player2 && (
-                      <div className="player">{court.currentMatch.team1.player2.name}</div>
-                    )}
+              <div className="match-content-modern">
+                {/* Header */}
+                <div className="match-header-modern">
+                  <div className="court-info-section">
+                    <div className="court-badge">Court {court.id + 1}</div>
+                    <div className="match-type-badge-modern">
+                      {court.currentMatch.matchType === 'singles' ? '🏸 Singles' : '🏸 Doubles'}
+                    </div>
                   </div>
-                  <div className="vs-divider">VS</div>
-                  <div className="team team2">
-                    <div className="player">{court.currentMatch.team2.player1?.name}</div>
-                    {court.currentMatch.team2.player2 && (
-                      <div className="player">{court.currentMatch.team2.player2.name}</div>
-                    )}
+                  <div className="match-status-modern">
+                    <div className="status-dot"></div>
+                    <span className="status-text">Active</span>
                   </div>
                 </div>
-                <div className="match-time">
-                  Started: {new Date(court.currentMatch.startTime).toLocaleTimeString()}
+
+                {/* Teams */}
+                <div className="teams-modern">
+                  <div className="team-modern team-1">
+                    <div className="team-label">Team 1</div>
+                    <div className="players-list-modern">
+                      <div className="player-modern">
+                        <div className="player-avatar">
+                          <span className="avatar-initial">
+                            {court.currentMatch.team1.player1?.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="player-name-modern">
+                          {court.currentMatch.team1.player1?.name}
+                        </span>
+                      </div>
+                      {court.currentMatch.team1.player2 && (
+                        <div className="player-modern">
+                          <div className="player-avatar">
+                            <span className="avatar-initial">
+                              {court.currentMatch.team1.player2.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="player-name-modern">
+                            {court.currentMatch.team1.player2.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="vs-divider-modern">
+                    {/* <div className="vs-circle">
+                      <span className="vs-text">VS</span>
+                    </div> */}
+                  </div>
+
+                  <div className="team-modern team-2">
+                    <div className="team-label">Team 2</div>
+                    <div className="players-list-modern">
+                      <div className="player-modern">
+                        <div className="player-avatar">
+                          <span className="avatar-initial">
+                            {court.currentMatch.team2.player1?.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="player-name-modern">
+                          {court.currentMatch.team2.player1?.name}
+                        </span>
+                      </div>
+                      {court.currentMatch.team2.player2 && (
+                        <div className="player-modern">
+                          <div className="player-avatar">
+                            <span className="avatar-initial">
+                              {court.currentMatch.team2.player2.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="player-name-modern">
+                            {court.currentMatch.team2.player2.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="match-footer-modern">
+                  <div className="match-time-modern">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="time-icon">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                      <polyline points="12,6 12,12 16,14" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                    <span>Started {new Date(court.currentMatch.startTime).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="tap-hint-modern">Tap to complete</div>
                 </div>
               </div>
             ) : (

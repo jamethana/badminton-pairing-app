@@ -518,10 +518,13 @@ export function useMatchManagement({
       return { success: false, message: 'Cannot remove the last court' };
     }
     
-    // Check if any court has active players
-    const hasActivePlayers = currentSession.courtStates.some(court => court.isOccupied);
-    if (hasActivePlayers) {
-      return { success: false, message: 'Cannot remove courts while there are active matches. Please complete or clear all matches first.' };
+    // Find the last court (highest index)
+    const lastCourtIndex = currentSession.courtStates.length - 1;
+    const lastCourt = currentSession.courtStates[lastCourtIndex];
+    
+    // Check if the last court specifically has active players
+    if (lastCourt.isOccupied) {
+      return { success: false, message: 'Cannot remove an occupied court. Please complete the match first or remove an empty court.' };
     }
     
     updateSession({

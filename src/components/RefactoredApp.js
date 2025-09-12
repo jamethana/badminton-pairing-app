@@ -7,7 +7,7 @@ import { useMatchManagement } from '../hooks/useMatchManagement';
 import { useInternetConnection } from '../hooks/useInternetConnection';
 
 // Components
-import SessionHamburgerMenu from './SessionHamburgerMenu';
+import SessionOptionsMenu from './SessionOptionsMenu';
 import SessionPlayerManagement from './SessionPlayerManagement';
 import CurrentMatches from './CurrentMatches';
 import Notification from './Notification';
@@ -385,7 +385,36 @@ function RefactoredApp() {
       <div className="App">
         <div className="container">
           <header className="app-header">
-            <h1 className="app-title">🏸 Badminton Pairing App</h1>
+            <div 
+              className="app-title-modern clickable" 
+              onClick={handleNavigateHomeWithNotification}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleNavigateHomeWithNotification();
+                }
+              }}
+              title="Go to welcome page"
+            >
+              {/* <div className="app-title-icon">
+                <svg width="32" height="32" viewBox="0 0 100 100" fill="none" className="badminton-icon">
+                  <circle cx="50" cy="20" r="8" fill="currentColor"/>
+                  <path d="M45 28L55 28L52 45L48 45Z" fill="currentColor"/>
+                  <ellipse cx="50" cy="60" rx="15" ry="25" fill="none" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M35 60L65 60" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M40 50L60 50" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M40 70L60 70" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M45 45L55 45" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M45 75L55 75" stroke="currentColor" strokeWidth="1"/>
+                </svg>
+              </div> */}
+              <div className="app-title-content">
+                <h1 className="app-title-text">Badminton Pairing</h1>
+                <div className="app-title-subtitle">Smart Match Organization</div>
+              </div>
+            </div>
           </header>
           
           <div className="no-sessions-page">
@@ -456,17 +485,43 @@ function RefactoredApp() {
   return (
     <div className="App">
       <div className="container">
-        <header className="app-header">
-          <SessionHamburgerMenu
-            sessions={safeSessions.filter(s => s && (s.isActive !== false || s.is_active !== false))}
-            currentSessionId={currentSessionId}
-            onSessionSelect={handleSessionSelectWithNotification}
-            onSessionCreate={handleSessionCreateWithNotification}
+        <header className="app-header-modern">
+          <div 
+            className="app-title-modern clickable" 
+            onClick={handleNavigateHomeWithNotification}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleNavigateHomeWithNotification();
+              }
+            }}
+            title="Go to welcome page"
+          >
+            {/* <div className="app-title-icon">
+              <svg width="28" height="28" viewBox="0 0 100 100" fill="none" className="badminton-icon">
+                <circle cx="50" cy="20" r="8" fill="currentColor"/>
+                <path d="M45 28L55 28L52 45L48 45Z" fill="currentColor"/>
+                <ellipse cx="50" cy="60" rx="15" ry="25" fill="none" stroke="currentColor" strokeWidth="2"/>
+                <path d="M35 60L65 60" stroke="currentColor" strokeWidth="1"/>
+                <path d="M40 50L60 50" stroke="currentColor" strokeWidth="1"/>
+                <path d="M40 70L60 70" stroke="currentColor" strokeWidth="1"/>
+                <path d="M45 45L55 45" stroke="currentColor" strokeWidth="1"/>
+                <path d="M45 75L55 75" stroke="currentColor" strokeWidth="1"/>
+              </svg>
+            </div> */}
+            <div className="app-title-content">
+              <h1 className="app-title-text">Badminton Pairing</h1>
+              <div className="app-title-subtitle">Smart Match Organization</div>
+            </div>
+          </div>
+          
+          <SessionOptionsMenu
+            currentSession={currentSession}
             onSessionEnd={handleSessionEndWithNotification}
             onUpdateSession={updateSession}
-            onNavigateHome={handleNavigateHomeWithNotification}
           />
-          <h1 className="app-title">🏸 Badminton Pairing App</h1>
         </header>
 
         <CurrentMatches

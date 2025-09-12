@@ -78,7 +78,7 @@ const SessionSelector = ({
                 <div className="session-info">
                   <span className="session-name">{session.name}</span>
                   <span className="session-meta">
-                    {session.playerIds.length} players • {session.courtCount} courts
+                    {session.courtCount} courts
                   </span>
                   <span className="session-time">
                     Created: {new Date(session.createdAt).toLocaleDateString()}
