@@ -451,7 +451,7 @@ export function useMatchManagement({
         courtStates: currentSession.courtStates.map(c => ({ ...c, isOccupied: false, currentMatch: null }))
       });
       
-      return { success: true, message: 'Court filled - match saved to database' };
+      return { success: true, message: 'Court filled' };
     } else {
       // Random selection fallback
       if (availablePool.length < 4) {
