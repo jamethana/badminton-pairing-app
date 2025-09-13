@@ -1113,6 +1113,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                 onClick={() => {
                   setIsPlayersTabOpen(false);
                   setIsAutoOpened(false); // Reset auto-opened flag when manually closed
+                  // Reset selection state when manually closing panel
+                  setSelectedPlayer(null);
                   setSelectedAvailablePlayer(null);
                 }}
               >

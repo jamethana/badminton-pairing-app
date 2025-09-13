@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import CreateFirstSessionButton from '../CreateFirstSessionButton';
 import Notification from '../Notification';
 import { createNewSession } from '../../utils/helpers';
-import { createSupabaseClient, TABLES, reportCertificateError } from '../../config/supabase';
+import { createSupabaseClient, TABLES } from '../../config/supabase';
 
 const WelcomePage = ({
   safeSessions,
@@ -108,12 +108,6 @@ const WelcomePage = ({
               counts[session.id] = count || 0;
             }
           } catch (err) {
-            // Check for certificate errors
-            if (err.message.includes('ERR_CERT_AUTHORITY_INVALID') || 
-                err.message.includes('net::ERR_CERT_AUTHORITY_INVALID')) {
-              console.warn('🔒 Certificate error in WelcomePage player count fetch');
-              reportCertificateError();
-            }
             console.warn(`Failed to get player count for session ${session.id}:`, err);
             counts[session.id] = 0;
           }

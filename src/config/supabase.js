@@ -63,12 +63,6 @@ let _connectionPromise = null;
 // Enhanced network change detection
 let _networkChangeListeners = [];
 let _lastConnectionTime = Date.now();
-let _clientCreationTime = Date.now();
-let _certificateErrorCount = 0;
-
-// Client refresh configuration
-const CLIENT_MAX_AGE = 10 * 60 * 1000; // 10 minutes max age
-const MAX_CERT_ERRORS = 2; // Reset client after 2 certificate errors
 
 // Setup enhanced network monitoring
 function setupNetworkMonitoring() {
@@ -89,50 +83,14 @@ function setupNetworkMonitoring() {
     _networkChangeListeners.push({ event, listener });
   });
   
-  // Add debug helpers to window for development
-  if (typeof window !== 'undefined') {
-    window.supabaseDebug = {
-      getHealth: getConnectionHealth,
-      resetClient: resetSupabaseClient,
-      reportCertError: reportCertificateError,
-      forceRefresh: () => createSupabaseClient(true)
-    };
-  }
 }
 
-// Check if client should be refreshed due to age or certificate errors
-function shouldRefreshClient() {
-  const now = Date.now();
-  const clientAge = now - _clientCreationTime;
-  
-  // Refresh if client is too old or has too many certificate errors
-  if (clientAge > CLIENT_MAX_AGE) {
-    console.log(`🔄 Client is ${Math.round(clientAge / 60000)}min old, refreshing for SSL health`);
-    return true;
-  }
-  
-  if (_certificateErrorCount >= MAX_CERT_ERRORS) {
-    console.log(`🔄 Client has ${_certificateErrorCount} certificate errors, refreshing`);
-    return true;
-  }
-  
-  return false;
-}
-
-// Supabase client factory with singleton pattern and smart refresh
-export async function createSupabaseClient(forceRefresh = false) {
+// Supabase client factory with singleton pattern
+export async function createSupabaseClient() {
   // Setup network monitoring on first call
   setupNetworkMonitoring();
   
-  // Check if we should refresh the client
-  if (forceRefresh || shouldRefreshClient()) {
-    console.log('🔄 Refreshing Supabase client...');
-    _supabaseClient = null;
-    _connectionPromise = null;
-    _certificateErrorCount = 0;
-  }
-  
-  // Return existing client if already created and healthy
+  // Return existing client if already created
   if (_supabaseClient) {
     return _supabaseClient;
   }
@@ -160,10 +118,20 @@ export async function createSupabaseClient(forceRefresh = false) {
       const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
       
+      // Disable realtime connection to prevent WebSocket errors
+      // This prevents automatic WebSocket connection attempts
+      if (supabase.realtime) {
+        try {
+          supabase.realtime.disconnect();
+          console.log('Supabase realtime connection disabled to prevent WebSocket errors');
+        } catch (realtimeError) {
+          console.warn('Could not disable realtime connection:', realtimeError.message);
+        }
+      }
+      
       // Test the connection with detailed logging and retry mechanism
       _supabaseClient = supabase;
       _connectionPromise = null;
-      _clientCreationTime = Date.now(); // Track when client was created
       return supabase;
     } catch (error) {
       console.error('Error creating Supabase client:', error);
@@ -175,41 +143,20 @@ export async function createSupabaseClient(forceRefresh = false) {
   return _connectionPromise;
 }
 
-// Track certificate errors for smart client refresh
-export function reportCertificateError() {
-  _certificateErrorCount++;
-  console.warn(`🔒 Certificate error reported (${_certificateErrorCount}/${MAX_CERT_ERRORS})`);
-  
-  // Force refresh if we've hit the limit
-  if (_certificateErrorCount >= MAX_CERT_ERRORS) {
-    console.log('🔄 Certificate error limit reached, forcing client refresh');
-    resetSupabaseClient();
-  }
-}
-
-// Get connection health metrics for debugging
-export function getConnectionHealth() {
-  const now = Date.now();
-  return {
-    hasClient: !!_supabaseClient,
-    clientAge: _supabaseClient ? now - _clientCreationTime : 0,
-    clientAgeMinutes: _supabaseClient ? Math.round((now - _clientCreationTime) / 60000) : 0,
-    certificateErrors: _certificateErrorCount,
-    lastConnectionTime: _lastConnectionTime,
-    shouldRefresh: shouldRefreshClient(),
-    maxAge: CLIENT_MAX_AGE,
-    maxCertErrors: MAX_CERT_ERRORS
-  };
-}
-
 // Public function to reset Supabase client (useful for network reconnection)
 export function resetSupabaseClient() {
   console.log('Manually resetting Supabase client...');
   _supabaseClient = null;
   _connectionPromise = null;
+  _lastNetworkState = navigator.onLine;
   _lastConnectionTime = Date.now();
-  _clientCreationTime = Date.now();
-  _certificateErrorCount = 0;
+}
+
+// Cleanup subscriptions
+export function cleanupSubscriptions(subscriptions) {
+  subscriptions.forEach(subscription => {
+    subscription.unsubscribe();
+  });
 }
 
 export default {
@@ -219,6 +166,5 @@ export default {
   MIGRATION_CONFIG,
   createSupabaseClient,
   resetSupabaseClient,
-  reportCertificateError,
-  getConnectionHealth
+  cleanupSubscriptions
 };

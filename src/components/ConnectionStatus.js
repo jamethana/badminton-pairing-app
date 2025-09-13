@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createSupabaseClient, resetSupabaseClient, reportCertificateError } from '../config/supabase';
+import { createSupabaseClient, resetSupabaseClient } from '../config/supabase';
 
 const ConnectionStatus = () => {
   const [connectionStatus, setConnectionStatus] = useState({
@@ -63,34 +63,6 @@ const ConnectionStatus = () => {
             });
           }
         } catch (queryError) {
-          // Check if this is a certificate error and report it
-          if (queryError.message.includes('ERR_CERT_AUTHORITY_INVALID') || 
-              queryError.message.includes('net::ERR_CERT_AUTHORITY_INVALID')) {
-            console.warn('🔒 Certificate error detected in ConnectionStatus');
-            reportCertificateError();
-            
-            // Try once more with a fresh client
-            try {
-              const freshClient = await createSupabaseClient(true); // Force refresh
-              if (freshClient) {
-                const { data, error } = await freshClient
-                  .from('players')
-                  .select('count', { count: 'exact', head: true });
-                
-                if (!error) {
-                  setConnectionStatus({
-                    isOnline: true,
-                    isLoading: false,
-                    error: null
-                  });
-                  return; // Success with fresh client
-                }
-              }
-            } catch (retryError) {
-              console.warn('Retry with fresh client also failed:', retryError.message);
-            }
-          }
-          
           setConnectionStatus({
             isOnline: false,
             isLoading: false,
