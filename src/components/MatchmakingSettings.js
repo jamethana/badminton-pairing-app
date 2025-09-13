@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const SmartMatchingSettings = ({ session, onUpdateSettings }) => {
+const MatchmakingSettings = ({ session, onUpdateSettings }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   
   const smartMatching = session.smartMatching || {
@@ -361,4 +361,4 @@ const SmartMatchingSettings = ({ session, onUpdateSettings }) => {
   );
 };
 
-export default SmartMatchingSettings;
+export default MatchmakingSettings;

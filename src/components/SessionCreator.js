@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createNewSession } from '../utils/helpers';
 import { createSupabaseClient } from '../config/supabase';
 
-const CreateFirstSessionButton = ({ onSessionCreate, existingSessions = [] }) => {
+const SessionCreator = ({ onSessionCreate, existingSessions = [] }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
 
@@ -138,4 +138,4 @@ const CreateFirstSessionButton = ({ onSessionCreate, existingSessions = [] }) =>
   );
 };
 
-export default CreateFirstSessionButton;
+export default SessionCreator;

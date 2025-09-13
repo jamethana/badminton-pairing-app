@@ -40,6 +40,93 @@
   --mobile-gap: 12px;
 }
 
+/* ===== UTILITY CLASSES ===== */
+/* Flexbox Utilities */
+.flex { display: flex; }
+.flex-center { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+}
+.flex-between { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+.flex-column { 
+  display: flex; 
+  flex-direction: column; 
+}
+.flex-column-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+
+/* Spacing Utilities */
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.p-6 { padding: 24px; }
+
+.m-2 { margin: 8px; }
+.m-3 { margin: 12px; }
+.m-4 { margin: 16px; }
+.m-6 { margin: 24px; }
+
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.mb-6 { margin-bottom: 24px; }
+
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mt-6 { margin-top: 24px; }
+
+/* Text Utilities */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.font-bold { font-weight: bold; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+.text-sm { font-size: 14px; }
+.text-base { font-size: 16px; }
+.text-lg { font-size: 18px; }
+.text-xl { font-size: 20px; }
+
+/* Border Utilities */
+.rounded { border-radius: var(--border-radius); }
+.rounded-sm { border-radius: 6px; }
+.rounded-lg { border-radius: 16px; }
+
+.border { border: 1px solid var(--border-color); }
+.border-t { border-top: 1px solid var(--border-color); }
+.border-b { border-bottom: 1px solid var(--border-color); }
+
+/* Shadow Utilities */
+.shadow { box-shadow: var(--shadow); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+
+/* Width/Height Utilities */
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+/* Position Utilities */
+.relative { position: relative; }
+.absolute { position: absolute; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -224,9 +311,6 @@ code {
 
 /* Desktop-first section header styles */
 .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 2px solid rgba(124, 58, 237, 0.2);
@@ -256,9 +340,7 @@ code {
 }
 
 .section-actions {
-  display: flex;
   gap: 10px;
-  align-items: center;
 }
 
 /* Desktop-first grid styles */
@@ -333,9 +415,6 @@ code {
   box-shadow: var(--shadow);
   max-width: 100%;
   min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
   backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
@@ -440,8 +519,6 @@ code {
 
 /* Court Management */
 .court-management {
-  display: flex;
-  align-items: center;
   gap: 10px;
 }
 
@@ -462,9 +539,6 @@ code {
   bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
   padding: 20px;
   /* Ensure modal is always visible on all operating systems */
@@ -1728,6 +1802,7 @@ code {
   margin: 0;
   background: none;
   -webkit-background-clip: unset;
+  background-clip: unset;
   -webkit-text-fill-color: unset;
 }
 

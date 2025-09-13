@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
-import SmartMatchingAdvanced from './SmartMatchingAdvanced';
+import AdvancedMatchmaking from './AdvancedMatchmaking';
 
 const SessionOptionsMenu = ({ 
   currentSession,
@@ -91,7 +91,7 @@ const SessionOptionsMenu = ({
           {/* Smart Matching Advanced Settings */}
           {onUpdateSession && (
             <div className="smart-matching-section">
-              <SmartMatchingAdvanced
+              <AdvancedMatchmaking
                 session={currentSession}
                 onUpdateSettings={(updates) => onUpdateSession(updates)}
               />

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import CreateFirstSessionButton from '../CreateFirstSessionButton';
+import SessionCreator from '../SessionCreator';
 import Notification from '../Notification';
 import { createNewSession } from '../../utils/helpers';
 import { createSupabaseClient, TABLES } from '../../config/supabase';
@@ -440,7 +440,7 @@ const WelcomePage = ({
           {/* Create Session Section - Only show if no sessions exist */}
           {safeSessions.length === 0 && (
             <div className="create-session-section">
-              <CreateFirstSessionButton
+              <SessionCreator
                 onSessionCreate={onSessionCreate}
                 existingSessions={safeSessions}
               />

@@ -11,7 +11,7 @@ import SessionPlayerManagement from './SessionPlayerManagement';
 import CurrentMatches from './CurrentMatches';
 import Notification from './Notification';
 import Scoreboard from './Scoreboard';
-import CreateFirstSessionButton from './CreateFirstSessionButton';
+import SessionCreator from './SessionCreator';
 import WelcomePage from './pages/WelcomePage';
 
 // Utils

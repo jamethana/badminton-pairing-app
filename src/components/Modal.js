@@ -7,7 +7,7 @@ const Modal = ({ children, isOpen, onClose, className = '' }) => {
   // Create portal to render modal at document root level
   return createPortal(
     <div 
-      className={`modal-overlay portal-modal-overlay ${className}`} 
+      className={`modal-overlay portal-modal-overlay flex-center ${className}`} 
       onClick={onClose}
     >
       {children}
