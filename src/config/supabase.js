@@ -38,49 +38,14 @@ export const TABLES = {
   SESSION_SETTINGS: 'session_settings'
 };
 
-// Real-time subscription channels
-export const CHANNELS = {
-  PLAYERS: 'players_changes',
-  SESSIONS: 'sessions_changes',
-  MATCHES: 'matches_changes',
-  ELO_HISTORY: 'elo_changes'
-};
-
 
 // Singleton Supabase client to prevent multiple instances
 let _supabaseClient = null;
 let _connectionPromise = null;
 
-// Enhanced network change detection
-let _networkChangeListeners = [];
-let _lastConnectionTime = Date.now();
-let _lastNetworkState = navigator.onLine;
 
-// Setup enhanced network monitoring
-function setupNetworkMonitoring() {
-  if (_networkChangeListeners.length > 0) return; // Already setup
-  
-  const resetClient = () => {
-    console.log('Network event detected - resetting Supabase client');
-    _supabaseClient = null;
-    _connectionPromise = null;
-    _lastConnectionTime = Date.now();
-  };
-  
-  // Listen for various network events
-  const events = ['online', 'offline'];
-  events.forEach(event => {
-    const listener = resetClient;
-    window.addEventListener(event, listener);
-    _networkChangeListeners.push({ event, listener });
-  });
-  
-}
-
-// Supabase client factory with singleton pattern
+// Supabase client factory with improved singleton pattern
 export async function createSupabaseClient() {
-  // Setup network monitoring on first call
-  setupNetworkMonitoring();
   
   // Return existing client if already created
   if (_supabaseClient) {
@@ -93,7 +58,6 @@ export async function createSupabaseClient() {
   }
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('Supabase credentials not found. Running in localStorage mode.');
     console.warn('Missing credentials:', {
       SUPABASE_URL: SUPABASE_URL ? 'SET' : 'MISSING',
       SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? 'SET' : 'MISSING'
@@ -110,28 +74,17 @@ export async function createSupabaseClient() {
       const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
       
-      // Disable realtime connection to prevent WebSocket errors
-      // This prevents automatic WebSocket connection attempts
-      if (supabase.realtime) {
-        try {
-          supabase.realtime.disconnect();
-          console.log('Supabase realtime connection disabled to prevent WebSocket errors');
-        } catch (realtimeError) {
-          console.warn('Could not disable realtime connection:', realtimeError.message);
-        }
-      }
-      
-      // Skip connection test here - connection testing removed for simplicity
-      // This prevents multiple simultaneous HEAD requests during client creation
-      
-      // Only set as singleton after successful creation (fix race condition)
+      // Store client and clear promise on success
       _supabaseClient = supabase;
       _connectionPromise = null;
+      
       return supabase;
     } catch (error) {
       console.error('Error creating Supabase client:', error);
-      _supabaseClient = null;  // Ensure client is null on error
+      
+      // Clear promise on failure to allow retry
       _connectionPromise = null;
+      
       return null;
     }
   })();
@@ -139,27 +92,15 @@ export async function createSupabaseClient() {
   return _connectionPromise;
 }
 
-// Public function to reset Supabase client (useful for network reconnection)
+// Reset client (useful for testing or reconnection)
 export function resetSupabaseClient() {
-  console.log('Manually resetting Supabase client...');
   _supabaseClient = null;
   _connectionPromise = null;
-  _lastNetworkState = navigator.onLine;
-  _lastConnectionTime = Date.now();
-}
-
-// Cleanup subscriptions
-export function cleanupSubscriptions(subscriptions) {
-  subscriptions.forEach(subscription => {
-    subscription.unsubscribe();
-  });
 }
 
 export default {
   supabaseConfig,
   TABLES,
-  CHANNELS,
   createSupabaseClient,
-  resetSupabaseClient,
-  cleanupSubscriptions
+  resetSupabaseClient
 };

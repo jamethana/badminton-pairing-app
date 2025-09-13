@@ -8,8 +8,8 @@ import Modal from './Modal';
 // ========================================
 // Customize the shuffle animation behavior when Empty Court Modal opens:
 
-const INITIAL_SHUFFLE_COUNT = 3; // Number of shuffles to perform (e.g., 3, 7, 10, etc.)
-const SHUFFLE_DELAY_MS = 100; // Delay between shuffles in milliseconds (100 = fast, 400 = slow)
+const INITIAL_SHUFFLE_COUNT = 1; // Number of shuffles to perform (e.g., 3, 7, 10, etc.)
+const SHUFFLE_DELAY_MS = 10; // Delay between shuffles in milliseconds (100 = fast, 400 = slow)
 
 // Examples:
 // - For quick shuffles: INITIAL_SHUFFLE_COUNT = 3, SHUFFLE_DELAY_MS = 80
@@ -220,7 +220,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
       
       // Intermediate shuffle - always use fair shuffle for variety
       performSingleShuffle(allAvailablePlayers, playersNeeded, false);
-      setShuffleCount(currentShuffle + 1);
+      setShuffleCount(currentShuffle);
       
       // Schedule next shuffle
       setTimeout(() => {

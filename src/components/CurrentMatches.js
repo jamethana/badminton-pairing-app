@@ -112,24 +112,24 @@ const CurrentMatches = ({
 
   return (
     <div className={`card CurrentMatches ${isExpanded ? 'expanded' : ''}`}>
-      <div className="section-header-modern">
+      <div className="section-header-modern flex-between mb-6">
         <div className="section-title-group-modern">
-          <h2 className="section-title-modern">
+          <h2 className="section-title-modern flex gap-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="section-icon">
               <rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="2"/>
               <path d="M7 8h10M7 12h10" stroke="currentColor" strokeWidth="2"/>
             </svg>
             Current Matches
           </h2>
-          <div className="section-subtitle-modern">
+          <div className="section-subtitle-modern text-sm">
             Manage active courts and ongoing matches
           </div>
         </div>
         <div className="section-actions-modern">
-          <div className="court-management-modern">
-            <div className="court-controls-modern">
+          <div className="court-management-modern flex gap-2">
+            <div className="court-controls-modern flex gap-2">
               <button 
-                className="court-btn-modern court-btn-remove" 
+                className="court-btn-modern court-btn-remove btn-reset" 
                 onClick={onRemoveCourt}
                 title="Remove court"
                 aria-label="Remove court"
@@ -139,13 +139,13 @@ const CurrentMatches = ({
                 </svg>
               </button>
               
-              <div className="court-count-display-modern">
-                <div className="court-count-number">{courtCount}</div>
-                <div className="court-count-label">Court{courtCount !== 1 ? 's' : ''}</div>
+              <div className="court-count-display-modern flex-column-center p-2 rounded">
+                <div className="court-count-number font-bold">{courtCount}</div>
+                <div className="court-count-label text-sm">Court{courtCount !== 1 ? 's' : ''}</div>
               </div>
               
               <button 
-                className="court-btn-modern court-btn-add" 
+                className="court-btn-modern court-btn-add btn-reset" 
                 onClick={onAddCourt}
                 title="Add court"
                 aria-label="Add court"
@@ -179,7 +179,7 @@ const CurrentMatches = ({
           return (
             <div
               key={court.id}
-              className={`match-card ${court.isOccupied ? 'occupied' : 'empty-court'} ${animationClass} ${isCompletingMatch ? 'completing-match' : ''}`}
+              className={`match-card flex-column ${court.isOccupied ? 'occupied' : 'empty-court'} ${animationClass} ${isCompletingMatch ? 'completing-match' : ''}`}
               onClick={() => !isCompletingMatch && handleCourtClick(court)}
               style={{ 
                 pointerEvents: isCompletingMatch ? 'none' : 'auto',
@@ -190,23 +190,23 @@ const CurrentMatches = ({
               <div className="match-content-modern">
                 {/* Loading overlay for match completion */}
                 {isCompletingMatch && (
-                  <div className="match-completion-loading">
+                  <div className="match-completion-loading flex-column-center gap-3">
                     <div className="loading-spinner"></div>
-                    <span className="loading-text">Processing match completion...</span>
+                    <span className="loading-text text-sm">Processing match completion...</span>
                   </div>
                 )}
                 
                 {/* Header */}
-                <div className="match-header-modern">
-                  <div className="court-info-section">
-                    <div className="court-badge">Court {court.id + 1}</div>
-                    <div className="match-type-badge-modern">
+                <div className="match-header-modern flex-between mb-4">
+                  <div className="court-info-section flex gap-2">
+                    <div className="badge badge-primary">Court {court.id + 1}</div>
+                    <div className="badge badge-secondary">
                       {court.currentMatch.matchType === 'singles' ? '🏸 Singles' : '🏸 Doubles'}
                     </div>
                   </div>
-                  <div className="match-status-modern">
-                    <div className="status-dot"></div>
-                    <span className="status-text">Active</span>
+                  <div className="match-status-modern flex gap-1">
+                    <div className="status-indicator"></div>
+                    <span className="status-text text-sm">Active</span>
                   </div>
                 </div>
 

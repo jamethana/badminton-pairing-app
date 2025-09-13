@@ -17,9 +17,9 @@ const LoadingSpinner = ({
   };
 
   return (
-    <div className={`loading-spinner ${sizeClasses[size]} ${className}`}>
-      {showIcon && <div className="spinner-icon">🏸</div>}
-      <div className="spinner-message">{message}</div>
+    <div className={`flex-column-center gap-3 ${sizeClasses[size]} ${className}`}>
+      {showIcon && <div className="spinner-icon text-center">🏸</div>}
+      <div className="spinner-message text-center text-sm">{message}</div>
     </div>
   );
 };

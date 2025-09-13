@@ -121,29 +121,29 @@ const PlayerCard = ({
       className={`session-player-card-compact ${isActive ? 'active' : 'inactive'} ${disabled ? 'disabled' : ''} ${isRemoving ? 'removing' : ''}`}
       onClick={handleToggleActive}
     >
-      <div className="session-player-main-compact">
-        <div className="session-player-avatar-compact">
-          <span className="avatar-initial-compact">{playerName.charAt(0).toUpperCase()}</span>
+      <div className="session-player-main-compact flex-between gap-3">
+        <div className="session-player-avatar-compact flex-center">
+          <span className="avatar-initial-compact font-semibold">{playerName.charAt(0).toUpperCase()}</span>
         </div>
         
-        <div className="session-player-info-compact">
+        <div className="session-player-info-compact flex-1">
           <div className="session-player-header-compact">
-            <span className="session-player-name-compact">{playerName}</span>
+            <span className="session-player-name-compact font-medium">{playerName}</span>
           </div>
           
-          <div className="session-player-tier-compact">
+          <div className="session-player-tier-compact flex gap-1">
             <span className="tier-icon-compact" style={{ color: eloTier.color }}>{eloTier.icon}</span>
-            <span className="tier-name-compact" style={{ color: eloTier.color }}>{eloTier.name}</span>
+            <span className="tier-name-compact text-sm" style={{ color: eloTier.color }}>{eloTier.name}</span>
           </div>
         </div>
 
-        <div className="session-player-stats-compact">
-          <span className="stat-text">{sessionMatches}M</span>
+        <div className="session-player-stats-compact text-center">
+          <span className="stat-text text-sm font-medium">{sessionMatches}M</span>
         </div>
 
         <div className="session-action-buttons">
           <button
-            className={`session-move-btn ${isRemoving ? 'removing' : ''}`}
+            className={`session-move-btn btn-reset ${isRemoving ? 'removing' : ''}`}
             onClick={handleMoveToAvailable}
             title={isRemoving ? "Moving player..." : "Move to available players"}
             disabled={disabled || isRemoving}

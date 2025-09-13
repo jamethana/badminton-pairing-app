@@ -2,18 +2,11 @@ import React from 'react';
 
 const Notification = ({ message, type = 'success', onClose }) => {
   return (
-    <div className={`notification ${type}`}>
-      {message}
+    <div className={`notification ${type} flex-between`}>
+      <span>{message}</span>
       <button 
         onClick={onClose}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'white',
-          marginLeft: '10px',
-          cursor: 'pointer',
-          fontSize: '16px'
-        }}
+        className="notification-close-btn"
       >
         ×
       </button>
