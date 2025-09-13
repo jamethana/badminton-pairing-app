@@ -7059,7 +7059,7 @@ code {
   opacity: 0.6;
 }
 
-/* Legacy app-title for any remaining instances */
+/* App title styles */
 .app-title {
   margin: 0;
   color: var(--primary-color);
@@ -8193,7 +8193,7 @@ code {
     width: 3px;
   }
 
-  /* Legacy app-title mobile */
+  /* App title mobile */
   .app-title {
     font-size: 20px;
   }

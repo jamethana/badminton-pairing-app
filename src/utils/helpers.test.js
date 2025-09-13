@@ -293,7 +293,7 @@ describe('Helper Functions', () => {
       });
     });
 
-    describe('Legacy updateELO function', () => {
+    describe('updateELO function', () => {
       test('should work with new system for backward compatibility', () => {
         const newELO = updateELO(1200, true);
         expect(newELO).toBeGreaterThan(1200);

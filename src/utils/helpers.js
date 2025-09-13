@@ -167,7 +167,7 @@ export function calculateInitialELO(wins = 0, losses = 0) {
 }
 
 /**
- * Legacy function for backward compatibility - now uses proper ELO calculation
+ * Simple ELO update function for backward compatibility
  * @param {number} currentELO - Current ELO rating
  * @param {boolean} isWin - Whether the match was won
  * @param {number} opponentELO - Opponent's ELO (defaults to starting ELO)

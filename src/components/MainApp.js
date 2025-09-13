@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGameContext } from '../contexts/GameContext';
 import { useSessionManagement } from '../hooks/useSessionManagement';
-// Removed old usePlayerManagement - using efficient individual session player management
 import { useMatchManagement } from '../hooks/useMatchManagement';
-import { useInternetConnection } from '../hooks/useInternetConnection';
 import { useSessionMatches } from '../hooks/useSessionMatches';
 
 // Components
@@ -13,9 +11,7 @@ import SessionPlayerManagement from './SessionPlayerManagement';
 import CurrentMatches from './CurrentMatches';
 import Notification from './Notification';
 import Scoreboard from './Scoreboard';
-import ConnectionStatus from './ConnectionStatus';
 import CreateFirstSessionButton from './CreateFirstSessionButton';
-import OfflineBlocker from './OfflineBlocker';
 import WelcomePage from './pages/WelcomePage';
 
 // Utils
@@ -25,13 +21,12 @@ import {
 } from '../utils/helpers';
 import { createSupabaseClient } from '../config/supabase';
 
-function RefactoredApp() {
+function MainApp() {
   // Router params
   const { sessionName } = useParams();
   const location = window.location;
   
-  // Internet connection requirement
-  const { isOnline, isLoading: connectionLoading, error: connectionError } = useInternetConnection();
+  // Note: Removed internet connection requirement - app now works with Supabase directly
   
   // Global context
   const {
@@ -75,8 +70,7 @@ function RefactoredApp() {
   // Global players only - session players now managed individually through efficient hooks
   const safeGlobalPlayers = globalPlayers || [];
   
-  // Legacy compatibility: sessionPlayersWithDetails for useMatchManagement and Scoreboard
-  // This provides a lightweight computed version until those components are refactored
+  // Computed session players with details for useMatchManagement and Scoreboard
   const sessionPlayersWithDetails = React.useMemo(() => {
     if (!currentSessionId || !sessionPlayers || !safeGlobalPlayers.length) {
       return [];
@@ -97,7 +91,7 @@ function RefactoredApp() {
           sessionElo: sessionPlayer.session_elo_current || globalPlayer.elo || 1200,
           isActive: sessionPlayer.is_active_in_session === true,
           joinedAt: sessionPlayer.joined_at,
-          // Legacy compatibility fields
+          // Session statistics
           sessionStats: {
             matches: sessionPlayer.session_matches || 0,
             wins: sessionPlayer.session_wins || 0,
@@ -424,31 +418,7 @@ function RefactoredApp() {
     }
   }, [matches, currentSessionId, safeGlobalPlayers, updateSession, currentSession, matchesLoading]);
 
-  // Block app if internet connection is required but not available
-  if (connectionLoading) {
-    return (
-      <div className="App">
-        <div className="container" style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          fontSize: '18px',
-          color: 'var(--text-secondary)'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔄</div>
-            <div>Connecting...</div>
-          </div>
-        </div>
-        <ConnectionStatus />
-      </div>
-    );
-  }
-
-  if (!isOnline) {
-    return <OfflineBlocker error={connectionError} />;
-  }
+  // Note: Removed connection loading check - app now loads directly with Supabase
 
   // Get occupied player IDs from all active sessions
   const occupiedPlayerIds = (safeSessions || []).flatMap(session => {
@@ -682,11 +652,9 @@ function RefactoredApp() {
         )}
 
         <Scoreboard players={sessionPlayersWithDetails} />
-        
-        <ConnectionStatus />
       </div>
     </div>
   );
 }
 
-export default RefactoredApp;
+export default MainApp;

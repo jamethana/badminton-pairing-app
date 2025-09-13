@@ -286,7 +286,7 @@ export function useMatchManagement({
       
       // Update session players (both old architecture and efficient architecture)
       if (sessionPlayerUpdates.length > 0) {
-        // OLD ARCHITECTURE: Update sessionPlayers array for legacy compatibility
+        // Update sessionPlayers array
         setSessionPlayers(prevSessionPlayers => {
           return prevSessionPlayers.map((sessionPlayer) => {
             const isCurrentSession = sessionPlayer.session_id === currentSessionId;

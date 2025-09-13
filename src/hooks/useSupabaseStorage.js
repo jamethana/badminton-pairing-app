@@ -38,8 +38,7 @@ export function useSupabaseStorage(key, initialValue) {
       } catch (error) {
         console.error(`Error initializing Supabase storage for ${key}:`, error);
         if (isMounted) {
-          // In online-only mode, we don't fall back to localStorage
-          // The app should block access if Supabase is not available
+          // Supabase not available - set empty state
           setUseSupabase(false);
           setStoredValue(initialValue || []);
         }
@@ -56,14 +55,14 @@ export function useSupabaseStorage(key, initialValue) {
     };
   }, [key]);
 
-  // Note: localStorage functions removed - app now requires internet connection
 
   // Load data from Supabase
   const loadFromSupabase = async (client, storageKey) => {
     try {
       const tableName = getSupabaseTable(storageKey);
       if (!tableName) {
-        loadFromLocalStorage();
+        console.warn(`No table mapping for key: ${storageKey}`);
+        setStoredValue(initialValue || []);
         return;
       }
 
@@ -82,7 +81,7 @@ export function useSupabaseStorage(key, initialValue) {
 
       if (error) {
         console.error(`Supabase load error for ${storageKey}:`, error);
-        loadFromLocalStorage();
+        setStoredValue(initialValue || []);
         return;
       }
 
@@ -94,78 +93,17 @@ export function useSupabaseStorage(key, initialValue) {
         const transformedData = await transformSupabaseToLocal(data, tableName, client);
         setStoredValue(transformedData);
         
-        // Update localStorage to match Supabase (Supabase is source of truth)
-        // EXCEPT for session_players which is localStorage-only for now
-        if (tableName !== TABLES.SESSION_PLAYERS) {
-        window.localStorage.setItem(storageKey, JSON.stringify(transformedData));
-        }
+        // Supabase is the single source of truth
       } else {
-        // Supabase is empty, but let's check if we should do a ONE-TIME migration from localStorage
-        const hasLocalData = window.localStorage.getItem(storageKey);
-        const shouldMigrate = hasLocalData && !window.localStorage.getItem(`${storageKey}_migrated`);
-        
-        if (shouldMigrate) {
-          console.log(`🔄 One-time migration from localStorage to Supabase for ${storageKey}`);
-        await migrateFromLocalStorage(client, storageKey);
-          // Mark as migrated to prevent future migrations
-          window.localStorage.setItem(`${storageKey}_migrated`, 'true');
-          
-          // After migration, re-query Supabase to get the migrated data
-          const { data: migratedData } = await client
-            .from(tableName)
-            .select('*')
-            .order(orderColumn, { ascending: true });
-          
-          if (migratedData && migratedData.length > 0) {
-            const transformedData = await transformSupabaseToLocal(migratedData, tableName, client);
-            setStoredValue(transformedData);
-            window.localStorage.setItem(storageKey, JSON.stringify(transformedData));
-          } else {
-            setStoredValue(initialValue || []);
-          }
-        } else {
-          // No data anywhere or already migrated, use empty state
-          setStoredValue(initialValue || []);
-          window.localStorage.setItem(storageKey, JSON.stringify(initialValue || []));
-        }
+        // No data in Supabase, use empty state
+        setStoredValue(initialValue || []);
       }
     } catch (error) {
       console.error(`Error loading from Supabase (${storageKey}):`, error);
-      loadFromLocalStorage();
+      setStoredValue(initialValue || []);
     }
   };
 
-  // Migrate existing localStorage data to Supabase
-  const migrateFromLocalStorage = async (client, storageKey) => {
-    try {
-      const localItem = window.localStorage.getItem(storageKey);
-      if (!localItem) {
-        setStoredValue(initialValue || []);
-        return;
-      }
-
-      const localData = JSON.parse(localItem);
-      if (!Array.isArray(localData) || localData.length === 0) {
-        setStoredValue(initialValue || []);
-        return;
-      }
-
-      console.log(`🔄 Migrating ${localData.length} items from localStorage to Supabase`);
-      
-      const tableName = getSupabaseTable(storageKey);
-      if (tableName === TABLES.PLAYERS) {
-        await migratePlayersToSupabase(client, localData);
-      } else if (tableName === TABLES.SESSIONS) {
-        await migrateSessionsToSupabase(client, localData);
-      }
-
-      // Reload from Supabase after migration
-      await loadFromSupabase(client, storageKey);
-    } catch (error) {
-      console.error(`Migration error for ${storageKey}:`, error);
-      loadFromLocalStorage();
-    }
-  };
 
 
   // Get Supabase table name for storage key
@@ -255,7 +193,7 @@ export function useSupabaseStorage(key, initialValue) {
     } else if (tableName === TABLES.MATCHES) {
       // Get session and player mappings to resolve UUIDs back to names
       if (!client) {
-        // Fallback to basic transformation without name resolution
+        // Basic transformation without name resolution
         return data.map(match => ({
           ...match,
           session_name: 'Unknown Session'
@@ -352,50 +290,8 @@ export function useSupabaseStorage(key, initialValue) {
     return data;
   };
 
-  // Migrate players to Supabase
-  const migratePlayersToSupabase = async (client, players) => {
-    for (const player of players) {
-      const { error } = await client
-        .from(TABLES.PLAYERS)
-        .insert({
-          name: player.name,
-          email: player.email || null,
-          total_matches: player.matchCount || 0,
-          total_wins: player.wins || 0,
-          total_losses: player.losses || 0,
-          current_elo: player.elo || 1200,
-          highest_elo: player.elo || 1200,
-          lowest_elo: player.elo || 1200,
-          is_active: player.isActive !== false,
-          last_match_at: player.lastMatchTime ? new Date(player.lastMatchTime) : null
-        });
 
-      if (error && error.code !== '23505') { // Ignore duplicate key errors
-        console.error('Error migrating player:', player.name, error);
-      }
-    }
-  };
-
-  // Migrate sessions to Supabase
-  const migrateSessionsToSupabase = async (client, sessions) => {
-    for (const session of sessions) {
-      const { error } = await client
-        .from(TABLES.SESSIONS)
-        .insert({
-          name: session.name,
-          description: session.description || null,
-          court_count: session.courtCount || 4,
-          is_active: session.isActive !== false,
-          total_matches_played: 0
-        });
-
-      if (error && error.code !== '23505') { // Ignore duplicate key errors
-        console.error('Error migrating session:', session.name, error);
-      }
-    }
-  };
-
-  // Save data (automatically uses Supabase or localStorage)
+  // Save data to Supabase
   const setValue = useCallback(async (value) => {
     try {
       const newValue = typeof value === 'function' ? value(storedValue) : value;
@@ -416,9 +312,7 @@ export function useSupabaseStorage(key, initialValue) {
         }
       }
       
-      // setValue called for ${key}
-      
-      // Always update local state immediately for better UX
+      // Update local state immediately for better UX
       setStoredValue(cleanedValue);
       
       if (useSupabase && supabaseClient) {
@@ -431,13 +325,12 @@ export function useSupabaseStorage(key, initialValue) {
           }
         } catch (supabaseError) {
           console.error(`Failed to save to Supabase for ${key}:`, supabaseError);
-          // In online-only mode, we don't fall back to localStorage
           // Revert the optimistic update
           setStoredValue(storedValue);
           throw supabaseError;
         }
       } else {
-        throw new Error(`Supabase not available for ${key} - internet connection required`);
+        throw new Error(`Supabase not available for ${key} - connection required`);
       }
     } catch (error) {
       console.error(`Error saving data for ${key}:`, error);
@@ -447,7 +340,6 @@ export function useSupabaseStorage(key, initialValue) {
     }
   }, [useSupabase, supabaseClient, storedValue, key]);
 
-  // Note: localStorage save function removed - using Supabase only
 
   // Save to Supabase with proper CRUD operations
   const saveToSupabase = async (value) => {
@@ -481,8 +373,6 @@ export function useSupabaseStorage(key, initialValue) {
       console.log(`✅ Data saved to Supabase for ${key}`);
     } catch (error) {
       console.error(`❌ Error saving to Supabase for ${key}:`, error);
-      // Re-throw to handle in caller, but don't save to localStorage here
-      // as the caller will handle the fallback
       throw error;
     }
   };
@@ -897,9 +787,8 @@ export function useSupabaseStorage(key, initialValue) {
     console.log(`✅ Delta sync complete for badminton_matches`);
   };
 
-  // Save matches to Supabase (legacy - kept for other potential callers)
+  // Save matches to Supabase (fallback for non-delta calls)
   const saveMatchesToSupabase = async (matches) => {
-    console.log(`⚠️ Using legacy saveMatchesToSupabase - consider using delta sync instead`);
     await saveMatchesDeltaToSupabase(matches, []);
   };
 
@@ -1102,11 +991,5 @@ export function useSupabaseStorage(key, initialValue) {
     }
   };
 
-  // Function to reset migration flags (for debugging)
-  const resetMigrationFlags = useCallback(() => {
-    window.localStorage.removeItem(`${key}_migrated`);
-    console.log(`🔄 Reset migration flag for ${key}`);
-  }, [key]);
-
-  return [storedValue, setValue, { isLoading, useSupabase, resetMigrationFlags }];
+  return [storedValue, setValue, { isLoading, useSupabase }];
 }

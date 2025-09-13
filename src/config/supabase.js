@@ -46,23 +46,6 @@ export const CHANNELS = {
   ELO_HISTORY: 'elo_changes'
 };
 
-// Migration configuration
-export const MIGRATION_CONFIG = {
-  // localStorage keys to migrate
-  LEGACY_KEYS: {
-    PLAYERS: 'badminton-players',
-    SESSIONS: 'badminton-sessions',
-    MATCHES: 'badminton-matches',
-    CURRENT_SESSION: 'badminton-current-session',
-    COURT_STATES: 'badminton-court-states'
-  },
-  
-  // Batch size for large migrations
-  BATCH_SIZE: 100,
-  
-  // Whether to keep localStorage data after migration
-  KEEP_LOCAL_BACKUP: true
-};
 
 // Singleton Supabase client to prevent multiple instances
 let _supabaseClient = null;
@@ -138,7 +121,7 @@ export async function createSupabaseClient() {
         }
       }
       
-      // Skip connection test here - let ConnectionStatus component handle it
+      // Skip connection test here - connection testing removed for simplicity
       // This prevents multiple simultaneous HEAD requests during client creation
       
       // Only set as singleton after successful creation (fix race condition)
@@ -176,7 +159,6 @@ export default {
   supabaseConfig,
   TABLES,
   CHANNELS,
-  MIGRATION_CONFIG,
   createSupabaseClient,
   resetSupabaseClient,
   cleanupSubscriptions
