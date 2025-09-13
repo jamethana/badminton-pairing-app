@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createSupabaseClient } from '../config/supabase';
+import { createSupabaseClient, resetSupabaseClient } from '../config/supabase';
 
 const ConnectionStatus = () => {
   const [connectionStatus, setConnectionStatus] = useState({
@@ -79,7 +79,11 @@ const ConnectionStatus = () => {
     };
 
     // Listen for online/offline events
-    const handleOnline = () => checkConnection();
+    const handleOnline = () => {
+      console.log('Network came back online - resetting Supabase client');
+      resetSupabaseClient(); // Reset client when network comes back online
+      checkConnection();
+    };
     const handleOffline = () => {
       setConnectionStatus({
         isOnline: false,
