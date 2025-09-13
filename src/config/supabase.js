@@ -19,6 +19,25 @@ export const supabaseConfig = {
       params: {
         eventsPerSecond: 10
       }
+    },
+    // Add custom fetch with better error handling for network issues
+    global: {
+      fetch: (url, options = {}) => {
+        return fetch(url, {
+          ...options,
+          // Add timeout to prevent hanging on network issues
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        }).catch(error => {
+          console.error('Network request failed:', error.message);
+          if (error.name === 'TimeoutError') {
+            throw new Error('Network timeout - check your internet connection or firewall settings');
+          }
+          if (error.message.includes('Failed to fetch')) {
+            throw new Error('Network blocked - your firewall (Cisco Umbrella detected) may be blocking Supabase access');
+          }
+          throw error;
+        });
+      }
     }
   }
 };
@@ -102,6 +121,14 @@ export async function createSupabaseClient() {
         
         if (error.code === 'PGRST116' || error.code === '42P01') {
           console.warn('⚠️ Supabase connected but tables not found. Run the database schema first!');
+        } else if (error.message && error.message.includes('Network blocked')) {
+          console.error('🚫 Network Access Blocked: Your network firewall is blocking Supabase access');
+          console.error('💡 Solutions:');
+          console.error('   1. Connect to a different network (mobile hotspot, home WiFi)');
+          console.error('   2. Contact your IT admin to whitelist *.supabase.co');
+          console.error('   3. Use a VPN if allowed by your organization');
+          _connectionPromise = null;
+          return null;
         } else {
           console.error('❌ Supabase connection failed:', error.message);
           _connectionPromise = null;
