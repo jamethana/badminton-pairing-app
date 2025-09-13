@@ -905,7 +905,7 @@ export function useSupabaseStorage(key, initialValue) {
 
   // Save ELO history to Supabase  
   const saveEloHistoryToSupabase = async (eloHistory) => {
-    // Get player and session mappings
+    // Get player, session, and match mappings
     const { data: players } = await supabaseClient
       .from(TABLES.PLAYERS)
       .select('id, name');
@@ -913,6 +913,10 @@ export function useSupabaseStorage(key, initialValue) {
     const { data: sessions } = await supabaseClient
       .from(TABLES.SESSIONS)
       .select('id, name');
+    
+    const { data: matches } = await supabaseClient
+      .from(TABLES.MATCHES)
+      .select('id');
     
     const playersByName = players?.reduce((acc, p) => {
       acc[p.name] = p.id;
@@ -923,6 +927,9 @@ export function useSupabaseStorage(key, initialValue) {
       acc[s.name] = s.id;
       return acc;
     }, {}) || {};
+    
+    // Create a set of valid match IDs for validation
+    const validMatchIds = new Set(matches?.map(m => m.id) || []);
     
     for (const elo of eloHistory) {
       if (!elo || !elo.player_name) continue;
@@ -935,9 +942,20 @@ export function useSupabaseStorage(key, initialValue) {
         continue;
       }
       
+      // Validate match_id if provided
+      let matchId = null;
+      if (elo.match_id && validMatchIds.has(elo.match_id)) {
+        matchId = elo.match_id;
+        console.log(`✅ Valid match_id ${elo.match_id} for ELO history of ${elo.player_name}`);
+      } else if (elo.match_id) {
+        console.log(`⚠️ Invalid match_id ${elo.match_id} for ELO history of ${elo.player_name}, setting to null`);
+      } else {
+        console.log(`ℹ️ No match_id provided for ELO history of ${elo.player_name}`);
+      }
+      
       const eloData = {
         player_id: playerUuid,
-        match_id: null, // We'll skip match_id for now since it's complex to resolve
+        match_id: matchId, // Now properly resolved and validated
         session_id: sessionUuid,
         elo_before: elo.elo_before,
         elo_after: elo.elo_after,

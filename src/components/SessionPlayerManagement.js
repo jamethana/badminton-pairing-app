@@ -11,7 +11,8 @@ const SessionPlayerManagement = ({
   occupiedPlayerIds,
   onAddPlayerToSession,
   onUpdateGlobalPlayer,
-  onCreateNewPlayer
+  onCreateNewPlayer,
+  setSessionPlayers
 }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [editingPlayer, setEditingPlayer] = useState(null);
@@ -115,7 +116,7 @@ const SessionPlayerManagement = ({
         // Create new global player and add to session
         const result = await onCreateNewPlayer(newPlayerName.trim());
         if (result && result.data) {
-          await handleInvitePlayer(result.data.id);
+          await handleInvitePlayerWithData(result.data.id, result.data);
         }
       }
       
@@ -149,28 +150,38 @@ const SessionPlayerManagement = ({
   const handleInvitePlayer = async (playerId) => {
     const playerData = globalPlayers.find(p => p.id === playerId);
     if (playerData) {
-      // Set loading state
-      setAddingPlayerId(playerId);
+      await handleInvitePlayerWithData(playerId, playerData);
+    }
+  };
+
+  const handleInvitePlayerWithData = async (playerId, playerData) => {
+    // Set loading state
+    setAddingPlayerId(playerId);
+    
+    console.log(`📥 Adding player ${playerData.name} to session`);
+    const result = await createSessionPlayerRelationship(playerId, playerData);
+    
+    if (result.success) {
+      // Immediately update local state for better UX
+      setLocalSessionPlayerIds(prev => [...prev, { 
+        player_id: playerId, 
+        is_active_in_session: true 
+      }]);
+      console.log(`✅ Player ${playerData.name} added to local state immediately`);
       
-      console.log(`📥 Adding player ${playerData.name} to session`);
-      const result = await createSessionPlayerRelationship(playerId, playerData);
-      
-      if (result.success) {
-        // Add a small delay to ensure database consistency before updating UI
-        setTimeout(() => {
-          setLocalSessionPlayerIds(prev => [...prev, { 
-            player_id: playerId, 
-            is_active_in_session: true 
-          }]);
-          console.log(`✅ Player ${playerData.name} added to local state`);
-          
-          // Clear loading state
-          setAddingPlayerId(null);
-        }, 400); // Increased to 400ms for smoother animation
-      } else {
-        console.error('Failed to add player to session:', result.message);
-        setAddingPlayerId(null);
+      // Update the global sessionPlayers array for EmptyCourtModal
+      if (setSessionPlayers && result.data) {
+        setSessionPlayers(prev => [...prev, result.data]);
+        console.log(`✅ Player ${playerData.name} added to global sessionPlayers array`);
       }
+      
+      // Clear loading state after a short delay for visual feedback
+      setTimeout(() => {
+        setAddingPlayerId(null);
+      }, 200);
+    } else {
+      console.error('Failed to add player to session:', result.message);
+      setAddingPlayerId(null);
     }
   };
 

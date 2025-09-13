@@ -21,7 +21,7 @@ export function GameProvider({ children }) {
   const [globalPlayers, setGlobalPlayers, playersInfo] = useSupabaseStorage('badminton-global-players', []);
   const [sessions, setSessions, sessionsInfo] = useSupabaseStorage('badminton-sessions', []);
   const [sessionPlayers, setSessionPlayers] = useSupabaseStorage('badminton_session_players', []);
-  const [matches, setMatches] = useSupabaseStorage('badminton_matches', []);
+  // Note: matches are now loaded per-session in useSessionMatches hook for better performance
   const [eloHistory, setEloHistory] = useSupabaseStorage('badminton_elo_history', []);
   const [currentSessionId, setCurrentSessionId] = useLocalStorage('badminton-current-session', null);
   
@@ -35,7 +35,6 @@ export function GameProvider({ children }) {
   // Ensure arrays are never undefined
   const safeGlobalPlayers = globalPlayers || [];
   const safeSessions = sessions || [];
-  const safeMatches = matches || [];
 
   // Notification helper
   const showNotification = (message, type = 'success') => {
@@ -51,8 +50,6 @@ export function GameProvider({ children }) {
     setSessions,
     sessionPlayers,
     setSessionPlayers,
-    matches: safeMatches,
-    setMatches,
     eloHistory,
     setEloHistory,
     currentSessionId,

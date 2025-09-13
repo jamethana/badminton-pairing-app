@@ -30,7 +30,7 @@ export const useInternetConnection = () => {
           setConnectionState({
             isOnline: false,
             isLoading: false,
-            error: 'Database not configured - check environment variables',
+            error: 'Failed to create Supabase client',
             hasSupabase: false
           });
           return;

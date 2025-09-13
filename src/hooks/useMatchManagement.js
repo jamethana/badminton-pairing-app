@@ -24,6 +24,8 @@ export function useMatchManagement({
   setSessionPlayers,
   matches,
   setMatches,
+  addMatch,
+  updateMatch,
   setEloHistory,
   updateSession
 }) {
@@ -107,18 +109,23 @@ export function useMatchManagement({
       
       if (winner === 'cancelled') {
         // Cancel match - mark as cancelled in database
-        setMatches(prev => prev.map(dbMatch => {
-          if (dbMatch.session_name === currentSession.name && 
-              dbMatch.court_number === courtId && 
-              !dbMatch.completed_at && 
-              !dbMatch.cancelled_at) {
-            return {
-              ...dbMatch,
-              cancelled_at: new Date().toISOString()
-            };
+        const activeMatch = matches.find(dbMatch => 
+          dbMatch.session_id === currentSessionId && 
+          dbMatch.court_number === courtId && 
+          !dbMatch.completed_at && 
+          !dbMatch.cancelled_at
+        );
+        
+        if (activeMatch) {
+          const result = await updateMatch(activeMatch.id, {
+            cancelled_at: new Date().toISOString()
+          });
+          
+          if (!result.success) {
+            console.error('Failed to cancel match in database:', result.message);
+            return { success: false, message: `Failed to cancel match: ${result.message}` };
           }
-          return dbMatch;
-        }));
+        }
         
         // Clear court
         updateSession({
@@ -132,31 +139,36 @@ export function useMatchManagement({
       }
 
       // Complete match with winner
+      const activeMatch = matches.find(dbMatch => 
+        dbMatch.session_id === currentSessionId && 
+        dbMatch.court_number === courtId && 
+        !dbMatch.completed_at && 
+        !dbMatch.cancelled_at
+      );
+      
       let completedMatch = null;
       
-      setMatches(prev => {
-        const updated = prev.map(dbMatch => {
-          if (dbMatch.session_name === currentSession.name && 
-              dbMatch.court_number === courtId && 
-              !dbMatch.completed_at && 
-              !dbMatch.cancelled_at) {
-            
-            completedMatch = {
-              ...dbMatch,
-              completed_at: new Date().toISOString(),
-              winning_team: winner === 'team1' ? 1 : 2
-            };
-            return completedMatch;
-          }
-          return dbMatch;
-        });
-        return updated;
-      });
+      if (activeMatch) {
+        const matchUpdates = {
+          completed_at: new Date().toISOString(),
+          winning_team: winner === 'team1' ? 1 : 2
+        };
+        
+        const result = await updateMatch(activeMatch.id, matchUpdates);
+        
+        if (!result.success) {
+          console.error('Failed to complete match in database:', result.message);
+          return { success: false, message: `Failed to complete match: ${result.message}` };
+        }
+        
+        completedMatch = { ...activeMatch, ...matchUpdates };
+      }
       
       if (!completedMatch) {
         // Create new match record if not found
         completedMatch = {
           id: generateId(),
+          session_id: currentSessionId,
           session_name: currentSession.name,
           court_number: courtId,
           started_at: match.startTime,
@@ -227,6 +239,7 @@ export function useMatchManagement({
             const newELO = eloResult.newELO;
             
             // Record ELO change for history
+            console.log(`📊 Recording ELO change for ${globalPlayer.name} with match_id: ${completedMatch.id}`);
             eloChanges.push({
               id: generateId(),
               player_id: globalPlayer.id,
@@ -353,10 +366,10 @@ export function useMatchManagement({
     } finally {
       setIsCompletingMatch(false);
     }
-  }, [currentSession, currentSessionId, setGlobalPlayers, setMatches, setEloHistory, setSessionPlayers, updateSession, safeGlobalPlayers]);
+  }, [currentSession, currentSessionId, matches, updateMatch, setGlobalPlayers, setEloHistory, setSessionPlayers, updateSession, safeGlobalPlayers]);
 
   // Generate matches handler
-  const generateMatches = useCallback(() => {
+  const generateMatches = useCallback(async () => {
     if (!currentSession) {
       return { success: false, message: 'No active session' };
     }
@@ -407,9 +420,7 @@ export function useMatchManagement({
       newMatches.push(match);
       
       // Save as incomplete match to database
-      const dbMatch = {
-        id: generateId(),
-        session_name: currentSession.name,
+      const dbMatchData = {
         court_number: i,
         started_at: new Date().toISOString(),
         completed_at: null,
@@ -418,15 +429,12 @@ export function useMatchManagement({
         team1_player2_id: matchSelection.teams.team1.player2.id,
         team2_player1_id: matchSelection.teams.team2.player1.id,
         team2_player2_id: matchSelection.teams.team2.player2.id,
-        team1_player1_name: matchSelection.teams.team1.player1.name,
-        team1_player2_name: matchSelection.teams.team1.player2.name,
-        team2_player1_name: matchSelection.teams.team2.player1.name,
-        team2_player2_name: matchSelection.teams.team2.player2.name,
         winning_team: null,
         match_type: 'doubles'
       };
       
-      setMatches(prev => [...prev, dbMatch]);
+      // Save to Supabase using addMatch
+      await addMatch(dbMatchData);
     }
 
     // Update session with new matches and court states
@@ -445,29 +453,26 @@ export function useMatchManagement({
     });
     
     return { success: true, message: `Generated ${newMatches.length} new matches` };
-  }, [currentSession, sessionPlayersWithDetails, currentSessionId, setMatches, updateSession, safeMatches]);
+  }, [currentSession, sessionPlayersWithDetails, currentSessionId, addMatch, updateSession, safeMatches]);
 
   // Clear matches handler
-  const clearMatches = useCallback(() => {
+  const clearMatches = useCallback(async () => {
     if (!currentSession) return { success: false, message: 'No active session' };
     
     // Mark all active matches as cancelled in database
     const activeMatches = safeMatches.filter(match => 
-      match && match.session_name === currentSession.name && 
+      match && match.session_id === currentSessionId && 
       !match.completed_at && 
       !match.cancelled_at
     );
     
     if (activeMatches.length > 0) {
-      setMatches(prev => prev.map(match => {
-        if (match.session_name === currentSession.name && !match.completed_at && !match.cancelled_at) {
-          return {
-            ...match,
-            cancelled_at: new Date().toISOString()
-          };
-        }
-        return match;
-      }));
+      // Cancel all active matches in database
+      for (const match of activeMatches) {
+        await updateMatch(match.id, {
+          cancelled_at: new Date().toISOString()
+        });
+      }
     }
     
     updateSession({
@@ -480,7 +485,7 @@ export function useMatchManagement({
     });
     
     return { success: true, message: 'All matches cleared' };
-  }, [currentSession, safeMatches, setMatches, updateSession]);
+  }, [currentSession, safeMatches, updateMatch, updateSession]);
 
   // Fill empty court handler
   const fillEmptyCourt = useCallback(async (courtId, matchData = null) => {
@@ -489,36 +494,34 @@ export function useMatchManagement({
     }
     
     if (matchData) {
-      // Create match with provided data
-      const tempMatchId = generateId();
+      // Create match with provided data and save to Supabase
+      // Note: Database schema requires all player IDs to be NOT NULL
+      // For singles matches, we duplicate the single player as both team members
+      const isDoubles = matchData.matchType === 'doubles';
+      
       const dbMatchData = {
-        id: tempMatchId,
-        session_name: currentSession.name,
         court_number: courtId,
         started_at: new Date().toISOString(),
         completed_at: null,
         cancelled_at: null,
         team1_player1_id: matchData.team1.player1.id,
-        team1_player2_id: matchData.team1.player2?.id || null,
+        team1_player2_id: isDoubles ? matchData.team1.player2.id : matchData.team1.player1.id,
         team2_player1_id: matchData.team2.player1.id,
-        team2_player2_id: matchData.team2.player2?.id || null,
-        team1_player1_name: matchData.team1.player1.name,
-        team1_player2_name: matchData.team1.player2?.name || null,
-        team2_player1_name: matchData.team2.player1.name,
-        team2_player2_name: matchData.team2.player2?.name || null,
+        team2_player2_id: isDoubles ? matchData.team2.player2.id : matchData.team2.player1.id,
         winning_team: null,
         match_type: matchData.matchType || 'doubles'
       };
       
-      setMatches(prev => [...prev, dbMatchData]);
+      // Use addMatch to save to Supabase database
+      const result = await addMatch(dbMatchData);
       
-      // Clear currentMatches to trigger reconstruction with proper UUIDs
-      updateSession({
-        currentMatches: [],
-        courtStates: currentSession.courtStates.map(c => ({ ...c, isOccupied: false, currentMatch: null }))
-      });
-      
-      return { success: true, message: 'Court filled' };
+      if (result.success) {
+        console.log('✅ Match saved to Supabase:', result.data);
+        return { success: true, message: 'Court filled and saved to database' };
+      } else {
+        console.error('❌ Failed to save match to Supabase:', result.message);
+        return { success: false, message: `Failed to save match: ${result.message}` };
+      }
     } else {
       // Random selection fallback
       if (availablePool.length < 4) {
@@ -559,7 +562,7 @@ export function useMatchManagement({
       
       return { success: true, message: 'Court filled with random players' };
     }
-  }, [currentSession, availablePool, setMatches, updateSession]);
+  }, [currentSession, availablePool, addMatch, updateSession]);
 
   // Court management
   const addCourt = useCallback(() => {

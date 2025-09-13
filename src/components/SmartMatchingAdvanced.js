@@ -23,30 +23,45 @@ const SmartMatchingAdvanced = ({ session, onUpdateSettings }) => {
     <div className="smart-matching-advanced">
       <div className="advanced-header">
         <div className="advanced-title-group">
-          <h4 className="advanced-title">🎯 Smart Matching Settings</h4>
-          <div className="advanced-subtitle">Configure intelligent player pairing algorithms</div>
+          <h4 className="advanced-title">🎯 Smart Matching</h4>
+          <div className="advanced-subtitle">Intelligent player pairing for balanced matches</div>
         </div>
-        <button
-          type="button"
-          className="advanced-toggle-btn"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-        >
-          {showAdvanced ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M18 15l-6-6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Hide Settings
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Show Settings
-            </>
+        <div className="advanced-controls">
+          <div className="smart-toggle-main">
+            <label className="i-toggle">
+              <input
+                type="checkbox"
+                checked={smartMatching.enabled}
+                onChange={(e) => handleSettingChange('enabled', e.target.checked)}
+                className="i-toggle-input"
+              />
+              <span className="i-toggle-slider"></span>
+            </label>
+          </div>
+          {(
+            <button
+              type="button"
+              className="advanced-toggle-btn"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 15l-6-6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Hide Advanced
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Advanced
+                </>
+              )}
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {showAdvanced && (

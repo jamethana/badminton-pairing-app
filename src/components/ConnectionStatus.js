@@ -27,7 +27,7 @@ const ConnectionStatus = () => {
           setConnectionStatus({
             isOnline: false,
             isLoading: false,
-            error: 'Database not configured'
+            error: 'Failed to create Supabase client'
           });
           return;
         }

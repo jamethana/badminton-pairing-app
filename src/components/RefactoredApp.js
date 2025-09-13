@@ -5,6 +5,7 @@ import { useSessionManagement } from '../hooks/useSessionManagement';
 // Removed old usePlayerManagement - using efficient individual session player management
 import { useMatchManagement } from '../hooks/useMatchManagement';
 import { useInternetConnection } from '../hooks/useInternetConnection';
+import { useSessionMatches } from '../hooks/useSessionMatches';
 
 // Components
 import SessionOptionsMenu from './SessionOptionsMenu';
@@ -21,6 +22,7 @@ import {
   calculateInitialELO,
   urlToSessionName
 } from '../utils/helpers';
+import { createSupabaseClient } from '../config/supabase';
 
 function RefactoredApp() {
   // Router params
@@ -38,8 +40,6 @@ function RefactoredApp() {
     setSessions,
     sessionPlayers,
     setSessionPlayers,
-    matches,
-    setMatches,
     eloHistory,
     setEloHistory,
     currentSessionId,
@@ -49,6 +49,15 @@ function RefactoredApp() {
     notification,
     showNotification
   } = useGameContext();
+
+  // Session-specific matches (much more efficient than loading all matches)
+  const {
+    matches,
+    isLoading: matchesLoading,
+    addMatch,
+    updateMatch,
+    updateMatches: setMatches
+  } = useSessionMatches(currentSessionId);
 
   // Session management
   const {
@@ -117,20 +126,47 @@ function RefactoredApp() {
   
   const handleCreateNewPlayer = async (playerName) => {
     try {
+      // Create player in Supabase to get proper UUID
+      const client = await createSupabaseClient();
+      
+      if (!client) {
+        throw new Error('Supabase client not available');
+      }
+
+      const { data, error } = await client
+        .from('players')
+        .insert({
+          name: playerName,
+          current_elo: 1200,
+          highest_elo: 1200,
+          lowest_elo: 1200,
+          total_matches: 0,
+          total_wins: 0,
+          total_losses: 0
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // Transform to local format and update global players
       const newPlayer = {
-        id: `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: playerName,
-        elo: 1200,
-        wins: 0,
-        losses: 0,
-        totalMatches: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        id: data.id,
+        name: data.name,
+        elo: data.current_elo,
+        wins: data.total_wins,
+        losses: data.total_losses,
+        totalMatches: data.total_matches,
+        created_at: data.created_at,
+        updated_at: data.updated_at
       };
 
       setGlobalPlayers(prev => [...prev, newPlayer]);
       return { success: true, message: 'Player created successfully', data: newPlayer };
     } catch (error) {
+      console.error('Error creating player:', error);
       return { success: false, message: error.message };
     }
   };
@@ -166,6 +202,8 @@ function RefactoredApp() {
     setSessionPlayers,
     matches,
     setMatches,
+    addMatch,
+    updateMatch,
     setEloHistory,
     updateSession
   });
@@ -299,53 +337,75 @@ function RefactoredApp() {
 
   // Reconstruct current matches and court states from matches data
   useEffect(() => {
-    if (!currentSession || !currentSessionId) return;
-    
-    // Prevent infinite loop: only reconstruct if currentMatches is empty
-    if (currentSession.currentMatches && currentSession.currentMatches.length > 0) return;
+    if (!currentSession || !currentSessionId || matchesLoading) return;
     
     // Find active (incomplete) matches for this session
+    // Note: matches are already filtered by session_id in useSessionMatches hook
     const activeMatches = matches.filter(match => 
       match && 
-      match.session_name === currentSession.name && 
       !match.completed_at && 
       !match.cancelled_at
     );
     
-    if (activeMatches.length > 0) {
-      // Convert database matches back to UI format
-      const currentMatches = activeMatches.map(match => ({
+    // Always reconstruct to ensure consistency between database and UI state
+    // Convert database matches back to UI format
+    const currentMatches = activeMatches.map(match => {
+      const isDoubles = match.match_type === 'doubles';
+      
+      // For singles matches, we stored duplicate player IDs, so we need to handle this
+      const team1Player1 = safeGlobalPlayers.find(p => p.id === match.team1_player1_id) || 
+                          { id: match.team1_player1_id, name: `Player ${match.team1_player1_id}` };
+      const team1Player2 = isDoubles && match.team1_player2_id !== match.team1_player1_id ? 
+                          (safeGlobalPlayers.find(p => p.id === match.team1_player2_id) || 
+                           { id: match.team1_player2_id, name: `Player ${match.team1_player2_id}` }) : null;
+      
+      const team2Player1 = safeGlobalPlayers.find(p => p.id === match.team2_player1_id) || 
+                          { id: match.team2_player1_id, name: `Player ${match.team2_player1_id}` };
+      const team2Player2 = isDoubles && match.team2_player2_id !== match.team2_player1_id ? 
+                          (safeGlobalPlayers.find(p => p.id === match.team2_player2_id) || 
+                           { id: match.team2_player2_id, name: `Player ${match.team2_player2_id}` }) : null;
+      
+      return {
         id: match.id,
         courtId: match.court_number,
+        matchType: match.match_type || 'doubles',
         team1: {
-          player1: safeGlobalPlayers.find(p => p.name === match.team1_player1_name) || { id: match.team1_player1_id, name: match.team1_player1_name },
-          player2: safeGlobalPlayers.find(p => p.name === match.team1_player2_name) || { id: match.team1_player2_id, name: match.team1_player2_name }
+          player1: team1Player1,
+          player2: team1Player2
         },
         team2: {
-          player1: safeGlobalPlayers.find(p => p.name === match.team2_player1_name) || { id: match.team2_player1_id, name: match.team2_player1_name },
-          player2: safeGlobalPlayers.find(p => p.name === match.team2_player2_name) || { id: match.team2_player2_id, name: match.team2_player2_name }
+          player1: team2Player1,
+          player2: team2Player2
         },
         startTime: match.started_at,
         completed: false
-      }));
-      
-      // Reconstruct court states
-      const courtStates = [];
-      for (let i = 0; i < currentSession.courtCount; i++) {
-        const matchOnCourt = currentMatches.find(m => m.courtId === i);
-        courtStates.push({
-          id: i,
-          isOccupied: !!matchOnCourt,
-          currentMatch: matchOnCourt || null
-        });
-      }
-      
+      };
+    });
+    
+    // Reconstruct court states
+    const courtStates = [];
+    for (let i = 0; i < currentSession.courtCount; i++) {
+      const matchOnCourt = currentMatches.find(m => m.courtId === i);
+      courtStates.push({
+        id: i,
+        isOccupied: !!matchOnCourt,
+        currentMatch: matchOnCourt || null
+      });
+    }
+    
+    // Only update if there's a meaningful change to prevent infinite loops
+    const hasChanges = 
+      JSON.stringify(currentSession.currentMatches || []) !== JSON.stringify(currentMatches) ||
+      JSON.stringify(currentSession.courtStates || []) !== JSON.stringify(courtStates);
+    
+    if (hasChanges) {
+      console.log(`🔄 Reconstructing session state: ${currentMatches.length} active matches`);
       updateSession({
         currentMatches,
         courtStates
       });
     }
-  }, [matches, currentSessionId, safeGlobalPlayers, updateSession, currentSession]);
+  }, [matches, currentSessionId, safeGlobalPlayers, updateSession, currentSession, matchesLoading]);
 
   // Block app if internet connection is required but not available
   if (connectionLoading) {
@@ -397,8 +457,8 @@ function RefactoredApp() {
     }
   };
 
-  const handleGenerateMatches = () => {
-    const result = generateMatches();
+  const handleGenerateMatches = async () => {
+    const result = await generateMatches();
     if (result.success) {
       showNotification(result.message);
     } else {
@@ -406,8 +466,8 @@ function RefactoredApp() {
     }
   };
 
-  const handleClearMatches = () => {
-    const result = clearMatches();
+  const handleClearMatches = async () => {
+    const result = await clearMatches();
     showNotification(result.message);
   };
 
@@ -673,6 +733,7 @@ function RefactoredApp() {
           onAddPlayerToSession={handleAddPlayerToSessionWithNotification}
           onUpdateGlobalPlayer={handleUpdateGlobalPlayer}
           onCreateNewPlayer={handleCreateNewPlayerWithNotification}
+          setSessionPlayers={setSessionPlayers}
         />
 
         {notification && (
