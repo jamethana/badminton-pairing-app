@@ -5,3 +5,4 @@ github*
 ~/
 .env.local
 .nvmrc
+*.crt

@@ -41,6 +41,7 @@ jobs:
           # Supabase environment variables from GitHub secrets
           REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
           REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
+          REACT_APP_SUPABASE_CERT: ${{ secrets.REACT_APP_SUPABASE_CERT }}
           # Set the public URL for GitHub Pages
           PUBLIC_URL: /badminton-pairing-app
           
@@ -48,6 +49,7 @@ jobs:
         run: |
           echo "REACT_APP_SUPABASE_URL is set: ${{ secrets.REACT_APP_SUPABASE_URL != '' }}"
           echo "REACT_APP_SUPABASE_ANON_KEY is set: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY != '' }}"
+          echo "REACT_APP_SUPABASE_CERT is set: ${{ secrets.REACT_APP_SUPABASE_CERT != '' }}"
           echo "Build completed"
 
       - name: Setup Pages
