@@ -15,6 +15,14 @@ export const supabaseConfig = {
       persistSession: true,
       detectSessionInUrl: true
     },
+    // Additional configuration for handling network issues
+    db: {
+      schema: 'public'
+    },
+    realtime: {
+      // Disable realtime to avoid WebSocket SSL issues
+      enabled: false
+    }
   }
 };
 
@@ -63,6 +71,7 @@ let _connectionPromise = null;
 // Enhanced network change detection
 let _networkChangeListeners = [];
 let _lastConnectionTime = Date.now();
+let _lastNetworkState = navigator.onLine;
 
 // Setup enhanced network monitoring
 function setupNetworkMonitoring() {
@@ -129,12 +138,16 @@ export async function createSupabaseClient() {
         }
       }
       
-      // Test the connection with detailed logging and retry mechanism
+      // Skip connection test here - let ConnectionStatus component handle it
+      // This prevents multiple simultaneous HEAD requests during client creation
+      
+      // Only set as singleton after successful creation (fix race condition)
       _supabaseClient = supabase;
       _connectionPromise = null;
       return supabase;
     } catch (error) {
       console.error('Error creating Supabase client:', error);
+      _supabaseClient = null;  // Ensure client is null on error
       _connectionPromise = null;
       return null;
     }

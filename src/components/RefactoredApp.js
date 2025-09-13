@@ -588,7 +588,6 @@ function RefactoredApp() {
             {usingSupabase ? '📡 Syncing with Supabase...' : '📁 Loading from local storage...'}
           </div>
         </div>
-        <ConnectionStatus />
       </div>
     );
   }

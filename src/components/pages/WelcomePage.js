@@ -84,39 +84,56 @@ const WelcomePage = ({
     return `${diffInMonths}mo ago`;
   };
 
-  // Fetch session player counts from database
+  // Fetch session player counts from database (optimized to reduce HEAD requests)
   useEffect(() => {
     const fetchSessionPlayerCounts = async () => {
       if (safeSessions.length === 0) return;
       
       try {
         const client = await createSupabaseClient();
-        if (!client) return;
+        if (!client) {
+          // Gracefully handle missing client - set default counts
+          const defaultCounts = {};
+          safeSessions.forEach(session => {
+            defaultCounts[session.id] = 0;
+          });
+          setSessionPlayerCounts(defaultCounts);
+          return;
+        }
 
         const counts = {};
         
-        // Fetch player counts for all sessions in parallel
-        const countPromises = safeSessions.map(async (session) => {
-          try {
-            const { count, error } = await client
-              .from(TABLES.SESSION_PLAYERS)
-              .select('*', { count: 'exact', head: true })
-              .eq('session_id', session.id)
-              .eq('is_active_in_session', true);
-            
-            if (!error) {
-              counts[session.id] = count || 0;
-            }
-          } catch (err) {
-            console.warn(`Failed to get player count for session ${session.id}:`, err);
-            counts[session.id] = 0;
+        // Batch fetch all session player counts in a single query to reduce requests
+        try {
+          const sessionIds = safeSessions.map(s => s.id);
+          const { data, error } = await client
+            .from(TABLES.SESSION_PLAYERS)
+            .select('session_id')
+            .in('session_id', sessionIds)
+            .eq('is_active_in_session', true);
+          
+          if (!error && data) {
+            // Count players per session
+            sessionIds.forEach(sessionId => {
+              counts[sessionId] = data.filter(sp => sp.session_id === sessionId).length;
+            });
+          } else {
+            // Fallback to default counts
+            sessionIds.forEach(sessionId => {
+              counts[sessionId] = 0;
+            });
           }
-        });
+        } catch (err) {
+          console.warn('Failed to fetch session player counts:', err);
+          // Set default counts on error
+          safeSessions.forEach(session => {
+            counts[session.id] = 0;
+          });
+        }
 
-        await Promise.all(countPromises);
         setSessionPlayerCounts(counts);
       } catch (error) {
-        console.warn('Failed to fetch session player counts:', error);
+        console.warn('Failed to initialize session player count fetch:', error);
       }
     };
 

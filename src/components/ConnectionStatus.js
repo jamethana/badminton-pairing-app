@@ -7,7 +7,7 @@ const ConnectionStatus = () => {
     isLoading: true,
     error: null
   });
-
+  
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -21,54 +21,25 @@ const ConnectionStatus = () => {
           return;
         }
 
+        // Simply check if we can create a Supabase client (no actual network requests)
         const supabaseClient = await createSupabaseClient();
         
         if (!supabaseClient) {
           setConnectionStatus({
             isOnline: false,
             isLoading: false,
-            error: 'Failed to create Supabase client'
+            error: 'Supabase client not available'
           });
           return;
         }
 
-        // Test the connection with a more thorough check
-        try {
-          const { data, error } = await supabaseClient
-            .from('players')
-            .select('count', { count: 'exact', head: true });
-          
-          if (error) {
-            if (error.code === 'PGRST116' || error.code === '42P01') {
-              // Table not found - this means we're connected but schema needs setup
-              setConnectionStatus({
-                isOnline: true,
-                isLoading: false,
-                error: 'Database schema not created'
-              });
-            } else {
-              // Other connection error - likely network/internet issue
-              setConnectionStatus({
-                isOnline: false,
-                isLoading: false,
-                error: `Connection failed: ${error.message}`
-              });
-            }
-          } else {
-            // Successfully connected and tables exist
-            setConnectionStatus({
-              isOnline: true,
-              isLoading: false,
-              error: null
-            });
-          }
-        } catch (queryError) {
-          setConnectionStatus({
-            isOnline: false,
-            isLoading: false,
-            error: `Network error: ${queryError.message}`
-          });
-        }
+        // If we can create a client and we're online, assume connection is good
+        setConnectionStatus({
+          isOnline: true,
+          isLoading: false,
+          error: null
+        });
+        
       } catch (error) {
         setConnectionStatus({
           isOnline: false,
@@ -97,8 +68,8 @@ const ConnectionStatus = () => {
 
     checkConnection();
 
-    // Check connection every 30 seconds
-    const interval = setInterval(checkConnection, 30000);
+    // Check connection every 5 minutes (very infrequent since we're not making network requests)
+    const interval = setInterval(checkConnection, 300000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -114,19 +85,19 @@ const ConnectionStatus = () => {
   };
 
   const getStatusText = () => {
-    if (connectionStatus.isLoading) return 'Connecting...';
-    return connectionStatus.isOnline ? 'Online' : 'Offline';
+    if (connectionStatus.isLoading) return 'Checking...';
+    return connectionStatus.isOnline ? 'Ready' : 'Offline';
   };
 
   const getTooltipText = () => {
-    if (connectionStatus.isLoading) return 'Checking internet and database connection...';
+    if (connectionStatus.isLoading) return 'Checking system status...';
     if (connectionStatus.isOnline) {
       if (connectionStatus.error) {
-        return `⚠️ Online but ${connectionStatus.error}`;
+        return `⚠️ System ready but ${connectionStatus.error}`;
       }
-      return '✅ Connected to internet and database';
+      return '✅ System ready - Internet and Supabase client available';
     }
-    return `❌ ${connectionStatus.error || 'No internet connection'}`;
+    return `❌ ${connectionStatus.error || 'System offline - No internet connection'}`;
   };
 
   return (
