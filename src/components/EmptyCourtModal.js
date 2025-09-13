@@ -1081,8 +1081,6 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
               setIsPlayersTabOpen(false);
               setIsAutoOpened(false); // Reset auto-opened flag when manually closed
               // Reset selection state when manually closing panel
-              setSelectedPlayer(null);
-              setSelectedAvailablePlayer(null);
             }}
           />
         )}
@@ -1113,7 +1111,6 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                 onClick={() => {
                   setIsPlayersTabOpen(false);
                   setIsAutoOpened(false); // Reset auto-opened flag when manually closed
-                  setSelectedAvailablePlayer(null);
                 }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
