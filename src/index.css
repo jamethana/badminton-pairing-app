@@ -5716,9 +5716,64 @@ code {
 }
 
 .session-player-card-compact.inactive {
-  opacity: 0.6;
+  opacity: 0.35; /* Much more muted */
   background: var(--bg-tertiary);
   border-color: var(--border-light);
+  border-style: dashed; /* Visual indicator of inactive state */
+  filter: grayscale(60%); /* Desaturate colors */
+  transform: scale(0.98); /* Slightly smaller to feel "receded" */
+  transition: all 0.2s ease;
+}
+
+/* Make inactive player avatars even more muted */
+.session-player-card-compact.inactive .session-player-avatar-compact {
+  background: linear-gradient(135deg, #9ca3af, #6b7280) !important; /* Gray gradient */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Make inactive player text more muted */
+.session-player-card-compact.inactive .session-player-name-compact {
+  color: var(--text-muted) !important;
+  /* text-decoration: line-through; */
+}
+
+/* Make inactive player tier info more muted */
+.session-player-card-compact.inactive .tier-icon-compact,
+.session-player-card-compact.inactive .tier-name-compact {
+  color: var(--text-muted) !important;
+}
+
+/* Make inactive player stats more muted */
+.session-player-card-compact.inactive .stat-text {
+  color: var(--text-muted) !important;
+}
+
+/* Make inactive player action buttons more muted */
+.session-player-card-compact.inactive .session-action-buttons button {
+  opacity: 0.4 !important;
+}
+
+/* Hover effect for inactive players to show they can be reactivated */
+.session-player-card-compact.inactive:hover {
+  opacity: 0.6 !important;
+  transform: scale(1) !important;
+  filter: grayscale(30%) !important;
+  cursor: pointer;
+}
+
+/* Add a subtle "inactive" label */
+.session-player-card-compact.inactive::before {
+  content: "INACTIVE";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
 }
 
 .session-player-card-compact.disabled {
@@ -7092,6 +7147,498 @@ code {
 
 .create-first-session {
   margin-bottom: 30px;
+}
+
+/* ========================================
+   MODERN WELCOME PAGE STYLES
+   ======================================== */
+
+.welcome-page-modern {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.welcome-header {
+  padding: 20px 0 40px 0;
+  text-align: center;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 40px;
+}
+
+/* Hero Section */
+.welcome-hero {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.hero-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Sessions Section */
+.sessions-section {
+  margin-bottom: 60px;
+}
+
+.sessions-controls {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+}
+
+.controls-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.clear-search {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clear-search:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.filter-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.filter-select {
+  padding: 10px 12px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.sessions-summary {
+  margin-bottom: 20px;
+  padding: 0 4px;
+}
+
+.results-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Modern Sessions Grid */
+.sessions-grid-modern {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Create Session Card */
+.create-session-card {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  border: 2px solid var(--primary-color);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  min-height: 80px;
+}
+
+.create-session-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.25);
+}
+
+.create-session-icon {
+  flex-shrink: 0;
+}
+
+.create-session-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.create-session-text p {
+  margin: 0;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+/* Create Session Form Card */
+.create-session-form-card {
+  background: var(--bg-secondary);
+  border: 2px solid var(--primary-color);
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.session-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-header-compact h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.input-group-compact {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-field-compact {
+  padding: 8px 12px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.input-field-compact:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.form-actions-compact {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-create-compact {
+  flex: 1;
+  padding: 8px 16px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-create-compact:hover {
+  background: var(--primary-hover);
+}
+
+.btn-cancel-compact {
+  flex: 1;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-compact:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Compact Session Cards */
+.session-card-modern {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.session-card-modern:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.15);
+}
+
+.session-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.session-card-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-card-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.session-card-stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.stat-compact {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.stat-compact.active {
+  color: var(--success-color);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+/* No Results State */
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.no-results-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.no-results-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.no-results-subtitle {
+  font-size: 1rem;
+  margin: 0 0 24px 0;
+}
+
+.clear-filters-btn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Create Session Section */
+.create-session-section {
+  text-align: center;
+  padding: 40px 0;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .welcome-page-modern {
+    padding: 0 16px;
+  }
+
+  .welcome-header {
+    padding: 16px 0 32px 0;
+    margin-bottom: 32px;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .sessions-controls {
+    padding: 16px;
+  }
+
+  .controls-content {
+    gap: 12px;
+  }
+
+  .search-input-wrapper {
+    max-width: none;
+  }
+
+  .filter-controls {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .filter-select {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .sessions-grid-modern {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .session-card-modern,
+  .create-session-card {
+    padding: 12px;
+    min-height: 70px;
+  }
+
+  .session-card-header {
+    margin-bottom: 6px;
+  }
+
+  .session-card-name {
+    font-size: 0.9rem;
+  }
+
+  .session-card-time {
+    font-size: 10px;
+  }
+
+  .stat-compact {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 1.75rem;
+  }
+
+  .sessions-controls {
+    padding: 16px;
+  }
+
+  .filter-controls {
+    flex-direction: column;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
 }
 
 /* Create First Session Button Styles */
@@ -8858,4 +9405,73 @@ code {
   .smart-toggle-main .i-toggle-input:checked + .i-toggle-slider:before {
     transform: translateX(22px);
   }
+}
+
+/* Match completion loading styles */
+.match-completion-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+.loading-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.match-card.completing-match {
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+/* Modal completion loading overlay */
+.modal-completion-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  border-radius: 16px;
+}
+
+/* Button loading states */
+.team-winner-btn-modern.completing,
+.cancel-match-btn-modern.completing {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 } 

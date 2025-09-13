@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGameContext } from '../contexts/GameContext';
 import { useSessionManagement } from '../hooks/useSessionManagement';
@@ -16,6 +16,7 @@ import Scoreboard from './Scoreboard';
 import ConnectionStatus from './ConnectionStatus';
 import CreateFirstSessionButton from './CreateFirstSessionButton';
 import OfflineBlocker from './OfflineBlocker';
+import WelcomePage from './pages/WelcomePage';
 
 // Utils
 import { 
@@ -182,6 +183,12 @@ function RefactoredApp() {
     }
   };
 
+  // Additional loading state for complete match flow
+  const [isCompletingMatchFlow, setIsCompletingMatchFlow] = useState(false);
+  
+  // Flag to prevent multiple redirects during session resolution
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
   // Match management
   const {
     availablePool,
@@ -210,8 +217,8 @@ function RefactoredApp() {
 
   // Robust URL resolution with fallback to welcome page
   useEffect(() => {
-    // Skip if no session name in URL
-    if (!sessionName) {
+    // Skip if no session name in URL or already redirecting
+    if (!sessionName || isRedirecting) {
       return;
     }
 
@@ -220,11 +227,13 @@ function RefactoredApp() {
 
     // Set up a timeout to handle cases where data never loads
     const timeoutId = setTimeout(() => {
-      if (safeSessions.length === 0 && sessionName) {
+      if (safeSessions.length === 0 && sessionName && !isRedirecting) {
         console.log('⏰ Timeout waiting for sessions to load - redirecting to welcome page');
-        setCurrentSessionId(null);
+        setIsRedirecting(true);
         showNotification('Unable to load session data - redirected to welcome page', 'error');
         handleNavigateHome();
+        // Reset redirect flag after navigation
+        setTimeout(() => setIsRedirecting(false), 1000);
       }
     }, 5000); // 5 second timeout
 
@@ -250,20 +259,28 @@ function RefactoredApp() {
       } else {
         console.log(`❌ Invalid session URL: "${sessionName}" - redirecting to welcome page`);
         // URL has invalid session name or session is inactive, redirect to home
-        setCurrentSessionId(null);
-        showNotification(`Session "${sessionName}" not found or is no longer active`, 'error');
-        handleNavigateHome();
+        if (!isRedirecting) {
+          setIsRedirecting(true);
+          showNotification(`Session "${sessionName}" not found or is no longer active`, 'error');
+          handleNavigateHome(); // This will handle setCurrentSessionId(null)
+          // Reset redirect flag after navigation
+          setTimeout(() => setIsRedirecting(false), 1000);
+        }
       }
     } catch (error) {
       console.error('🚨 Error resolving session URL:', error);
       // Any error in URL resolution should redirect to welcome page
-      setCurrentSessionId(null);
-      showNotification('Error loading session - redirected to welcome page', 'error');
-      handleNavigateHome();
+      if (!isRedirecting) {
+        setIsRedirecting(true);
+        showNotification('Error loading session - redirected to welcome page', 'error');
+        handleNavigateHome(); // This will handle setCurrentSessionId(null)
+        // Reset redirect flag after navigation
+        setTimeout(() => setIsRedirecting(false), 1000);
+      }
     }
 
     return () => clearTimeout(timeoutId);
-  }, [sessionName, safeSessions, currentSessionId, setCurrentSessionId, handleNavigateHome, isDataLoading, showNotification]);
+  }, [sessionName, safeSessions, currentSessionId, setCurrentSessionId, handleNavigateHome, isDataLoading, showNotification, isRedirecting]);
 
   // Handle navigation to home page and clean up invalid sessions
   useEffect(() => {
@@ -449,11 +466,22 @@ function RefactoredApp() {
 
   // Wrapper functions to add notifications
   const handleCompleteMatch = async (courtId, winner) => {
-    const result = await completeMatch(courtId, winner);
-    if (result.success) {
-      showNotification(result.message);
-    } else {
-      showNotification(result.message, 'error');
+    setIsCompletingMatchFlow(true);
+    try {
+      const result = await completeMatch(courtId, winner);
+      if (result.success) {
+        showNotification(result.message);
+      } else {
+        showNotification(result.message, 'error');
+      }
+      
+      // Small delay to ensure notification is visible before removing loading
+      setTimeout(() => {
+        setIsCompletingMatchFlow(false);
+      }, 500);
+    } catch (error) {
+      showNotification('Error completing match. Please try again.', 'error');
+      setIsCompletingMatchFlow(false);
     }
   };
 
@@ -567,104 +595,14 @@ function RefactoredApp() {
 
   // Show welcome page if no current session
   if (!currentSession) {
-    return (
-      <div className="App">
-        <div className="container">
-          <header className="app-header">
-            <div 
-              className="app-title-modern clickable" 
-              onClick={handleNavigateHomeWithNotification}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleNavigateHomeWithNotification();
-                }
-              }}
-              title="Go to welcome page"
-            >
-              {/* <div className="app-title-icon">
-                <svg width="32" height="32" viewBox="0 0 100 100" fill="none" className="badminton-icon">
-                  <circle cx="50" cy="20" r="8" fill="currentColor"/>
-                  <path d="M45 28L55 28L52 45L48 45Z" fill="currentColor"/>
-                  <ellipse cx="50" cy="60" rx="15" ry="25" fill="none" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M35 60L65 60" stroke="currentColor" strokeWidth="1"/>
-                  <path d="M40 50L60 50" stroke="currentColor" strokeWidth="1"/>
-                  <path d="M40 70L60 70" stroke="currentColor" strokeWidth="1"/>
-                  <path d="M45 45L55 45" stroke="currentColor" strokeWidth="1"/>
-                  <path d="M45 75L55 75" stroke="currentColor" strokeWidth="1"/>
-                </svg>
-              </div> */}
-              <div className="app-title-content">
-                <h1 className="app-title-text">Badminton Pairing</h1>
-                <div className="app-title-subtitle">Smart Match Organization</div>
-              </div>
-            </div>
-          </header>
-          
-          <div className="no-sessions-page">
-            <div className="no-sessions-content">
-              <div className="welcome-message">
-                <h2>Welcome to Badminton Pairing! 🏸</h2>
-                {safeSessions.length === 0 ? (
-                  <p>Get started by creating your first badminton session. You'll be able to organize matches, track player stats, and manage courts all in one place.</p>
-                ) : (
-                  <p>Choose an existing session or create a new one to get started.</p>
-                )}
-              </div>
-              
-              {/* Show existing sessions if any */}
-              {safeSessions.length > 0 && (
-                <div className="existing-sessions">
-                  <h3>Available Sessions</h3>
-                  <div className="sessions-grid">
-                    {safeSessions
-                      .filter(session => session && (session.isActive !== false && session.is_active !== false))
-                      .map(session => (
-                        <div 
-                          key={session.id} 
-                          className="session-card"
-                          onClick={() => handleSessionSelectWithNotification(session.id)}
-                        >
-                          <div className="session-info">
-                            <h4 className="session-name">{session.name}</h4>
-                            <p className="session-details">
-                              Created: {new Date(session.createdAt).toLocaleDateString()}
-                            </p>
-                            {session.lastActiveAt && (
-                              <p className="session-details">
-                                Last active: {new Date(session.lastActiveAt).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-                          <div className="session-arrow">→</div>
-                        </div>
-                      ))
-                    }
-                  </div>
-                </div>
-              )}
-              
-              <div className="create-first-session">
-                <CreateFirstSessionButton
-                  onSessionCreate={handleSessionCreateWithNotification}
-                  existingSessions={safeSessions}
-                />
-              </div>
-            </div>
-          </div>
-          
-          {notification && (
-            <Notification
-              message={notification.message}
-              type={notification.type}
-              onClose={() => showNotification(null)}
-            />
-          )}
-        </div>
-      </div>
-    );
+    return <WelcomePage 
+      safeSessions={safeSessions}
+      onSessionSelect={handleSessionSelectWithNotification}
+      onSessionCreate={handleSessionCreateWithNotification}
+      onNavigateHome={handleNavigateHomeWithNotification}
+      notification={notification}
+      showNotification={showNotification}
+    />;
   }
 
   // Main app interface
@@ -723,7 +661,7 @@ function RefactoredApp() {
           onGenerateMatches={handleGenerateMatches}
           onClearMatches={handleClearMatches}
           onUpdateSession={updateSession}
-          isCompletingMatch={isCompletingMatch}
+          isCompletingMatch={isCompletingMatch || isCompletingMatchFlow}
         />
 
         <SessionPlayerManagement

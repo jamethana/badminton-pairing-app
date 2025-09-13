@@ -356,7 +356,7 @@ export function useMatchManagement({
       });
       
       // Wait for database operations to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       return { success: true, message: `Team ${winner === 'team1' ? '1' : '2'} wins!` };
       
@@ -517,7 +517,7 @@ export function useMatchManagement({
       
       if (result.success) {
         console.log('✅ Match saved to Supabase:', result.data);
-        return { success: true, message: 'Court filled and saved to database' };
+        return { success: true, message: 'Match Starts' };
       } else {
         console.error('❌ Failed to save match to Supabase:', result.message);
         return { success: false, message: `Failed to save match: ${result.message}` };

@@ -14,7 +14,8 @@ const CurrentMatches = ({
   onRemoveCourt,
   onGenerateMatches,
   onClearMatches,
-  onUpdateSession
+  onUpdateSession,
+  isCompletingMatch
 }) => {
   const [showCourtOptions, setShowCourtOptions] = useState(null);
   const [showEmptyCourtModal, setShowEmptyCourtModal] = useState(null);
@@ -119,11 +120,23 @@ const CurrentMatches = ({
         {courtStates.map((court) => (
           <div
             key={court.id}
-            className={`match-card ${court.isOccupied ? 'occupied' : 'empty-court'} fade-in`}
-            onClick={() => handleCourtClick(court)}
+            className={`match-card ${court.isOccupied ? 'occupied' : 'empty-court'} fade-in ${isCompletingMatch ? 'completing-match' : ''}`}
+            onClick={() => !isCompletingMatch && handleCourtClick(court)}
+            style={{ 
+              pointerEvents: isCompletingMatch ? 'none' : 'auto',
+              opacity: isCompletingMatch ? 0.7 : 1 
+            }}
           >
             {court.isOccupied && court.currentMatch ? (
               <div className="match-content-modern">
+                {/* Loading overlay for match completion */}
+                {isCompletingMatch && (
+                  <div className="match-completion-loading">
+                    <div className="loading-spinner"></div>
+                    <span className="loading-text">Processing match completion...</span>
+                  </div>
+                )}
+                
                 {/* Header */}
                 <div className="match-header-modern">
                   <div className="court-info-section">
@@ -235,6 +248,7 @@ const CurrentMatches = ({
           court={showCourtOptions}
           onCompleteMatch={handleCompleteMatch}
           onClose={() => setShowCourtOptions(null)}
+          isCompletingMatch={isCompletingMatch}
         />
       )}
 

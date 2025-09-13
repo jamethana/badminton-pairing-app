@@ -116,15 +116,32 @@ export function calculateELOChange({ playerELO, opponentELO, isWin, matchCount, 
 }
 
 /**
- * Update player's confidence based on match activity
- * Confidence remains stable and only changes based on performance patterns, not time
+ * Update player's confidence based on match activity and calibration period
+ * New players start with lower confidence during calibration period
  * @param {number} currentConfidence - Current confidence rating
- * @returns {number} Current confidence rating (unchanged by time)
+ * @param {number} matchCount - Number of matches played (for calibration)
+ * @param {string} result - Match result ('win', 'loss', or undefined for no adjustment)
+ * @returns {number} Updated confidence rating
  */
-export function updateConfidence(currentConfidence = 1.0) {
-  // Confidence is now purely performance-based, not time-based
-  // It maintains its current value and only changes through match outcomes
-  return Math.max(0.5, Math.min(1.0, currentConfidence));
+export function updateConfidence(currentConfidence = 1.0, matchCount = 0, result = null) {
+  let baseConfidence = currentConfidence;
+  
+  // During calibration period, confidence starts low and gradually increases
+  if (matchCount < ELO_CONFIG.CALIBRATION_MATCHES) {
+    // Calibration confidence: starts at 0.5, gradually increases to 0.7
+    const calibrationProgress = matchCount / ELO_CONFIG.CALIBRATION_MATCHES;
+    baseConfidence = 0.5 + (calibrationProgress * 0.2); // 0.5 to 0.7
+  }
+  
+  // Adjust based on match result (small adjustments)
+  if (result === 'win') {
+    baseConfidence += 0.02; // Small boost for wins
+  } else if (result === 'loss') {
+    baseConfidence -= 0.02; // Small penalty for losses
+  }
+  
+  // Ensure confidence stays within bounds
+  return Math.max(0.5, Math.min(1.0, baseConfidence));
 }
 
 /**
@@ -259,6 +276,9 @@ export function formatTeamELODisplay(player1, player2, useSessionELO = false) {
 
 // URL utilities for session names
 export function sessionNameToUrl(sessionName) {
+  if (!sessionName || typeof sessionName !== 'string') {
+    return '';
+  }
   return sessionName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 

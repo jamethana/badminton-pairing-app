@@ -3,6 +3,85 @@ import { generateId, getELOTier, formatELODisplay, formatTeamELODisplay } from '
 import { getMatchPreview, generateSmartMatch } from '../utils/smartMatching';
 import Modal from './Modal';
 
+// ========================================
+// SHUFFLE ANIMATION CONFIGURATION
+// ========================================
+// Customize the shuffle animation behavior when Empty Court Modal opens:
+
+const INITIAL_SHUFFLE_COUNT = 3; // Number of shuffles to perform (e.g., 3, 7, 10, etc.)
+const SHUFFLE_DELAY_MS = 100; // Delay between shuffles in milliseconds (100 = fast, 400 = slow)
+
+// Examples:
+// - For quick shuffles: INITIAL_SHUFFLE_COUNT = 3, SHUFFLE_DELAY_MS = 80
+// - For dramatic effect: INITIAL_SHUFFLE_COUNT = 10, SHUFFLE_DELAY_MS = 300
+// - For minimal animation: INITIAL_SHUFFLE_COUNT = 1, SHUFFLE_DELAY_MS = 0
+
+// Helper function to get player match count
+const getPlayerMatchCount = (player) => {
+  // Use the canonical sessionMatchCount field
+  return player.sessionMatchCount || 0;
+};
+
+// Fair selection algorithm - prioritizes players with fewer matches
+const selectPlayersFairly = (players, count) => {
+  if (players.length <= count) return players;
+  
+  // Sort players by match count (ascending), then by name for consistency
+  const sortedPlayers = [...players].sort((a, b) => {
+    const countA = getPlayerMatchCount(a);
+    const countB = getPlayerMatchCount(b);
+    const matchDiff = countA - countB;
+    if (matchDiff !== 0) return matchDiff;
+    return a.name.localeCompare(b.name); // Consistent tiebreaker
+  });
+  
+  return sortedPlayers.slice(0, count);
+};
+
+// AGGRESSIVE fair shuffle algorithm - heavily prioritizes players with fewer matches
+const shufflePlayersFairly = (players, count) => {
+  if (players.length <= count) return players;
+  
+  // Group players by match count
+  const playersByMatchCount = {};
+  players.forEach(player => {
+    const matchCount = getPlayerMatchCount(player);
+    if (!playersByMatchCount[matchCount]) {
+      playersByMatchCount[matchCount] = [];
+    }
+    playersByMatchCount[matchCount].push(player);
+  });
+  
+  // Sort match count groups (lowest first)
+  const sortedMatchCounts = Object.keys(playersByMatchCount)
+    .map(Number)
+    .sort((a, b) => a - b);
+  
+  // AGGRESSIVE PRIORITIZATION: Fill from lowest match counts first
+  // Only move to higher match counts if absolutely necessary
+  const selectedPlayers = [];
+  
+  for (const matchCount of sortedMatchCounts) {
+    const playersInGroup = playersByMatchCount[matchCount];
+    // Shuffle players within this match count group
+    const shuffledGroup = [...playersInGroup].sort(() => Math.random() - 0.5);
+    
+    // Take as many as needed from this group
+    const needed = count - selectedPlayers.length;
+    const toTake = Math.min(needed, shuffledGroup.length);
+    selectedPlayers.push(...shuffledGroup.slice(0, toTake));
+    
+    if (selectedPlayers.length >= count) break;
+    
+    // Log when we're forced to select players with higher match counts
+    if (matchCount > 0 && selectedPlayers.length < count) {
+      console.log(`⚠️ Fair shuffle: Had to select players with ${matchCount} matches (${playersInGroup.length} available)`);
+    }
+  }
+  
+  return selectedPlayers;
+};
+
 const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, onClose, onUpdateSession }) => {
   const [assignedPlayers, setAssignedPlayers] = useState([]);
   const [remainingPlayers, setRemainingPlayers] = useState([]);
@@ -16,6 +95,10 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const [isPlayersTabOpen, setIsPlayersTabOpen] = useState(false); // New: Players tab state
   const [dragPreview, setDragPreview] = useState(null); // Track drag preview for mobile
   const [isAutoOpened, setIsAutoOpened] = useState(false); // Track if panel was auto-opened
+  const [shuffleCount, setShuffleCount] = useState(0); // Track number of shuffles performed
+  const [isInitialShuffling, setIsInitialShuffling] = useState(false); // Track if doing initial shuffle animation
+  const hasInitialized = React.useRef(false); // Track if we've already initialized to prevent loops
+  const prevAvailablePoolLength = React.useRef(0); // Track previous pool length for reset detection
 
   // Get smart matching settings
   const smartMatching = currentSession?.smartMatching || {
@@ -70,37 +153,219 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
     }, 50); // Small delay to trigger animation
   };
 
-  // Initialize with players when modal opens or when smart matching setting changes
+  // Perform a single shuffle operation
+  const performSingleShuffle = useCallback((allAvailablePlayers, playersNeeded, isFinalShuffle = false) => {
+    if (smartMatching.enabled && matchType === 'doubles' && isFinalShuffle) {
+      // Use smart matching with randomness for final shuffle - this adds variety!
+      const matches = currentSession?.currentMatches || [];
+      const smartSelection = generateSmartMatch(allAvailablePlayers, matches, true, true);
+      
+      if (smartSelection && smartSelection.players) {
+        setAssignedPlayers(smartSelection.players);
+        const remainingPool = allAvailablePlayers.filter(p => 
+          !smartSelection.players.some(sp => sp.id === p.id)
+        );
+        setRemainingPlayers(remainingPool);
+      } else {
+        // Fallback to fair shuffle
+        const fairlyShuffled = shufflePlayersFairly(allAvailablePlayers, playersNeeded);
+        setAssignedPlayers(fairlyShuffled);
+        setRemainingPlayers(allAvailablePlayers.filter(p => !fairlyShuffled.includes(p)));
+      }
+    } else {
+      // Use fair shuffle for intermediate shuffles, singles, or when smart matching is disabled
+      const fairlyShuffled = shufflePlayersFairly(allAvailablePlayers, playersNeeded);
+      setAssignedPlayers(fairlyShuffled);
+      setRemainingPlayers(allAvailablePlayers.filter(p => !fairlyShuffled.includes(p)));
+    }
+  }, [matchType, smartMatching.enabled, currentSession?.currentMatches]);
+
+  // Initial multi-shuffle animation when modal opens
+  const performInitialShuffle = useCallback(() => {
+    // Reset any selections first
+    setSelectedPlayer(null);
+    setSelectedAvailablePlayer(null);
+    
+    // Combine assigned and remaining players, or use available pool if no players assigned yet
+    const allAvailablePlayers = assignedPlayers.length > 0 || remainingPlayers.length > 0 
+      ? [...assignedPlayers, ...remainingPlayers]
+      : availablePool;
+    const playersNeeded = matchType === 'singles' ? 2 : 4;
+    
+    if (allAvailablePlayers.length < playersNeeded) {
+      return; // Not enough players
+    }
+    
+    setIsInitialShuffling(true);
+    setShuffleCount(0);
+    
+    // Add all players to animating set for shuffle animation
+    const allPlayerIds = allAvailablePlayers.map(p => p.id);
+    setAnimatingPlayers(new Set(allPlayerIds));
+    
+    // Perform configurable number of shuffles with delays
+    const performShuffleSequence = (currentShuffle) => {
+      if (currentShuffle >= INITIAL_SHUFFLE_COUNT) {
+        // Final shuffle - use smart matching if enabled
+        performSingleShuffle(allAvailablePlayers, playersNeeded, true);
+        
+        // Clear animations after final shuffle completes
+        setTimeout(() => {
+          setAnimatingPlayers(new Set());
+          setIsInitialShuffling(false);
+        }, 300);
+        return;
+      }
+      
+      // Intermediate shuffle - always use fair shuffle for variety
+      performSingleShuffle(allAvailablePlayers, playersNeeded, false);
+      setShuffleCount(currentShuffle + 1);
+      
+      // Schedule next shuffle
+      setTimeout(() => {
+        performShuffleSequence(currentShuffle + 1);
+      }, SHUFFLE_DELAY_MS); // Configurable delay between shuffles
+    };
+    
+    // Start the shuffle sequence after a small delay
+    setTimeout(() => {
+      performShuffleSequence(0);
+    }, 100);
+  }, [availablePool, matchType, performSingleShuffle]);
+
+  // Manual shuffle for button clicks (single shuffle)
+  const handleShufflePlayers = useCallback(() => {
+    // Don't allow manual shuffle during initial shuffling
+    if (isInitialShuffling) return;
+    
+    // Reset any selections first
+    setSelectedPlayer(null);
+    setSelectedAvailablePlayer(null);
+    
+    // Combine assigned and remaining players, or use available pool if no players assigned yet
+    const allAvailablePlayers = assignedPlayers.length > 0 || remainingPlayers.length > 0 
+      ? [...assignedPlayers, ...remainingPlayers]
+      : availablePool;
+    const playersNeeded = matchType === 'singles' ? 2 : 4;
+    
+    // Add all players to animating set for shuffle animation
+    const allPlayerIds = allAvailablePlayers.map(p => p.id);
+    setAnimatingPlayers(new Set(allPlayerIds));
+    
+    // Delay the actual shuffle to show animation
+    setTimeout(() => {
+      performSingleShuffle(allAvailablePlayers, playersNeeded, true);
+      
+      // Clear animations after shuffle completes
+      setTimeout(() => {
+        setAnimatingPlayers(new Set());
+      }, 300); // Allow time for the shuffle animation to complete
+    }, 100); // Small delay to trigger animation
+  }, [assignedPlayers, remainingPlayers, availablePool, matchType, performSingleShuffle, isInitialShuffling]);
+
+  // Reset initialization flag when available pool changes significantly
+  useEffect(() => {
+    // Reset if pool length changed significantly (players added/removed)
+    if (Math.abs(availablePool.length - prevAvailablePoolLength.current) > 0) {
+      hasInitialized.current = false;
+      setIsInitialShuffling(false); // Ensure shuffling state is reset
+      setSelectedPlayer(null); // Clear any stuck selections
+      setSelectedAvailablePlayer(null);
+    }
+    prevAvailablePoolLength.current = availablePool.length;
+  }, [availablePool.length]);
+
+  // Initialize with players when modal opens - only run once when modal first opens
   useEffect(() => {
     const playersNeeded = matchType === 'singles' ? 2 : 4;
-    if (availablePool.length >= playersNeeded) {
-      if (smartMatching.enabled && matchType === 'doubles') {
-        // Use smart matching for doubles (no randomness on initial load)
-        const matches = currentSession?.currentMatches || [];
-        const smartSelection = generateSmartMatch(availablePool, matches, true, false);
-        
-        if (smartSelection && smartSelection.players) {
-          setAssignedPlayers(smartSelection.players);
-          const remainingPool = availablePool.filter(p => 
-            !smartSelection.players.some(sp => sp.id === p.id)
-          );
-          setRemainingPlayers(remainingPool);
-        } else {
-          // Fallback to random if smart matching fails
-          const shuffled = [...availablePool].sort(() => Math.random() - 0.5);
-          setAssignedPlayers(shuffled.slice(0, playersNeeded));
-          setRemainingPlayers(shuffled.slice(playersNeeded));
+    
+    // Only run if we haven't initialized yet and have enough players
+    if (availablePool.length >= playersNeeded && !hasInitialized.current) {
+      hasInitialized.current = true;
+      // Clear any existing selections before starting shuffle
+      setSelectedPlayer(null);
+      setSelectedAvailablePlayer(null);
+      // Directly perform the initial shuffle logic here to avoid dependency issues
+      setIsInitialShuffling(true);
+      setShuffleCount(0);
+      
+      // Add all players to animating set for shuffle animation
+      const allPlayerIds = availablePool.map(p => p.id);
+      setAnimatingPlayers(new Set(allPlayerIds));
+      
+      // Perform configurable number of shuffles with delays
+      const performShuffleSequence = (currentShuffle) => {
+        if (currentShuffle >= INITIAL_SHUFFLE_COUNT) {
+          // Final shuffle - use smart matching if enabled
+          if (smartMatching.enabled && matchType === 'doubles') {
+            const matches = currentSession?.currentMatches || [];
+            const smartSelection = generateSmartMatch(availablePool, matches, true, true);
+            
+            if (smartSelection && smartSelection.players) {
+              setAssignedPlayers(smartSelection.players);
+              const remainingPool = availablePool.filter(p => 
+                !smartSelection.players.some(sp => sp.id === p.id)
+              );
+              setRemainingPlayers(remainingPool);
+            } else {
+              const fairlyShuffled = shufflePlayersFairly(availablePool, playersNeeded);
+              setAssignedPlayers(fairlyShuffled);
+              setRemainingPlayers(availablePool.filter(p => !fairlyShuffled.includes(p)));
+            }
+          } else {
+            const fairlyShuffled = shufflePlayersFairly(availablePool, playersNeeded);
+            setAssignedPlayers(fairlyShuffled);
+            setRemainingPlayers(availablePool.filter(p => !fairlyShuffled.includes(p)));
+          }
+          
+          // Clear animations after final shuffle completes
+          setTimeout(() => {
+            setAnimatingPlayers(new Set());
+            setIsInitialShuffling(false);
+            // Clear any selections that might be stuck
+            setSelectedPlayer(null);
+            setSelectedAvailablePlayer(null);
+          }, 300);
+          return;
         }
-      } else {
-        // Use random selection for singles or when smart matching is disabled
-        const shuffled = [...availablePool].sort(() => Math.random() - 0.5);
-        setAssignedPlayers(shuffled.slice(0, playersNeeded));
-        setRemainingPlayers(shuffled.slice(playersNeeded));
-      }
+        
+        // Intermediate shuffle - always use fair shuffle for variety
+        const fairlyShuffled = shufflePlayersFairly(availablePool, playersNeeded);
+        setAssignedPlayers(fairlyShuffled);
+        setRemainingPlayers(availablePool.filter(p => !fairlyShuffled.includes(p)));
+        setShuffleCount(currentShuffle + 1);
+        
+        // Schedule next shuffle
+        setTimeout(() => {
+          performShuffleSequence(currentShuffle + 1);
+        }, SHUFFLE_DELAY_MS);
+      };
+      
+      // Start the shuffle sequence after a small delay
+      setTimeout(() => {
+        performShuffleSequence(0);
+      }, 100);
+      
+    } else if (availablePool.length < playersNeeded && !hasInitialized.current) {
+      hasInitialized.current = true;
+      // Not enough players, just set empty state
+      setAssignedPlayers([]);
+      setRemainingPlayers(availablePool);
       setSelectedPlayer(null);
       setSelectedAvailablePlayer(null);
     }
-  }, [matchType]); // Re-run when match type changes
+  }, [availablePool, matchType, smartMatching.enabled, currentSession?.currentMatches]); // Stable dependencies only
+
+  // Cleanup when component unmounts or modal closes
+  useEffect(() => {
+    return () => {
+      // Reset initialization flag when component unmounts
+      hasInitialized.current = false;
+      setIsInitialShuffling(false);
+      setSelectedPlayer(null);
+      setSelectedAvailablePlayer(null);
+    };
+  }, []);
 
   const handlePlayerClick = (player, index) => {
     if (selectedAvailablePlayer) {
@@ -263,52 +528,6 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
 
   const handleCancel = () => {
     onClose();
-  };
-
-  const handleShufflePlayers = () => {
-    // Reset any selections first
-    setSelectedPlayer(null);
-    setSelectedAvailablePlayer(null);
-    
-    // Combine assigned and remaining players
-    const allAvailablePlayers = [...assignedPlayers, ...remainingPlayers];
-    const playersNeeded = matchType === 'singles' ? 2 : 4;
-    
-    // Add all players to animating set for shuffle animation
-    const allPlayerIds = allAvailablePlayers.map(p => p.id);
-    setAnimatingPlayers(new Set(allPlayerIds));
-    
-    // Delay the actual shuffle to show animation
-    setTimeout(() => {
-      if (smartMatching.enabled && matchType === 'doubles') {
-        // Use smart matching with randomness for shuffle - this adds variety!
-        const matches = currentSession?.currentMatches || [];
-        const smartSelection = generateSmartMatch(allAvailablePlayers, matches, true, true);
-        
-        if (smartSelection && smartSelection.players) {
-          setAssignedPlayers(smartSelection.players);
-          const remainingPool = allAvailablePlayers.filter(p => 
-            !smartSelection.players.some(sp => sp.id === p.id)
-          );
-          setRemainingPlayers(remainingPool);
-        } else {
-          // Fallback to random shuffle
-          const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
-          setAssignedPlayers(shuffled.slice(0, playersNeeded));
-          setRemainingPlayers(shuffled.slice(playersNeeded));
-        }
-      } else {
-        // Use random shuffle for singles or when smart matching is disabled
-        const shuffled = [...allAvailablePlayers].sort(() => Math.random() - 0.5);
-        setAssignedPlayers(shuffled.slice(0, playersNeeded));
-        setRemainingPlayers(shuffled.slice(playersNeeded));
-      }
-      
-      // Clear animations after shuffle completes
-      setTimeout(() => {
-        setAnimatingPlayers(new Set());
-      }, 300); // Allow time for the shuffle animation to complete
-    }, 100); // Small delay to trigger animation
   };
 
   // Drag and Drop handlers
@@ -655,7 +874,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                       {player ? (
                         <>
                           <div className="player-avatar-redesigned">
-                            <span className="avatar-text">{player.name.charAt(0).toUpperCase()}</span>
+                            <span className="avatar-text">{player.name?.charAt(0)?.toUpperCase() || '?'}</span>
                           </div>
                           <div className="player-info-redesigned">
                             <span className="player-name-redesigned">{player.name}</span>
@@ -664,7 +883,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                                 {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                               </span>
                               <span className="player-matches-count">
-                                {player.sessionMatchCount || 0} matches
+                                {getPlayerMatchCount(player)} matches
                               </span>
                             </div>
                           </div>
@@ -748,7 +967,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                       {player ? (
                         <>
                           <div className="player-avatar-redesigned">
-                            <span className="avatar-text">{player.name.charAt(0).toUpperCase()}</span>
+                            <span className="avatar-text">{player.name?.charAt(0)?.toUpperCase() || '?'}</span>
                           </div>
                           <div className="player-info-redesigned">
                             <span className="player-name-redesigned">{player.name}</span>
@@ -757,7 +976,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                                 {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                               </span>
                               <span className="player-matches-count">
-                                {player.sessionMatchCount || 0} matches
+                                {getPlayerMatchCount(player)} matches
                               </span>
                             </div>
                           </div>
@@ -795,7 +1014,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
             <button 
               className="btn-start-match" 
               onClick={handleFillCourt}
-              disabled={selectedPlayer || selectedAvailablePlayer}
+              disabled={selectedPlayer || selectedAvailablePlayer || isInitialShuffling}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -808,16 +1027,23 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
               className="btn-shuffle"
               onClick={handleShufflePlayers}
               title={
-                smartMatching.enabled && matchType === 'doubles' 
-                  ? "Smart shuffle - picks from top 25% of good matches" 
-                  : "Random shuffle"
+                isInitialShuffling 
+                  ? "Shuffling in progress..." 
+                  : smartMatching.enabled && matchType === 'doubles' 
+                    ? "Smart shuffle - picks from top 25% of good matches" 
+                    : "Random shuffle"
               }
-              disabled={selectedPlayer || selectedAvailablePlayer}
+              disabled={selectedPlayer || selectedAvailablePlayer || isInitialShuffling}
             >
               {/* <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6m-6-10.5a7.5 7.5 0 1 1-10.5 10.5 7.5 7.5 0 0 1 10.5-10.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg> */}
-              {smartMatching.enabled && matchType === 'doubles' ? 'Smart Shuffle' : 'Shuffle'}
+              {isInitialShuffling 
+                ? `Shuffling... (${shuffleCount}/${INITIAL_SHUFFLE_COUNT})` 
+                : smartMatching.enabled && matchType === 'doubles' 
+                  ? 'Smart Shuffle' 
+                  : 'Shuffle'
+              }
             </button>
           </div>
         </div>
@@ -893,7 +1119,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                     onTouchStart={(e) => handleTouchStart(e, player, 'available')}
                   >
                     <div className="available-player-avatar">
-                      <span className="avatar-text">{player.name.charAt(0).toUpperCase()}</span>
+                      <span className="avatar-text">{player.name?.charAt(0)?.toUpperCase() || '?'}</span>
                     </div>
                     <div className="available-player-info">
                       <span className="available-player-name">{player.name}</span>
@@ -901,7 +1127,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                         {getELOTier(player.elo, player).icon} {getELOTier(player.elo, player).name}
                       </span>
                       <span className="available-player-matches">
-                        {player.session_matches || 0} matches
+                        {getPlayerMatchCount(player)} matches
                       </span>
                     </div>
                     <div className="add-icon">
@@ -945,7 +1171,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
           >
             <div className="drag-preview-card">
               <div className="drag-preview-avatar">
-                <span className="avatar-text">{dragPreview.player.name.charAt(0).toUpperCase()}</span>
+                <span className="avatar-text">{dragPreview.player.name?.charAt(0)?.toUpperCase() || '?'}</span>
               </div>
               <div className="drag-preview-info">
                 <span className="drag-preview-name">{dragPreview.player.name}</span>

@@ -67,6 +67,9 @@ class DatabaseService {
       last_match_at: null,
       avatar_url: null,
       
+      // Confidence rating (starts low for new players in calibration period)
+      confidence: 0.5, // New players start with low confidence during calibration
+      
     };
     
     const updatedPlayers = [...players, newPlayer];

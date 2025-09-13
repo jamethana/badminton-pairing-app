@@ -15,11 +15,13 @@ export const SMART_MATCHING_CONFIG = {
   PARTNERSHIP_MEMORY: 5,        // How many recent matches to consider
   
   // Matching weights (sum should equal 1.0)
+  // FAIR_PLAY is EXTREMELY weighted to ensure equal play time regardless of session length
   WEIGHTS: {
-    ELO_BALANCE: 0.4,          // Weight for ELO balance between teams
-    SKILL_SIMILARITY: 0.3,     // Weight for similar skill levels
-    PARTNERSHIP_VARIETY: 0.2,  // Weight for partnership variety
-    OPPONENT_VARIETY: 0.1      // Weight for opponent variety
+    ELO_BALANCE: 0.15,         // Weight for ELO balance between teams
+    SKILL_SIMILARITY: 0.15,    // Weight for similar skill levels
+    PARTNERSHIP_VARIETY: 0.2, // Weight for partnership variety
+    OPPONENT_VARIETY: 0.2,    // Weight for opponent variety
+    FAIR_PLAY: 0.3            // Weight for fair play distribution (EXTREMELY prioritize equal play time)
   }
 };
 
@@ -30,6 +32,14 @@ function getTeamELO(player1, player2) {
   const elo1 = player1.sessionElo || player1.elo || 1200;
   const elo2 = player2.sessionElo || player2.elo || 1200;
   return calculateTeamELO(elo1, elo2);
+}
+
+/**
+ * Get player match count for fair play distribution
+ */
+function getPlayerMatchCount(player) {
+  // Use the canonical sessionMatchCount field
+  return player.sessionMatchCount || 0;
 }
 
 /**
@@ -95,7 +105,7 @@ function getOpponentHistory(player1, player2, matches) {
  * Calculate match quality score for a potential match
  * Higher score = better match
  */
-function calculateMatchScore(team1Player1, team1Player2, team2Player1, team2Player2, matches) {
+function calculateMatchScore(team1Player1, team1Player2, team2Player1, team2Player2, matches, availablePlayers) {
   // Calculate team ELOs
   const team1ELO = getTeamELO(team1Player1, team1Player2);
   const team2ELO = getTeamELO(team2Player1, team2Player2);
@@ -131,13 +141,87 @@ function calculateMatchScore(team1Player1, team1Player2, team2Player1, team2Play
   const avgRecentOppositions = oppositions.reduce((sum, opp) => sum + opp.recent, 0) / oppositions.length;
   const opponentVarietyScore = Math.max(0, 1 - (avgRecentOppositions / SMART_MATCHING_CONFIG.PARTNERSHIP_MEMORY));
   
+  // 5. Fair Play Score - prioritize players with fewer matches
+  const matchCounts = [team1Player1, team1Player2, team2Player1, team2Player2].map(getPlayerMatchCount);
+  const maxMatchCount = Math.max(...matchCounts);
+  const minMatchCount = Math.min(...matchCounts);
+  const avgMatchCount = matchCounts.reduce((a, b) => a + b, 0) / matchCounts.length;
+  
+  // EXTREMELY AGGRESSIVE fair play scoring - exponential penalties for any unfairness
+  // Calculate session-wide statistics for relative comparison
+  const allPlayerCounts = availablePlayers.map(getPlayerMatchCount);
+  const sessionAvg = allPlayerCounts.reduce((a, b) => a + b, 0) / allPlayerCounts.length;
+  const sessionMax = Math.max(...allPlayerCounts);
+  const sessionMin = Math.min(...allPlayerCounts);
+  const sessionRange = sessionMax - sessionMin;
+  const minAvailableCount = Math.min(...allPlayerCounts);
+  
+  // Calculate variance within the selected match
+  const matchCountVariance = matchCounts.reduce((sum, count) => sum + Math.pow(count - avgMatchCount, 2), 0) / matchCounts.length;
+  
+  // EXTREME penalties - if there are players with fewer matches available, heavily penalize this selection
+  let fairPlayScore = 1.0;
+  
+  // For each player in this match, check if there are available players with significantly fewer matches
+  for (const playerMatchCount of matchCounts) {
+    const availableWithFewerMatches = allPlayerCounts.filter(count => count < playerMatchCount);
+    
+    if (availableWithFewerMatches.length > 0) {
+      const matchCountDiff = playerMatchCount - minAvailableCount;
+      
+      // EXPONENTIAL penalty for each match count difference
+      // If someone has 0 matches and this player has 3, penalty = 0.1^3 = 0.001 (99.9% penalty!)
+      const individualPenalty = Math.pow(0.1, matchCountDiff);
+      fairPlayScore *= individualPenalty;
+    }
+  }
+  
+  // Additional penalty for variance within the selection (players in same match having very different match counts)
+  if (matchCountVariance > 0) {
+    const variancePenalty = Math.pow(0.5, matchCountVariance);
+    fairPlayScore *= variancePenalty;
+  }
+  
+  // Ensure score is between 0 and 1
+  fairPlayScore = Math.max(0, Math.min(1, fairPlayScore));
+  
+  // FAIRNESS THRESHOLD: Completely reject extremely unfair matches
+  const FAIRNESS_THRESHOLD = 0.1; // Minimum acceptable fairness score
+  
+  if (fairPlayScore < FAIRNESS_THRESHOLD && sessionRange > 1) {
+    console.warn(`🚨 REJECTING EXTREMELY UNFAIR match!`, {
+      selectedPlayers: matchCounts,
+      availableCounts: allPlayerCounts,
+      fairPlayScore: fairPlayScore.toFixed(4),
+      sessionRange,
+      threshold: FAIRNESS_THRESHOLD
+    });
+    
+    // Return a score so low that this combination will never be selected
+    return {
+      total: 0,
+      breakdown: {
+        eloBalance: eloBalanceScore,
+        skillSimilarity: skillSimilarityScore,
+        partnershipVariety: partnershipVarietyScore,
+        opponentVariety: opponentVarietyScore,
+        fairPlay: 0
+      },
+      teamELOs: { team1: team1ELO, team2: team2ELO },
+      matchCounts: { counts: matchCounts, avg: avgMatchCount, variance: matchCountVariance },
+      rejected: true,
+      reason: 'Fairness threshold violation'
+    };
+  }
+  
   // Calculate weighted total score
   const weights = SMART_MATCHING_CONFIG.WEIGHTS;
   const totalScore = 
     eloBalanceScore * weights.ELO_BALANCE +
     skillSimilarityScore * weights.SKILL_SIMILARITY +
     partnershipVarietyScore * weights.PARTNERSHIP_VARIETY +
-    opponentVarietyScore * weights.OPPONENT_VARIETY;
+    opponentVarietyScore * weights.OPPONENT_VARIETY +
+    fairPlayScore * weights.FAIR_PLAY;
   
   return {
     total: totalScore,
@@ -145,9 +229,11 @@ function calculateMatchScore(team1Player1, team1Player2, team2Player1, team2Play
       eloBalance: eloBalanceScore,
       skillSimilarity: skillSimilarityScore,
       partnershipVariety: partnershipVarietyScore,
-      opponentVariety: opponentVarietyScore
+      opponentVariety: opponentVarietyScore,
+      fairPlay: fairPlayScore
     },
-    teamELOs: { team1: team1ELO, team2: team2ELO }
+    teamELOs: { team1: team1ELO, team2: team2ELO },
+    matchCounts: { counts: matchCounts, avg: avgMatchCount, variance: matchCountVariance }
   };
 }
 
@@ -212,14 +298,18 @@ export function selectSmartPlayers(availablePlayers, matches, courtNumber = 0, a
               combination.team1.player2,
               combination.team2.player1,
               combination.team2.player2,
-              matches
+              matches,
+              availablePlayers
             );
             
-            allSelections.push({
-              players: playerGroup,
-              teams: combination,
-              score: score
-            });
+            // Only add non-rejected combinations
+            if (!score.rejected) {
+              allSelections.push({
+                players: playerGroup,
+                teams: combination,
+                score: score
+              });
+            }
           }
         }
       }
@@ -227,7 +317,10 @@ export function selectSmartPlayers(availablePlayers, matches, courtNumber = 0, a
   }
   
   if (allSelections.length === 0) {
-    return null;
+    console.warn('🚨 All smart combinations rejected due to fairness violations! Falling back to fair selection.');
+    
+    // Fallback: Use fair selection algorithm (prioritizes players with fewer matches)
+    return selectFairPlayers(availablePlayers);
   }
   
   // Sort by score (best first)
@@ -245,6 +338,37 @@ export function selectSmartPlayers(availablePlayers, matches, courtNumber = 0, a
   // Randomly select from the top options
   const randomIndex = Math.floor(Math.random() * topSelections.length);
   return topSelections[randomIndex];
+}
+
+/**
+ * Fair selection algorithm - purely prioritizes players with fewer matches
+ */
+function selectFairPlayers(availablePlayers) {
+  if (availablePlayers.length < 4) return null;
+  
+  // Sort players by match count (ascending), then by name for consistency
+  const sortedPlayers = [...availablePlayers].sort((a, b) => {
+    const countA = getPlayerMatchCount(a);
+    const countB = getPlayerMatchCount(b);
+    const matchDiff = countA - countB;
+    if (matchDiff !== 0) return matchDiff;
+    return a.name.localeCompare(b.name); // Consistent tiebreaker
+  });
+  
+  // Take the 4 players with the fewest matches
+  const selectedPlayers = sortedPlayers.slice(0, 4);
+  
+  console.log('✅ Fair selection used:', selectedPlayers.map(p => `${p.name}(${getPlayerMatchCount(p)})`));
+  
+  return {
+    players: selectedPlayers,
+    teams: {
+      team1: { player1: selectedPlayers[0], player2: selectedPlayers[1] },
+      team2: { player1: selectedPlayers[2], player2: selectedPlayers[3] }
+    },
+    score: { total: 1.0, breakdown: { fairPlay: 1.0 }, teamELOs: {} },
+    method: 'fair-selection'
+  };
 }
 
 /**

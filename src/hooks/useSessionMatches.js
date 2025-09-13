@@ -83,30 +83,35 @@ export function useSessionMatches(sessionId) {
   }, [loadSessionMatches]);
 
   // Set up real-time subscription for match changes in current session
+  // Disabled to prevent WebSocket connection errors
   useEffect(() => {
     if (!supabaseClient || !sessionId) return;
 
-    const subscription = supabaseClient
-      .channel(`matches-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: TABLES.MATCHES,
-          filter: `session_id=eq.${sessionId}`
-        },
-        (payload) => {
-          console.log('🔄 Match real-time update:', payload);
-          // Refresh matches when changes occur
-          loadSessionMatches();
-        }
-      )
-      .subscribe();
+    // TODO: Re-enable when realtime is properly configured
+    // For now, we rely on manual refresh and periodic updates
+    console.log('📡 Realtime subscription disabled to prevent WebSocket errors');
+    
+    // const subscription = supabaseClient
+    //   .channel(`matches-${sessionId}`)
+    //   .on(
+    //     'postgres_changes',
+    //     {
+    //       event: '*',
+    //       schema: 'public',
+    //       table: TABLES.MATCHES,
+    //       filter: `session_id=eq.${sessionId}`
+    //     },
+    //     (payload) => {
+    //       console.log('🔄 Match real-time update:', payload);
+    //       // Refresh matches when changes occur
+    //       loadSessionMatches();
+    //     }
+    //   )
+    //   .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    // return () => {
+    //   subscription.unsubscribe();
+    // };
   }, [supabaseClient, sessionId, loadSessionMatches]);
 
   // Add a new match

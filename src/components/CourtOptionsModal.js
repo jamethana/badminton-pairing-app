@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 
-const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
+const CourtOptionsModal = ({ court, onCompleteMatch, onClose, isCompletingMatch }) => {
   const { currentMatch } = court;
   const [selectedWinner, setSelectedWinner] = useState(null);
   
   if (!currentMatch) return null;
 
   const handleWinnerSelect = (winner) => {
+    if (isCompletingMatch || selectedWinner) return; // Prevent multiple clicks
+    
     setSelectedWinner(winner);
     // Small delay to show selection before closing
     setTimeout(() => {
@@ -44,6 +46,14 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
           </button>
         </div>
         
+        {/* Loading overlay for match completion */}
+        {isCompletingMatch && (
+          <div className="modal-completion-loading">
+            <div className="loading-spinner"></div>
+            <span className="loading-text">Processing match completion...</span>
+          </div>
+        )}
+        
         {/* Modern Body */}
         <div className="court-modal-body-modern">
           <div className="teams-selection-modern">
@@ -53,9 +63,9 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
               <button
                 className={`team-winner-btn-modern ${
                   selectedWinner === 'team1' ? 'selected' : ''
-                }`}
+                } ${isCompletingMatch ? 'completing' : ''}`}
                 onClick={() => handleWinnerSelect('team1')}
-                disabled={selectedWinner !== null}
+                disabled={selectedWinner !== null || isCompletingMatch}
               >
                 <div className="team-players-modern">
                   <div className="player-card-winner-modern">
@@ -98,9 +108,9 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
               <button
                 className={`team-winner-btn-modern ${
                   selectedWinner === 'team2' ? 'selected' : ''
-                }`}
+                } ${isCompletingMatch ? 'completing' : ''}`}
                 onClick={() => handleWinnerSelect('team2')}
-                disabled={selectedWinner !== null}
+                disabled={selectedWinner !== null || isCompletingMatch}
               >
                 <div className="team-players-modern">
                   <div className="player-card-winner-modern">
@@ -138,9 +148,9 @@ const CourtOptionsModal = ({ court, onCompleteMatch, onClose }) => {
             <button
               className={`cancel-match-btn-modern ${
                 selectedWinner === 'cancelled' ? 'selected' : ''
-              }`}
+              } ${isCompletingMatch ? 'completing' : ''}`}
               onClick={() => handleWinnerSelect('cancelled')}
-              disabled={selectedWinner !== null}
+              disabled={selectedWinner !== null || isCompletingMatch}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

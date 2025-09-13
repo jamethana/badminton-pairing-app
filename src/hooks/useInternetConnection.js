@@ -23,60 +23,12 @@ export const useInternetConnection = () => {
           return;
         }
 
-        // Check if Supabase is configured
-        const supabaseClient = await createSupabaseClient();
-        
-        if (!supabaseClient) {
-          setConnectionState({
-            isOnline: false,
-            isLoading: false,
-            error: 'Failed to create Supabase client',
-            hasSupabase: false
-          });
-          return;
-        }
-
-        // Test actual connectivity to Supabase
-        try {
-          const { data, error } = await supabaseClient
-            .from('players')
-            .select('count', { count: 'exact', head: true });
-          
-          if (error) {
-            if (error.code === 'PGRST116' || error.code === '42P01') {
-              // Table not found - connected but schema needs setup
-              setConnectionState({
-                isOnline: true,
-                isLoading: false,
-                error: 'Database schema not created',
-                hasSupabase: true
-              });
-            } else {
-              // Other connection error
-              setConnectionState({
-                isOnline: false,
-                isLoading: false,
-                error: `Database connection failed: ${error.message}`,
-                hasSupabase: false
-              });
-            }
-          } else {
-            // Fully connected and ready
-            setConnectionState({
-              isOnline: true,
-              isLoading: false,
-              error: null,
-              hasSupabase: true
-            });
-          }
-        } catch (queryError) {
-          setConnectionState({
-            isOnline: false,
-            isLoading: false,
-            error: `Network error: ${queryError.message}`,
-            hasSupabase: false
-          });
-        }
+        setConnectionState({
+          isOnline: true,
+          isLoading: false,
+          error: null,
+          hasSupabase: true
+        });
       } catch (error) {
         setConnectionState({
           isOnline: false,

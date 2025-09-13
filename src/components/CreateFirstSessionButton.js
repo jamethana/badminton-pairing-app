@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { createNewSession } from '../utils/helpers';
+import { createSupabaseClient } from '../config/supabase';
 
 const CreateFirstSessionButton = ({ onSessionCreate, existingSessions = [] }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
 
-  const handleCreateSession = (e) => {
+  const handleCreateSession = async (e) => {
     e.preventDefault();
     if (newSessionName.trim()) {
       // Check for duplicate session names
@@ -18,10 +19,57 @@ const CreateFirstSessionButton = ({ onSessionCreate, existingSessions = [] }) =>
         return;
       }
       
-      const newSession = createNewSession(newSessionName.trim());
-      onSessionCreate(newSession);
-      setNewSessionName('');
-      setIsCreating(false);
+      try {
+        // Create session in Supabase to get proper UUID
+        const client = await createSupabaseClient();
+        
+        if (!client) {
+          throw new Error('Supabase client not available');
+        }
+
+        const { data, error } = await client
+          .from('sessions')
+          .insert({
+            name: newSessionName.trim(),
+            court_count: 4,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        // Transform to local format
+        const newSession = {
+          id: data.id, // This will be a proper UUID from Supabase
+          name: data.name,
+          createdAt: data.created_at,
+          lastActiveAt: data.updated_at,
+          playerIds: [],
+          courtCount: data.court_count,
+          currentMatches: [],
+          courtStates: Array.from({ length: data.court_count }, (_, i) => ({
+            id: i,
+            isOccupied: false,
+            currentMatch: null
+          })),
+          smartMatching: {
+            enabled: false,
+            eloRange: 500,
+            teamBalance: 250,
+            varietyWeight: 0.2
+          }
+        };
+
+        onSessionCreate(newSession);
+        setNewSessionName('');
+        setIsCreating(false);
+      } catch (error) {
+        console.error('Error creating session:', error);
+        alert(`Failed to create session: ${error.message}`);
+      }
     }
   };
 

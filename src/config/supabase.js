@@ -107,6 +107,17 @@ export async function createSupabaseClient() {
       const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
       
+      // Disable realtime connection to prevent WebSocket errors
+      // This prevents automatic WebSocket connection attempts
+      if (supabase.realtime) {
+        try {
+          supabase.realtime.disconnect();
+          console.log('Supabase realtime connection disabled to prevent WebSocket errors');
+        } catch (realtimeError) {
+          console.warn('Could not disable realtime connection:', realtimeError.message);
+        }
+      }
+      
       // Test the connection with detailed logging
       console.log('Testing Supabase connection...');
       const { data, error } = await supabase.from('players').select('count', { count: 'exact', head: true });

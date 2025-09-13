@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import PlayerCard from './PlayerCard';
-import PlayerEditModal from './PlayerEditModal';
 import { useSessionPlayers } from '../hooks/usePlayerManagement';
 import { getSessionPlayerStats, getELOTier, formatELODisplay } from '../utils/helpers';
 import { createSupabaseClient, TABLES } from '../config/supabase';
@@ -15,7 +14,6 @@ const SessionPlayerManagement = ({
   setSessionPlayers
 }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
-  const [editingPlayer, setEditingPlayer] = useState(null);
   const [filterText, setFilterText] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [supabaseClient, setSupabaseClient] = useState(null);
@@ -131,14 +129,6 @@ const SessionPlayerManagement = ({
     setFilterText(value);
   };
 
-  const handleEditPlayer = (player) => {
-    setEditingPlayer(player);
-  };
-
-  const handleUpdatePlayer = (id, updates) => {
-    onUpdateGlobalPlayer(id, updates);
-    setEditingPlayer(null);
-  };
 
   const handleRemovePlayerFromSession = (playerId) => {
     console.log(`📝 Player ${playerId} removed from session ${sessionId}`);
@@ -267,7 +257,6 @@ const SessionPlayerManagement = ({
                 playerId={sessionPlayerInfo.player_id}
                 playerName={globalPlayer.name}
                 globalPlayerData={globalPlayer}
-                onEdit={handleEditPlayer}
                 onRemove={handleRemovePlayerFromSession}
                 getTimeAgo={getTimeAgo}
                 disabled={false}
@@ -317,15 +306,6 @@ const SessionPlayerManagement = ({
         </div>
       )}
 
-      {editingPlayer && (
-        <PlayerEditModal
-          playerId={editingPlayer.id}
-          playerName={editingPlayer.name}
-          onSave={handleUpdatePlayer}
-          onRemove={() => {}} // Don't allow removal from global through session
-          onClose={() => setEditingPlayer(null)}
-        />
-      )}
     </div>
   );
 };

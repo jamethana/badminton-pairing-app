@@ -7,7 +7,6 @@ const PlayerCard = ({
   playerId, 
   playerName, 
   globalPlayerData,
-  onEdit, 
   onRemove,
   getTimeAgo,
   disabled = false 
@@ -34,11 +33,6 @@ const PlayerCard = ({
             <span className="stat-text">-M</span>
           </div>
           <div className="session-action-buttons">
-            <button className="session-edit-btn-compact" disabled>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
             <button className="session-move-btn" disabled>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -70,12 +64,6 @@ const PlayerCard = ({
     }
   };
 
-  const handleEditName = (e) => {
-    e.stopPropagation();
-    if (!disabled && onEdit) {
-      onEdit({ ...globalPlayerData, id: playerId });
-    }
-  };
 
   const handleMoveToAvailable = async (e) => {
     e.stopPropagation();
@@ -154,17 +142,6 @@ const PlayerCard = ({
         </div>
 
         <div className="session-action-buttons">
-          <button
-            className="session-edit-btn-compact"
-            onClick={handleEditName}
-            title="Edit player name"
-            disabled={disabled}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          
           <button
             className={`session-move-btn ${isRemoving ? 'removing' : ''}`}
             onClick={handleMoveToAvailable}
