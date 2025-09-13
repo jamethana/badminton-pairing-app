@@ -5,58 +5,6 @@
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-// Certificate handling utilities
-const SUPABASE_CA_CERT_PATH = '/prod-ca-2021.crt';
-const SUPABASE_CERT_ENV = process.env.REACT_APP_SUPABASE_CERT;
-
-// Function to load and validate the Supabase CA certificate
-async function loadSupabaseCACert() {
-  try {
-    // First, try to load from environment variable (for CI/CD and production)
-    if (SUPABASE_CERT_ENV) {
-      console.log('✅ Supabase CA certificate loaded from environment variable');
-      // Decode base64 if needed, or use directly if it's PEM format
-      const certText = SUPABASE_CERT_ENV.includes('-----BEGIN CERTIFICATE-----') 
-        ? SUPABASE_CERT_ENV 
-        : atob(SUPABASE_CERT_ENV);
-      return certText;
-    }
-    
-    // Fallback to loading from public folder (for local development)
-    const response = await fetch(SUPABASE_CA_CERT_PATH);
-    if (response.ok) {
-      const certText = await response.text();
-      console.log('✅ Supabase CA certificate loaded from public folder');
-      return certText;
-    } else {
-      console.warn('⚠️ Could not load Supabase CA certificate from public folder');
-      return null;
-    }
-  } catch (error) {
-    console.warn('⚠️ Error loading Supabase CA certificate:', error.message);
-    return null;
-  }
-}
-
-// Enhanced certificate error detection
-function isCertificateError(error) {
-  if (!error || !error.message) return false;
-  
-  const certErrorPatterns = [
-    'ERR_CERT_AUTHORITY_INVALID',
-    'ERR_CERT_COMMON_NAME_INVALID',
-    'ERR_CERT_DATE_INVALID',
-    'certificate',
-    'SSL',
-    'TLS',
-    'Failed to fetch'
-  ];
-  
-  return certErrorPatterns.some(pattern => 
-    error.message.toLowerCase().includes(pattern.toLowerCase())
-  );
-}
-
 // Supabase client configuration
 export const supabaseConfig = {
   url: SUPABASE_URL,
@@ -67,49 +15,6 @@ export const supabaseConfig = {
       persistSession: true,
       detectSessionInUrl: true
     },
-    global: {
-      // Custom fetch configuration for certificate handling
-      fetch: (url, options = {}) => {
-        // Add custom headers and options for certificate handling
-        const customOptions = {
-          ...options,
-          // Add retry logic for certificate errors
-          headers: {
-            ...options.headers,
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        };
-        
-        return fetch(url, customOptions).catch(error => {
-          // If it's a certificate error, try with different approach
-          if (isCertificateError(error)) {
-            console.warn('🔒 Certificate error detected, attempting retry with enhanced headers');
-            
-            // Try with additional headers that might help with certificate validation
-            return fetch(url, {
-              ...customOptions,
-              headers: {
-                ...customOptions.headers,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'BadmintonPairApp/1.0'
-              }
-            }).catch(retryError => {
-              // If retry also fails, provide helpful error message
-              if (isCertificateError(retryError)) {
-                console.error('🔒 Certificate validation failed. Consider:');
-                console.error('1. Check if Supabase CA certificate is properly configured');
-                console.error('2. Verify your system\'s certificate store is up to date');
-                console.error('3. Contact your network administrator if behind corporate firewall');
-              }
-              throw retryError;
-            });
-          }
-          throw error;
-        });
-      }
-    }
   }
 };
 
@@ -252,12 +157,6 @@ export async function createSupabaseClient(forceRefresh = false) {
   // Create connection promise to avoid multiple simultaneous connections
   _connectionPromise = (async () => {
     try {
-      // Load CA certificate for better SSL validation
-      const caCert = await loadSupabaseCACert();
-      if (caCert) {
-        console.log('🔒 Supabase CA certificate loaded and available for validation');
-      }
-      
       const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfig.options);
       
@@ -313,32 +212,6 @@ export function resetSupabaseClient() {
   _certificateErrorCount = 0;
 }
 
-// Function to provide certificate installation guidance
-export function getCertificateInstallationGuide() {
-  const hasEnvCert = !!SUPABASE_CERT_ENV;
-  
-  return {
-    message: 'To resolve SSL certificate issues with Supabase:',
-    hasEnvironmentCert: hasEnvCert,
-    steps: [
-      hasEnvCert 
-        ? '1. ✅ Certificate loaded from REACT_APP_SUPABASE_CERT environment variable'
-        : '1. The Supabase CA certificate is available at /prod-ca-2021.crt',
-      '2. For system-wide installation (macOS): sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain public/prod-ca-2021.crt',
-      '3. For system-wide installation (Linux): sudo cp public/prod-ca-2021.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates',
-      '4. For Node.js development: export NODE_EXTRA_CA_CERTS=./public/prod-ca-2021.crt',
-      '5. For CI/CD: Set REACT_APP_SUPABASE_CERT as environment variable or GitHub Actions secret',
-      '6. Restart your browser and development server after installation'
-    ],
-    nodeEnvVar: 'NODE_EXTRA_CA_CERTS=./public/prod-ca-2021.crt',
-    certPath: SUPABASE_CA_CERT_PATH,
-    envVar: 'REACT_APP_SUPABASE_CERT'
-  };
-}
-
-// Export certificate utilities
-export { loadSupabaseCACert, isCertificateError };
-
 export default {
   supabaseConfig,
   TABLES,
@@ -347,8 +220,5 @@ export default {
   createSupabaseClient,
   resetSupabaseClient,
   reportCertificateError,
-  getConnectionHealth,
-  getCertificateInstallationGuide,
-  loadSupabaseCACert,
-  isCertificateError
+  getConnectionHealth
 };
