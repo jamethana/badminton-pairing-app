@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/badminton-pairing-app/static/css/main.fd6c718a.css",
+    "main.js": "/badminton-pairing-app/static/js/main.f1d9ad6d.js",
+    "static/js/69.290a5e2d.chunk.js": "/badminton-pairing-app/static/js/69.290a5e2d.chunk.js",
+    "index.html": "/badminton-pairing-app/index.html",
+    "main.fd6c718a.css.map": "/badminton-pairing-app/static/css/main.fd6c718a.css.map",
+    "main.f1d9ad6d.js.map": "/badminton-pairing-app/static/js/main.f1d9ad6d.js.map",
+    "69.290a5e2d.chunk.js.map": "/badminton-pairing-app/static/js/69.290a5e2d.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.fd6c718a.css",
+    "static/js/main.f1d9ad6d.js"
+  ]
+}
