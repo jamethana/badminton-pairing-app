@@ -3072,6 +3072,243 @@ code {
   border-color: var(--primary-color);
 }
 
+/* Modern Court Animation Keyframes */
+@keyframes courtSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(60px) translateY(-10px) scale(0.9);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 0.8;
+    transform: translateX(-5px) translateY(0) scale(1.02);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes courtSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+    filter: blur(0px);
+  }
+  40% {
+    opacity: 0.6;
+    transform: translateX(20px) translateY(-5px) scale(0.95);
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80px) translateY(-15px) scale(0.85);
+    filter: blur(6px);
+  }
+}
+
+@keyframes courtFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(15px) scale(0.96);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes courtPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+    filter: blur(3px);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05) translateY(-5px);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+/* Modern Court Animation Classes */
+.court-adding {
+  animation: courtSlideIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  will-change: transform, opacity, filter;
+  animation-fill-mode: forwards;
+}
+
+.court-removing {
+  animation: courtSlideOut 0.25s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+  will-change: transform, opacity, filter;
+  animation-fill-mode: forwards;
+}
+
+.court-fade-in, .fade-in {
+  animation: courtFadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  will-change: transform, opacity, filter;
+  animation-fill-mode: forwards;
+}
+
+.court-pop-in {
+  animation: courtPopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  will-change: transform, opacity, filter;
+  animation-fill-mode: forwards;
+}
+
+/* Animation completed state - locks in final position */
+.court-animation-complete {
+  /* Force final state and remove will-change for performance */
+  will-change: auto !important;
+  opacity: 1 !important;
+  transform: translateX(0) translateY(0) scale(1) !important;
+  filter: blur(0px) !important;
+  /* Allow normal transitions again */
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Staggered Animation for Multiple Courts */
+.court-stagger-1 { animation-delay: 0.05s; }
+.court-stagger-2 { animation-delay: 0.1s; }
+.court-stagger-3 { animation-delay: 0.15s; }
+.court-stagger-4 { animation-delay: 0.2s; }
+.court-stagger-5 { animation-delay: 0.25s; }
+
+/* Modern Micro-interactions */
+.match-card {
+  backface-visibility: hidden;
+  perspective: 1000px;
+  /* Stable default state - no transitions that interfere with animations */
+  opacity: 1;
+  transform: translateX(0) translateY(0) scale(1);
+  filter: blur(0px);
+}
+
+.match-card:not(.court-adding):not(.court-removing):not(.court-fade-in) {
+  /* Only apply hover transitions when not animating */
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.match-card:hover:not(.court-adding):not(.court-removing) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Court Grid Animation Container */
+.matches-grid {
+  position: relative;
+}
+
+.matches-grid.courts-animating {
+  overflow: hidden;
+}
+
+/* Modern Court Management Button Animations */
+.court-btn-modern {
+  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  overflow: hidden;
+  will-change: transform;
+}
+
+.court-btn-modern::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  pointer-events: none;
+}
+
+.court-btn-modern:active::before {
+  width: 80px;
+  height: 80px;
+}
+
+.court-btn-add:hover {
+  transform: scale(1.15) rotate(90deg);
+  background: linear-gradient(135deg, var(--success-color), #10b981);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+.court-btn-remove:hover {
+  transform: scale(1.15) rotate(180deg);
+  background: linear-gradient(135deg, var(--error-color), #dc2626);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.court-btn-modern:active {
+  transform: scale(0.95);
+}
+
+/* Modern Court Count Display Animation */
+.court-count-display-modern {
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.court-count-number {
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  will-change: transform, color;
+}
+
+.courts-animating .court-count-number {
+  transform: scale(1.25);
+  color: var(--primary-color);
+  text-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+}
+
+/* Enhanced Mobile Optimizations */
+@media (max-width: 768px) {
+  .court-adding {
+    animation: courtSlideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+  
+  .court-removing {
+    animation: courtSlideOut 0.2s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+  }
+  
+  .court-fade-in, .fade-in {
+    animation: courtFadeIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+  
+  /* Reduce motion for better mobile performance */
+  .match-card:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+  
+  .court-btn-add:hover, .court-btn-remove:hover {
+    transform: scale(1.1);
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .court-adding, .court-removing, .court-fade-in, .fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  
+  .match-card, .court-btn-modern {
+    transition: none;
+  }
+}
+
 /* Smooth State Transitions */
 .modal-overlay {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

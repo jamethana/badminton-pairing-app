@@ -784,10 +784,10 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
         {/* Header */}
         <div className="modern-modal-header">
           <div className="court-info">
-            <div className="court-badge-new">
+            {/* <div className="court-badge-new">
               <span className="court-icon">🏸</span>
               <span className="court-label">Court {court.id + 1}</span>
-            </div>
+            </div> */}
             <div className="match-type-selector">
               <button 
                 className={`match-type-btn ${matchType === 'singles' ? 'active' : ''}`}

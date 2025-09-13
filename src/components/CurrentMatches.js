@@ -21,6 +21,50 @@ const CurrentMatches = ({
   const [showEmptyCourtModal, setShowEmptyCourtModal] = useState(null);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Animation state management
+  const [animatingCourts, setAnimatingCourts] = useState(new Set());
+  const [completedAnimations, setCompletedAnimations] = useState(new Set());
+  const [removingCourtId, setRemovingCourtId] = useState(null);
+  const [previousCourtCount, setPreviousCourtCount] = useState(courtCount);
+  const [courtStatesWithRemoving, setCourtStatesWithRemoving] = useState(courtStates);
+
+  // Handle court count changes and animations
+  useEffect(() => {
+    if (courtCount !== previousCourtCount) {
+      if (courtCount > previousCourtCount) {
+        // Court added - animate the new court
+        const newCourtId = courtCount - 1; // Last court index
+        setAnimatingCourts(prev => new Set([...prev, newCourtId]));
+        setCourtStatesWithRemoving(courtStates); // Update display states
+        
+        // Don't remove animation class - let CSS forwards fill-mode maintain final state
+        // Just clean up will-change for performance after animation completes
+        setTimeout(() => {
+          setCompletedAnimations(prev => new Set([...prev, newCourtId]));
+        }, 350); // Match animation duration
+        
+      } else if (courtCount < previousCourtCount) {
+        // Court being removed - animate the removal BEFORE updating court states
+        const removedCourtId = previousCourtCount - 1; // Last court that will be removed
+        setRemovingCourtId(removedCourtId);
+        
+        // Keep the old court states for animation, then update after animation completes
+        setTimeout(() => {
+          setRemovingCourtId(null);
+          setCourtStatesWithRemoving(courtStates); // Update to new states after animation
+        }, 250); // Match modern courtSlideOut animation duration
+      } else {
+        // No count change, just update states
+        setCourtStatesWithRemoving(courtStates);
+      }
+      
+      setPreviousCourtCount(courtCount);
+    } else {
+      // Update court states when no count change (e.g., match completion)
+      setCourtStatesWithRemoving(courtStates);
+    }
+  }, [courtCount, previousCourtCount, courtStates]);
 
   // Update expanded state when modals are open
   useEffect(() => {
@@ -116,17 +160,32 @@ const CurrentMatches = ({
         </div>
       </div>
 
-      <div className="matches-grid grid-2">
-        {courtStates.map((court) => (
-          <div
-            key={court.id}
-            className={`match-card ${court.isOccupied ? 'occupied' : 'empty-court'} fade-in ${isCompletingMatch ? 'completing-match' : ''}`}
-            onClick={() => !isCompletingMatch && handleCourtClick(court)}
-            style={{ 
-              pointerEvents: isCompletingMatch ? 'none' : 'auto',
-              opacity: isCompletingMatch ? 0.7 : 1 
-            }}
-          >
+      <div className={`matches-grid grid-2 ${animatingCourts.size > 0 || removingCourtId !== null ? 'courts-animating' : ''}`}>
+        {courtStatesWithRemoving.map((court) => {
+          // Determine animation classes
+          const isAnimatingIn = animatingCourts.has(court.id);
+          const isAnimatingOut = removingCourtId === court.id;
+          const isCompleted = completedAnimations.has(court.id);
+          
+          let animationClass = 'fade-in';
+          if (isAnimatingIn) {
+            animationClass = 'court-adding';
+          } else if (isAnimatingOut) {
+            animationClass = 'court-removing';
+          } else if (isCompleted) {
+            animationClass = 'court-animation-complete';
+          }
+          
+          return (
+            <div
+              key={court.id}
+              className={`match-card ${court.isOccupied ? 'occupied' : 'empty-court'} ${animationClass} ${isCompletingMatch ? 'completing-match' : ''}`}
+              onClick={() => !isCompletingMatch && handleCourtClick(court)}
+              style={{ 
+                pointerEvents: isCompletingMatch ? 'none' : 'auto',
+                opacity: isCompletingMatch ? 0.7 : 1 
+              }}
+            >
             {court.isOccupied && court.currentMatch ? (
               <div className="match-content-modern">
                 {/* Loading overlay for match completion */}
@@ -239,8 +298,9 @@ const CurrentMatches = ({
                 </div>
               </div>
             )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {showCourtOptions && (
