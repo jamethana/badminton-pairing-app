@@ -9219,14 +9219,17 @@ code {
     font-size: 16px;
   }
 
-  /* Show backdrop on mobile */
+  /* Show backdrop on mobile - less intrusive */
   .players-tab-backdrop {
     display: block;
+    background: rgba(0, 0, 0, 0.3); /* Less opaque */
+    top: 0;
+    bottom: 40%; /* Only cover the top part of screen */
   }
 
   .players-tab-redesigned {
     position: fixed;
-    top: 0;
+    top: 40%; /* Only take up 60% of screen height */
     left: 0;
     right: 0;
     bottom: 0;
@@ -9317,6 +9320,33 @@ code {
 
   .players-tab-title {
     font-size: 16px;
+  }
+
+  /* Mobile Players Toggle Button */
+  .btn-mobile-players-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .btn-mobile-players-toggle:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+  }
+
+  .btn-mobile-players-toggle svg {
+    flex-shrink: 0;
   }
 
   .players-list-redesigned {

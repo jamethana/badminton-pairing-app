@@ -86,7 +86,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const [assignedPlayers, setAssignedPlayers] = useState([]);
   const [remainingPlayers, setRemainingPlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState([]);
+  const [selectedAvailablePlayer, setSelectedAvailablePlayer] = useState(null);
   const [matchType, setMatchType] = useState('doubles'); // 'singles' or 'doubles'
   const [animatingPlayers, setAnimatingPlayers] = useState(new Set()); // Track which players are animating
   const [draggedPlayer, setDraggedPlayer] = useState(null); // Track dragged player
@@ -97,6 +97,7 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
   const [isAutoOpened, setIsAutoOpened] = useState(false); // Track if panel was auto-opened
   const [shuffleCount, setShuffleCount] = useState(0); // Track number of shuffles performed
   const [isInitialShuffling, setIsInitialShuffling] = useState(false); // Track if doing initial shuffle animation
+  const [isMobileDragMode, setIsMobileDragMode] = useState(false); // Track if we're in mobile drag mode
   const hasInitialized = React.useRef(false); // Track if we've already initialized to prevent loops
   const prevAvailablePoolLength = React.useRef(0); // Track previous pool length for reset detection
 
@@ -536,10 +537,8 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
     e.dataTransfer.effectAllowed = 'move';
     e.target.style.opacity = '0.5';
     
-    // Auto-open players panel when dragging from court
-    if (source === 'assigned') {
-      autoOpenPlayersPanel();
-    }
+    // Don't auto-open players panel during drag - let user decide
+    // This allows court-to-court dragging without interference
   };
 
   const handleDragEnd = (e) => {
@@ -645,11 +644,10 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
       offsetY: touch.clientY - rect.top
     });
     setDraggedPlayer({ player, source, index });
+    setIsMobileDragMode(true);
     
-    // Auto-open players panel when touch dragging from court
-    if (source === 'assigned') {
-      autoOpenPlayersPanel();
-    }
+    // Don't auto-open players panel during touch - let user decide
+    // This allows court-to-court dragging on mobile
     
     // Create drag preview
     setDragPreview({
@@ -736,15 +734,21 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
           targetIndex ? parseInt(targetIndex) : null
         );
       }
+    } else {
+      // If not dragging (just a tap), handle as click
+      const { player, source, index } = touchDragState;
+      if (source === 'assigned') {
+        handlePlayerClick(player, index);
+      } else if (source === 'available') {
+        handleAvailablePlayerClick(player);
+      }
     }
     
     setTouchDragState(null);
     setDragOverZone(null);
     setDraggedPlayer(null);
     setDragPreview(null);
-    
-    // Auto-close players panel when touch drag ends
-    autoClosePlayersPanel();
+    setIsMobileDragMode(false);
   };
 
   const playersNeeded = matchType === 'singles' ? 2 : 4;
@@ -1011,6 +1015,27 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
 
           {/* Action Controls */}
           <div className="action-controls-redesigned">
+            {/* Mobile Available Players Toggle */}
+            <button 
+              className="btn-mobile-players-toggle"
+              onClick={() => {
+                setIsPlayersTabOpen(!isPlayersTabOpen);
+                setIsAutoOpened(false); // Mark as manually opened
+              }}
+              style={{ 
+                display: window.innerWidth <= 768 ? 'flex' : 'none',
+                order: -1 // Put it first on mobile
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2"/>
+                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+              {isPlayersTabOpen ? 'Hide' : 'Show'} Available Players ({remainingPlayers.length})
+            </button>
+            
             <button 
               className="btn-start-match" 
               onClick={handleFillCourt}
@@ -1055,6 +1080,9 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
             onClick={() => {
               setIsPlayersTabOpen(false);
               setIsAutoOpened(false); // Reset auto-opened flag when manually closed
+              // Reset selection state when manually closing panel
+              setSelectedPlayer(null);
+              setSelectedAvailablePlayer(null);
             }}
           />
         )}
@@ -1085,6 +1113,9 @@ const EmptyCourtModal = ({ court, availablePool, currentSession, onFillCourt, on
                 onClick={() => {
                   setIsPlayersTabOpen(false);
                   setIsAutoOpened(false); // Reset auto-opened flag when manually closed
+                  // Reset selection state when manually closing panel
+                  setSelectedPlayer(null);
+                  setSelectedAvailablePlayer(null);
                 }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">

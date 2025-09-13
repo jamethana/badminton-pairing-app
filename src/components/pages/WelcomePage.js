@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import CreateFirstSessionButton from '../CreateFirstSessionButton';
 import Notification from '../Notification';
 import { createNewSession } from '../../utils/helpers';
-import { createSupabaseClient } from '../../config/supabase';
+import { createSupabaseClient, TABLES, reportCertificateError } from '../../config/supabase';
 
 const WelcomePage = ({
   safeSessions,
@@ -17,6 +17,7 @@ const WelcomePage = ({
   const [filterBy, setFilterBy] = useState('all'); // 'all', 'active', 'recent'
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
+  const [sessionPlayerCounts, setSessionPlayerCounts] = useState({});
 
   // Filter and sort sessions
   const filteredAndSortedSessions = useMemo(() => {
@@ -83,8 +84,58 @@ const WelcomePage = ({
     return `${diffInMonths}mo ago`;
   };
 
+  // Fetch session player counts from database
+  useEffect(() => {
+    const fetchSessionPlayerCounts = async () => {
+      if (safeSessions.length === 0) return;
+      
+      try {
+        const client = await createSupabaseClient();
+        if (!client) return;
+
+        const counts = {};
+        
+        // Fetch player counts for all sessions in parallel
+        const countPromises = safeSessions.map(async (session) => {
+          try {
+            const { count, error } = await client
+              .from(TABLES.SESSION_PLAYERS)
+              .select('*', { count: 'exact', head: true })
+              .eq('session_id', session.id)
+              .eq('is_active_in_session', true);
+            
+            if (!error) {
+              counts[session.id] = count || 0;
+            }
+          } catch (err) {
+            // Check for certificate errors
+            if (err.message.includes('ERR_CERT_AUTHORITY_INVALID') || 
+                err.message.includes('net::ERR_CERT_AUTHORITY_INVALID')) {
+              console.warn('🔒 Certificate error in WelcomePage player count fetch');
+              reportCertificateError();
+            }
+            console.warn(`Failed to get player count for session ${session.id}:`, err);
+            counts[session.id] = 0;
+          }
+        });
+
+        await Promise.all(countPromises);
+        setSessionPlayerCounts(counts);
+      } catch (error) {
+        console.warn('Failed to fetch session player counts:', error);
+      }
+    };
+
+    fetchSessionPlayerCounts();
+  }, [safeSessions]);
+
   const getSessionStats = (session) => {
-    const playerCount = session.sessionPlayers?.length || 0;
+    // Use fetched player count from database, fallback to session data
+    const playerCount = sessionPlayerCounts[session.id] ?? 
+                       session.sessionPlayers?.length ?? 
+                       session.playerIds?.length ?? 
+                       session.players?.length ?? 
+                       0;
     const activeMatches = session.currentMatches?.length || 0;
     return { playerCount, activeMatches };
   };

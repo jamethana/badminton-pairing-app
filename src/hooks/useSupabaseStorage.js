@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createSupabaseClient, TABLES } from '../config/supabase';
+import { createSupabaseClient, TABLES, reportCertificateError } from '../config/supabase';
 
 export function useSupabaseStorage(key, initialValue) {
   const [storedValue, setStoredValue] = useState(initialValue || []);
@@ -63,7 +63,8 @@ export function useSupabaseStorage(key, initialValue) {
     try {
       const tableName = getSupabaseTable(storageKey);
       if (!tableName) {
-        loadFromLocalStorage();
+        console.warn(`No Supabase table mapping for ${storageKey}, using initial value`);
+        setStoredValue(initialValue || []);
         return;
       }
 
@@ -82,7 +83,17 @@ export function useSupabaseStorage(key, initialValue) {
 
       if (error) {
         console.error(`Supabase load error for ${storageKey}:`, error);
-        loadFromLocalStorage();
+        
+        // Check if this is a certificate or network error
+        if (error.message && (error.message.includes('Failed to fetch') || 
+                              error.message.includes('ERR_CERT_AUTHORITY_INVALID') ||
+                              error.message.includes('certificate'))) {
+          console.warn(`🔒 Certificate/network error detected for ${storageKey}`);
+          reportCertificateError();
+        }
+        
+        console.warn(`Failed to load from Supabase, using initial value for ${storageKey}`);
+        setStoredValue(initialValue || []);
         return;
       }
 
@@ -131,7 +142,18 @@ export function useSupabaseStorage(key, initialValue) {
       }
     } catch (error) {
       console.error(`Error loading from Supabase (${storageKey}):`, error);
-      loadFromLocalStorage();
+      
+      // Check if this is a certificate or network error
+      if (error.message && (error.message.includes('Failed to fetch') || 
+                            error.message.includes('ERR_CERT_AUTHORITY_INVALID') ||
+                            error.message.includes('certificate') ||
+                            error.message.includes('TypeError: Failed to fetch'))) {
+        console.warn(`🔒 Certificate/network error detected for ${storageKey}`);
+        reportCertificateError();
+      }
+      
+      console.warn(`Failed to load from Supabase, using initial value for ${storageKey}`);
+      setStoredValue(initialValue || []);
     }
   };
 
@@ -163,7 +185,8 @@ export function useSupabaseStorage(key, initialValue) {
       await loadFromSupabase(client, storageKey);
     } catch (error) {
       console.error(`Migration error for ${storageKey}:`, error);
-      loadFromLocalStorage();
+      console.warn(`Migration failed for ${storageKey}, using initial value`);
+      setStoredValue(initialValue || []);
     }
   };
 

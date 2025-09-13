@@ -202,33 +202,6 @@ export function useSessionPlayers(sessionId) {
     };
 
     loadSessionPlayerIds();
-
-    // Set up real-time subscription for session player changes
-    // Disabled to prevent WebSocket connection errors
-    console.log('📡 Session player realtime subscription disabled to prevent WebSocket errors');
-    
-    // TODO: Re-enable when realtime is properly configured
-    // const subscription = supabaseClient
-    //   .channel(`session-players-${sessionId}`)
-    //   .on(
-    //     'postgres_changes',
-    //     {
-    //       event: '*',
-    //       schema: 'public',
-    //       table: TABLES.SESSION_PLAYERS,
-    //       filter: `session_id=eq.${sessionId}`
-    //     },
-    //     (payload) => {
-    //       console.log('🔄 Session player real-time update:', payload);
-    //       // Refresh the list when changes occur
-    //       loadSessionPlayerIds();
-    //     }
-    //   )
-    //   .subscribe();
-
-    // return () => {
-    //   subscription.unsubscribe();
-    // };
   }, [sessionId, supabaseClient]);
 
   return {
