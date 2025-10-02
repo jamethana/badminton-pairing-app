@@ -84,10 +84,9 @@ erDiagram
         integer total_matches
         integer total_wins
         integer total_losses
-        integer current_rating
-        integer highest_rating
-        integer lowest_rating
-        decimal confidence_level
+        decimal skill_mu
+        decimal skill_sigma
+        decimal skill_rating
         boolean is_active
         timestamp last_match_at
         timestamp last_login_at
@@ -177,16 +176,20 @@ erDiagram
         uuid user_id FK
         uuid match_id FK
         uuid session_id FK
-        integer rating_before
-        integer rating_after
-        integer rating_change
+        decimal mu_before
+        decimal mu_after
+        decimal sigma_before
+        decimal sigma_after
+        decimal rating_before
+        decimal rating_after
         boolean was_winner
-        integer opponent_team_rating
-        integer player_team_rating
-        decimal expected_score
-        integer k_factor
-        decimal confidence_level
-        integer match_count_at_time
+        decimal match_quality
+        decimal player_team_mu
+        decimal player_team_sigma
+        decimal opponent_team_mu
+        decimal opponent_team_sigma
+        decimal beta
+        decimal tau
         varchar formula_version
         timestamp calculation_timestamp
         text notes

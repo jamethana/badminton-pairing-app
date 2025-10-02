@@ -112,7 +112,7 @@ erDiagram
         timestamp updated_at
     }
 
-    %% Core User Management (TrueSkill)
+    %% Core User Management
     USERS {
         uuid id PK
         varchar clerk_id UK
@@ -125,10 +125,9 @@ erDiagram
         integer total_matches
         integer total_wins
         integer total_losses
-        decimal trueskill_mu
-        decimal trueskill_sigma
-        decimal trueskill_rating
-        integer legacy_elo_rating
+        decimal skill_mu
+        decimal skill_sigma
+        decimal skill_rating
         boolean is_active
         timestamp last_match_at
         timestamp last_login_at
@@ -371,7 +370,7 @@ erDiagram
                     │ name                    │      │ oauth_provider  │
                     │ duration_hours          │      │ player_name (UK)│
                     │ courts_available        │      │ skill_level     │
-                    │ times_used              │      │ current_rating  │
+                    │ times_used              │      │ skill_rating    │
                     └─────────┬───────────────┘      │ total_matches   │
                              │                      │ is_active       │
                              ▼                      └─────────┬───────┘
@@ -660,13 +659,10 @@ CREATE TABLE users (
     total_wins INTEGER DEFAULT 0,
     total_losses INTEGER DEFAULT 0,
     
-    -- TrueSkill Rating System
-    trueskill_mu DECIMAL(8,4) DEFAULT 25.0,      -- Skill mean (μ) - estimated skill level
-    trueskill_sigma DECIMAL(8,4) DEFAULT 8.333,  -- Skill uncertainty (σ) - confidence in estimate
-    trueskill_rating DECIMAL(8,4) DEFAULT 0.0,   -- Conservative rating (μ - 3*σ) for display
-    
-    -- Legacy ELO (for migration/comparison)
-    legacy_elo_rating INTEGER DEFAULT 1200,
+    -- Skill Rating System (TrueSkill algorithm)
+    skill_mu DECIMAL(8,4) DEFAULT 25.0,      -- Skill mean (μ) - estimated skill level
+    skill_sigma DECIMAL(8,4) DEFAULT 8.333,  -- Skill uncertainty (σ) - confidence in estimate
+    skill_rating DECIMAL(8,4) DEFAULT 0.0,   -- Conservative rating (μ - 3*σ) for display
     
     -- Account Status
     is_active BOOLEAN DEFAULT TRUE,
@@ -686,12 +682,11 @@ CREATE TABLE users (
         total_losses >= 0 AND
         total_wins + total_losses <= total_matches
     ),
-    CONSTRAINT valid_trueskill CHECK (
-        trueskill_mu >= 0 AND trueskill_mu <= 100 AND
-        trueskill_sigma >= 0.1 AND trueskill_sigma <= 25 AND
-        trueskill_rating >= -50 AND trueskill_rating <= 100
+    CONSTRAINT valid_skill_rating CHECK (
+        skill_mu >= 0 AND skill_mu <= 100 AND
+        skill_sigma >= 0.1 AND skill_sigma <= 25 AND
+        skill_rating >= -50 AND skill_rating <= 100
     ),
-    CONSTRAINT valid_legacy_elo CHECK (legacy_elo_rating >= 0 AND legacy_elo_rating <= 5000),
     CONSTRAINT valid_player_name CHECK (LENGTH(player_name) >= 2 AND LENGTH(player_name) <= 50)
 );
 ```
@@ -873,7 +868,7 @@ CREATE TABLE matches (
 
 ### 4.3 Scoring and Analytics Tables
 
-#### 4.3.1 Rating History Table (TrueSkill)
+#### 4.3.1 Rating History Table
 ```sql
 CREATE TABLE rating_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -881,7 +876,7 @@ CREATE TABLE rating_history (
     match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     
-    -- TrueSkill rating changes
+    -- Rating changes (algorithm-agnostic)
     mu_before DECIMAL(8,4) NOT NULL,           -- Previous skill mean
     mu_after DECIMAL(8,4) NOT NULL,            -- New skill mean
     sigma_before DECIMAL(8,4) NOT NULL,        -- Previous uncertainty
@@ -889,9 +884,9 @@ CREATE TABLE rating_history (
     rating_before DECIMAL(8,4) NOT NULL,       -- Previous conservative rating
     rating_after DECIMAL(8,4) NOT NULL,        -- New conservative rating
     
-    -- Match context for TrueSkill calculation
+    -- Match context
     was_winner BOOLEAN NOT NULL,
-    match_quality DECIMAL(6,4),                -- TrueSkill match quality (0-1)
+    match_quality DECIMAL(6,4),                -- Match quality metric (0-1)
     
     -- Team composition for doubles
     player_team_mu DECIMAL(8,4) NOT NULL,      -- Player's team combined μ
@@ -899,8 +894,8 @@ CREATE TABLE rating_history (
     opponent_team_mu DECIMAL(8,4) NOT NULL,    -- Opponent team combined μ
     opponent_team_sigma DECIMAL(8,4) NOT NULL, -- Opponent team combined σ
     
-    -- TrueSkill calculation metadata
-    beta DECIMAL(6,4) DEFAULT 4.166,           -- Skill class width (σ/2)
+    -- Rating calculation metadata
+    beta DECIMAL(6,4) DEFAULT 4.166,           -- Skill class width parameter
     tau DECIMAL(6,4) DEFAULT 0.083,            -- Dynamics factor
     draw_probability DECIMAL(4,3) DEFAULT 0.0, -- Probability of draw (0 for badminton)
     
@@ -932,16 +927,16 @@ CREATE TABLE rating_history (
 );
 ```
 
-#### 4.3.2 Rating Formulas Table (TrueSkill)
+#### 4.3.2 Rating Formulas Table
 ```sql
 CREATE TABLE rating_formulas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     version VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    algorithm VARCHAR(20) DEFAULT 'trueskill' CHECK (algorithm IN ('trueskill', 'elo', 'glicko')),
+    algorithm VARCHAR(20) DEFAULT 'trueskill' CHECK (algorithm IN ('trueskill', 'glicko2', 'custom')),
     
-    -- TrueSkill parameters (stored as JSON for flexibility)
+    -- Algorithm parameters (stored as JSON for flexibility)
     parameters JSONB NOT NULL DEFAULT '{
         "initial_mu": 25.0,
         "initial_sigma": 8.333,
@@ -1266,9 +1261,9 @@ VALUES ('John', 'N', ...); -- User selects Novice level
 - **Simple categorization** - Easy for users to understand and select
 - **Matchmaking guidance** - Helps create balanced matches
 - **Progress tracking** - Users can update as they improve
-- **Flexible system** - Can be combined with dynamic ELO ratings
+- **Flexible system** - Self-reported skill level provides context for TrueSkill ratings
 
-#### 5.2.4 Unlimited Rating System
+#### 5.2.4 TrueSkill Rating System
 
 **Microsoft TrueSkill Rating System:**
 
@@ -1276,15 +1271,15 @@ TrueSkill is Microsoft's Bayesian ranking system designed specifically for multi
 
 - **Team-aware**: Naturally handles 2v2 doubles matches
 - **Uncertainty modeling**: Tracks confidence in skill estimates  
-- **Faster convergence**: Reaches accurate ratings quicker than ELO
+- **Faster convergence**: Reaches accurate ratings quickly with fewer matches
 - **Match quality**: Can predict how balanced a match will be
 
-**TrueSkill Parameters:**
+**Rating System Parameters:**
 ```sql
 -- Player skill representation
-trueskill_mu DECIMAL(8,4) DEFAULT 25.0      -- Skill mean (μ) - estimated skill level
-trueskill_sigma DECIMAL(8,4) DEFAULT 8.333  -- Skill uncertainty (σ) - confidence
-trueskill_rating DECIMAL(8,4) DEFAULT 0.0   -- Conservative rating (μ - 3*σ)
+skill_mu DECIMAL(8,4) DEFAULT 25.0      -- Skill mean (μ) - estimated skill level
+skill_sigma DECIMAL(8,4) DEFAULT 8.333  -- Skill uncertainty (σ) - confidence
+skill_rating DECIMAL(8,4) DEFAULT 0.0   -- Conservative rating (μ - 3*σ)
 ```
 
 **Key Concepts:**
@@ -1296,11 +1291,11 @@ trueskill_rating DECIMAL(8,4) DEFAULT 0.0   -- Conservative rating (μ - 3*σ)
 **Rating Tiers (based on conservative rating):**
 ```sql
 CASE 
-    WHEN trueskill_rating >= 40 THEN 'Elite'
-    WHEN trueskill_rating >= 25 THEN 'Advanced' 
-    WHEN trueskill_rating >= 10 THEN 'Intermediate'
-    WHEN trueskill_rating >= -5 THEN 'Developing'
-    WHEN trueskill_rating >= -15 THEN 'Beginner'
+    WHEN skill_rating >= 40 THEN 'Elite'
+    WHEN skill_rating >= 25 THEN 'Advanced' 
+    WHEN skill_rating >= 10 THEN 'Intermediate'
+    WHEN skill_rating >= -5 THEN 'Developing'
+    WHEN skill_rating >= -15 THEN 'Beginner'
     ELSE 'New Player'
 END as skill_tier
 ```
@@ -1553,7 +1548,7 @@ CREATE INDEX idx_users_clerk_id ON users(clerk_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_oauth ON users(oauth_provider, oauth_provider_id);
 CREATE INDEX idx_users_player_name ON users(player_name);
-CREATE INDEX idx_users_rating ON users(current_rating DESC);
+CREATE INDEX idx_users_rating ON users(skill_rating DESC);
 CREATE INDEX idx_users_active ON users(is_active);
 CREATE INDEX idx_users_last_login ON users(last_login_at);
 CREATE INDEX idx_users_last_match ON users(last_match_at);
@@ -1613,26 +1608,27 @@ SELECT
     u.id,
     u.player_name,
     u.avatar_url,
-    u.current_rating,
-    u.highest_rating,
+    u.skill_rating,
+    u.skill_mu,
+    u.skill_sigma,
     u.total_matches,
     u.total_wins,
     u.total_losses,
     u.skill_level,
     u.last_match_at,
-    RANK() OVER (ORDER BY u.current_rating DESC) as rank,
+    RANK() OVER (ORDER BY u.skill_rating DESC) as rank,
     ROUND(u.total_wins::DECIMAL / NULLIF(u.total_matches, 0) * 100, 1) as win_percentage,
     CASE 
-        WHEN u.current_rating >= 2000 THEN 'Elite'
-        WHEN u.current_rating >= 1600 THEN 'Advanced'
-        WHEN u.current_rating >= 1200 THEN 'Intermediate'
-        WHEN u.current_rating >= 800 THEN 'Developing'
-        WHEN u.current_rating >= 400 THEN 'Beginner'
+        WHEN u.skill_rating >= 40 THEN 'Elite'
+        WHEN u.skill_rating >= 25 THEN 'Advanced'
+        WHEN u.skill_rating >= 10 THEN 'Intermediate'
+        WHEN u.skill_rating >= -5 THEN 'Developing'
+        WHEN u.skill_rating >= -15 THEN 'Beginner'
         ELSE 'New Player'
     END as rating_tier
 FROM users u
 WHERE u.is_active = TRUE
-ORDER BY u.current_rating DESC;
+ORDER BY u.skill_rating DESC;
 ```
 
 ### 7.2 Session Summary View
@@ -1705,9 +1701,9 @@ CREATE TRIGGER update_matches_updated_at BEFORE UPDATE ON matches
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
-### 7.2 TrueSkill Rating Calculation Function
+### 7.2 Skill Rating Calculation Function
 ```sql
-CREATE OR REPLACE FUNCTION calculate_trueskill_update(
+CREATE OR REPLACE FUNCTION calculate_skill_rating_update(
     player_mu DECIMAL(8,4),
     player_sigma DECIMAL(8,4),
     teammate_mu DECIMAL(8,4),
@@ -1751,13 +1747,13 @@ BEGIN
     match_quality_calc := EXP(-0.5 * POWER((player_team_mu - opponent_team_mu), 2) / 
                              (2 * beta * beta + player_team_sigma * player_team_sigma + opponent_team_sigma * opponent_team_sigma));
     
-    -- NOTE: Actual TrueSkill calculation is complex and should use external library
+    -- NOTE: Actual rating calculation is complex and should use external library
     -- This is a simplified approximation for database function demonstration
     
     -- Apply tau (skill drift) - uncertainty increases slightly over time
     new_sigma_calc := SQRT(player_sigma * player_sigma + tau * tau);
     
-    -- Simplified skill update (real TrueSkill uses Bayesian inference)
+    -- Simplified skill update (actual implementation uses Bayesian inference)
     IF is_winner THEN
         new_mu_calc := player_mu + (beta * new_sigma_calc * new_sigma_calc) / 
                       (beta * beta + player_team_sigma * player_team_sigma + opponent_team_sigma * opponent_team_sigma);
@@ -1784,17 +1780,17 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-**Implementation Note**: The above function provides a simplified TrueSkill approximation for demonstration. For production use, implement TrueSkill calculations in your application layer using proven libraries:
+**Implementation Note**: The above function provides a simplified approximation for demonstration. For production use, implement rating calculations in your application layer using proven libraries:
 
 **Recommended Libraries:**
-- **Python**: `trueskill` or `openskill` (patent-free)
+- **Python**: `trueskill` or `openskill` (patent-free alternative)
 - **JavaScript/Node.js**: `openskill.js` or `ts-trueskill`
 - **Go**: `go-trueskill`
 - **Rust**: `skillratings`
 
 **Integration Pattern:**
 ```javascript
-// Example using openskill.js
+// Example using openskill.js (patent-free TrueSkill alternative)
 const { rate, ordinal } = require('openskill');
 
 // Before match
@@ -1809,9 +1805,9 @@ await updatePlayerRating(player1.id, newTeam1[0]);
 // ... update other players
 ```
 
-### 7.3 TrueSkill Rating Updates
+### 7.3 Rating Updates
 
-**Recommended Approach**: Handle TrueSkill calculations in application layer rather than database triggers for better performance and library access.
+**Recommended Approach**: Handle rating calculations in application layer rather than database triggers for better performance and library access.
 
 **Application Flow:**
 ```javascript
@@ -1820,31 +1816,31 @@ async function completeMatch(matchId, winningTeam) {
     const match = await getMatch(matchId);
     const players = await getMatchPlayers(matchId);
     
-    // Get current TrueSkill ratings
+    // Get current skill ratings
     const team1 = [
-        { mu: players[0].trueskill_mu, sigma: players[0].trueskill_sigma },
-        { mu: players[1].trueskill_mu, sigma: players[1].trueskill_sigma }
+        { mu: players[0].skill_mu, sigma: players[0].skill_sigma },
+        { mu: players[1].skill_mu, sigma: players[1].skill_sigma }
     ];
     const team2 = [
-        { mu: players[2].trueskill_mu, sigma: players[2].trueskill_sigma },
-        { mu: players[3].trueskill_mu, sigma: players[3].trueskill_sigma }
+        { mu: players[2].skill_mu, sigma: players[2].skill_sigma },
+        { mu: players[3].skill_mu, sigma: players[3].skill_sigma }
     ];
     
-    // Calculate new ratings using TrueSkill library
+    // Calculate new ratings using rating library
     const rankings = winningTeam === 1 ? [1, 2] : [2, 1];
     const [newTeam1, newTeam2] = rate([team1, team2], rankings);
     
     // Update database in transaction
     await db.transaction(async (tx) => {
-        // Update players with new TrueSkill values
+        // Update players with new skill ratings
         for (let i = 0; i < 4; i++) {
             const newRating = i < 2 ? newTeam1[i % 2] : newTeam2[i % 2];
             const conservativeRating = newRating.mu - (3 * newRating.sigma);
             
             await tx.updatePlayer(players[i].id, {
-                trueskill_mu: newRating.mu,
-                trueskill_sigma: newRating.sigma,
-                trueskill_rating: conservativeRating,
+                skill_mu: newRating.mu,
+                skill_sigma: newRating.sigma,
+                skill_rating: conservativeRating,
                 total_matches: players[i].total_matches + 1,
                 total_wins: players[i].total_wins + (/* player won */ ? 1 : 0),
                 last_match_at: new Date()
@@ -1854,9 +1850,9 @@ async function completeMatch(matchId, winningTeam) {
             await tx.insertRatingHistory({
                 user_id: players[i].id,
                 match_id: matchId,
-                mu_before: players[i].trueskill_mu,
+                mu_before: players[i].skill_mu,
                 mu_after: newRating.mu,
-                sigma_before: players[i].trueskill_sigma,
+                sigma_before: players[i].skill_sigma,
                 sigma_after: newRating.sigma,
                 was_winner: /* check if player won */,
                 match_quality: calculateMatchQuality(team1, team2)
@@ -1878,12 +1874,10 @@ async function completeMatch(matchId, winningTeam) {
 ```sql
 -- Enable RLS on all user-related tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE session_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rating_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE court_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
 ```
 
@@ -1896,13 +1890,6 @@ CREATE POLICY "Users can view own profile" ON users
 CREATE POLICY "Users can update own profile" ON users
     FOR UPDATE USING (id = current_setting('app.current_user_id')::UUID);
 
--- Players can see all active players but only modify their own
-CREATE POLICY "View active players" ON players
-    FOR SELECT USING (is_active = TRUE);
-
-CREATE POLICY "Users can modify own player profile" ON players
-    FOR ALL USING (user_id = current_setting('app.current_user_id')::UUID);
-
 -- Session visibility based on public/private status and participation
 CREATE POLICY "View public sessions" ON sessions
     FOR SELECT USING (is_public = TRUE OR host_user_id = current_setting('app.current_user_id')::UUID);
@@ -1913,39 +1900,25 @@ CREATE POLICY "Session hosts can modify their sessions" ON sessions
 -- Participants can see sessions they're part of
 CREATE POLICY "View participated sessions" ON session_participants
     FOR SELECT USING (
-        player_id IN (
-            SELECT id FROM players WHERE user_id = current_setting('app.current_user_id')::UUID
-        )
+        user_id = current_setting('app.current_user_id')::UUID
     );
 
 -- Match visibility for participants
 CREATE POLICY "View matches for participants" ON matches
     FOR SELECT USING (
-        team1_player1_id IN (SELECT id FROM players WHERE user_id = current_setting('app.current_user_id')::UUID) OR
-        team1_player2_id IN (SELECT id FROM players WHERE user_id = current_setting('app.current_user_id')::UUID) OR
-        team2_player1_id IN (SELECT id FROM players WHERE user_id = current_setting('app.current_user_id')::UUID) OR
-        team2_player2_id IN (SELECT id FROM players WHERE user_id = current_setting('app.current_user_id')::UUID) OR
+        team1_player1_id = current_setting('app.current_user_id')::UUID OR
+        team1_player2_id = current_setting('app.current_user_id')::UUID OR
+        team2_player1_id = current_setting('app.current_user_id')::UUID OR
+        team2_player2_id = current_setting('app.current_user_id')::UUID OR
         session_id IN (SELECT id FROM sessions WHERE host_user_id = current_setting('app.current_user_id')::UUID)
     );
 ```
 
-## 9. Data Migration and Seeding
+## 9. Sample Data and Seeding
 
 ### 9.1 Sample Data Functions
 ```sql
--- Function to create sample court locations
-CREATE OR REPLACE FUNCTION create_sample_court_locations()
-RETURNS VOID AS $$
-BEGIN
-    INSERT INTO court_locations (name, address, city, country, total_courts, court_type, description) VALUES
-    ('Downtown Sports Center', '123 Main St', 'New York', 'USA', 8, 'indoor', 'Modern indoor facility with 8 professional courts'),
-    ('Riverside Badminton Club', '456 River Rd', 'San Francisco', 'USA', 6, 'indoor', 'Premium club with wooden floors and excellent lighting'),
-    ('Community Recreation Center', '789 Park Ave', 'Los Angeles', 'USA', 4, 'indoor', 'Community center with affordable rates'),
-    ('Elite Sports Complex', '321 Sports Blvd', 'Chicago', 'USA', 12, 'indoor', 'Professional training facility with 12 courts');
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to create sample users and players
+-- Function to create sample users
 CREATE OR REPLACE FUNCTION create_sample_users()
 RETURNS VOID AS $$
 DECLARE
@@ -1954,15 +1927,17 @@ DECLARE
     user3_id UUID;
     user4_id UUID;
 BEGIN
-    -- Create sample users with Clerk + Line authentication
-    INSERT INTO users (clerk_id, email, oauth_provider, oauth_provider_id, player_name, skill_level, current_rating, total_matches, total_wins, total_losses, clerk_created_at) VALUES
-    ('user_clerk_alice', 'alice@example.com', 'line', 'line_user_alice_U123', 'Alice', 'S', 1650, 45, 28, 17, NOW()),
-    ('user_clerk_bob', 'bob@example.com', 'line', 'line_user_bob_U456', 'Bob', 'N', 1420, 32, 18, 14, NOW()),
-    ('user_clerk_carol', 'carol@example.com', 'line', 'line_user_carol_U789', 'Carol', 'P', 1850, 67, 48, 19, NOW()),
-    ('user_clerk_david', 'david@example.com', 'line', 'line_user_david_U012', 'David', 'BG', 1180, 23, 9, 14, NOW())
+    -- Create sample users with Clerk + Line authentication and skill ratings
+    INSERT INTO users (
+        clerk_id, email, oauth_provider, oauth_provider_id, player_name, skill_level, 
+        skill_mu, skill_sigma, skill_rating,
+        total_matches, total_wins, total_losses, clerk_created_at
+    ) VALUES
+    ('user_clerk_alice', 'alice@example.com', 'line', 'line_user_alice_U123', 'Alice', 'S', 30.5, 5.2, 15.0, 45, 28, 17, NOW()),
+    ('user_clerk_bob', 'bob@example.com', 'line', 'line_user_bob_U456', 'Bob', 'N', 27.3, 6.1, 9.0, 32, 18, 14, NOW()),
+    ('user_clerk_carol', 'carol@example.com', 'line', 'line_user_carol_U789', 'Carol', 'P', 35.2, 4.8, 20.8, 67, 48, 19, NOW()),
+    ('user_clerk_david', 'david@example.com', 'line', 'line_user_david_U012', 'David', 'BG', 23.5, 7.0, 2.5, 23, 9, 14, NOW())
     RETURNING id INTO user1_id, user2_id, user3_id, user4_id;
-    
-    -- Users and players are now merged in the users table
 END;
 $$ LANGUAGE plpgsql;
 ```
@@ -1972,7 +1947,7 @@ $$ LANGUAGE plpgsql;
 ### 10.1 Backup Considerations
 - **Full Database Backups**: Daily automated backups of the entire database
 - **Point-in-Time Recovery**: Enable WAL archiving for point-in-time recovery
-- **Table-Specific Backups**: Critical tables (users, players, matches) backed up more frequently
+- **Table-Specific Backups**: Critical tables (users, matches, sessions) backed up more frequently
 - **Rating History Preservation**: Special attention to rating_history table for score recalculation
 
 ### 10.2 Data Retention Policies
