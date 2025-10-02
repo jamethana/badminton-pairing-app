@@ -1051,6 +1051,37 @@ CREATE TABLE user_sessions (
 );
 ```
 
+#### 4.4.4 FCM Tokens Table (Push Notifications)
+```sql
+CREATE TABLE fcm_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- FCM token
+    token TEXT NOT NULL UNIQUE,
+    
+    -- Device information
+    device_type VARCHAR(20) CHECK (device_type IN ('ios', 'android', 'web')),
+    device_id VARCHAR(255),
+    device_name TEXT,
+    
+    -- Token metadata
+    is_active BOOLEAN DEFAULT TRUE,
+    last_used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Constraints
+    CONSTRAINT unique_user_device UNIQUE(user_id, device_id)
+);
+
+CREATE INDEX idx_fcm_tokens_user ON fcm_tokens(user_id);
+CREATE INDEX idx_fcm_tokens_active ON fcm_tokens(is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_fcm_tokens_token ON fcm_tokens(token);
+```
+
 ## 5. Clerk Authentication & Privacy Design
 
 ### 5.1 Clerk with Line OAuth Integration

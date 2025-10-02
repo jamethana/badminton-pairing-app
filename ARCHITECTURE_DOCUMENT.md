@@ -87,10 +87,56 @@
 | **Real-time** | Socket.IO Client | WebSocket communication |
 | **Backend API** | Node.js + Express.js | REST API server |
 | **Real-time Server** | Socket.IO | WebSocket server |
+| **Push Notifications** | Firebase Cloud Messaging (FCM) | Offline notifications |
 | **Authentication** | Clerk + Line OAuth | Secure authentication |
 | **Database** | PostgreSQL 17.x | Primary data store |
 | **Cache** | Redis | Session & cache layer |
 | **File Storage** | S3 / Cloud Storage | Avatar images, QR codes |
+
+### 1.3 API Architecture Decision: REST + WebSocket
+
+**Why REST API + WebSocket (Not GraphQL or gRPC)?**
+
+**✅ REST API for Standard Operations**
+- Simple, well-understood, and proven at scale
+- Excellent caching support (Redis, CDN)
+- Easy to debug with standard HTTP tools
+- Perfect for CRUD operations (sessions, matches, users)
+- Great Flutter/Dio support with minimal overhead
+
+**✅ WebSocket (Socket.IO) for Real-Time Features**
+- Instant bidirectional communication
+- Built-in reconnection and fallback mechanisms
+- Room-based messaging (sessions, matches)
+- Lower latency than HTTP polling
+- Perfect for live score updates and match notifications
+
+**✅ FCM for Push Notifications**
+- Reliable delivery when app is closed or disconnected
+- Battery-efficient background notifications
+- Works across iOS and Android
+- Fallback for WebSocket when app is inactive
+
+**❌ Why NOT GraphQL?**
+- Over-engineering for predictable mobile data needs
+- Additional complexity (schema, resolvers, learning curve)
+- Caching is harder than REST
+- Still needs WebSocket for real-time (GraphQL subscriptions don't replace Socket.IO)
+- Best for: Complex nested queries with many optional fields
+
+**❌ Why NOT gRPC?**
+- Limited browser/web support (requires gRPC-Web proxy)
+- Binary protocol harder to debug than JSON
+- Less mature Flutter support compared to REST
+- HTTP/2 requirement adds infrastructure complexity
+- Best for: Backend-to-backend microservices, not mobile apps
+
+**Notification Strategy:**
+- **App Open + Connected**: WebSocket (instant, <100ms)
+- **App Open + Disconnected**: FCM Push (<1 second)
+- **App Closed**: FCM Push (background delivery)
+
+This hybrid approach gives instant real-time updates AND reliable offline notifications.
 
 ---
 
@@ -407,6 +453,7 @@ backend/
 │   │   ├── database.ts                # PostgreSQL configuration
 │   │   ├── redis.ts                   # Redis configuration
 │   │   ├── auth.ts                    # OAuth & JWT configuration
+│   │   ├── firebase.ts                # FCM configuration
 │   │   └── env.ts                     # Environment variables
 │   ├── middleware/
 │   │   ├── auth.middleware.ts         # JWT verification
@@ -432,7 +479,8 @@ backend/
 │   │   ├── session.service.ts         # Business logic
 │   │   ├── match.service.ts
 │   │   ├── rating.service.ts          # TrueSkill calculations
-│   │   └── notification.service.ts    # Push notifications
+│   │   ├── notification.service.ts    # Push notifications (FCM)
+│   │   └── fcm.service.ts             # Firebase Cloud Messaging
 │   ├── repositories/
 │   │   ├── user.repository.ts         # Database queries
 │   │   ├── session.repository.ts
@@ -461,7 +509,66 @@ backend/
 └── .env.example
 ```
 
-### 3.2 Express.js API Server Setup
+### 3.2 REST API Endpoints
+
+```typescript
+// Authentication
+POST   /api/v1/auth/clerk              // Clerk authentication
+POST   /api/v1/auth/refresh            // Refresh access token
+POST   /api/v1/auth/logout             // Logout
+POST   /api/v1/auth/fcm-token          // Register FCM token
+
+// Users
+GET    /api/v1/users/me                // Get current user
+PUT    /api/v1/users/me                // Update current user
+GET    /api/v1/users/:id               // Get user by ID
+GET    /api/v1/users/:id/stats         // Get user statistics
+GET    /api/v1/users/:id/rating-history // Get rating history
+
+// Sessions
+GET    /api/v1/sessions                // List sessions
+POST   /api/v1/sessions                // Create session
+GET    /api/v1/sessions/:id            // Get session details
+PUT    /api/v1/sessions/:id            // Update session
+DELETE /api/v1/sessions/:id            // Delete session
+POST   /api/v1/sessions/join/:inviteCode // Join session via invite code
+GET    /api/v1/sessions/:id/participants // Get session participants
+GET    /api/v1/sessions/:id/matches    // Get session matches
+
+// Matches
+GET    /api/v1/matches                 // List matches
+POST   /api/v1/matches                 // Create match
+GET    /api/v1/matches/:id             // Get match details
+PUT    /api/v1/matches/:id             // Update match
+POST   /api/v1/matches/:id/start       // Start match
+POST   /api/v1/matches/:id/complete    // Complete match
+DELETE /api/v1/matches/:id             // Cancel match
+
+// Ratings
+GET    /api/v1/ratings/leaderboard     // Get leaderboard
+GET    /api/v1/ratings/formulas        // Get rating formulas
+POST   /api/v1/ratings/recalculate     // Recalculate ratings (admin)
+
+// Organizations
+GET    /api/v1/organizations           // List organizations
+POST   /api/v1/organizations           // Create organization
+GET    /api/v1/organizations/:id       // Get organization details
+PUT    /api/v1/organizations/:id       // Update organization
+DELETE /api/v1/organizations/:id       // Delete organization
+GET    /api/v1/organizations/:id/members // Get members
+POST   /api/v1/organizations/:id/members // Add member
+DELETE /api/v1/organizations/:id/members/:userId // Remove member
+
+// Session Templates
+GET    /api/v1/templates               // List templates
+POST   /api/v1/templates               // Create template
+GET    /api/v1/templates/:id           // Get template
+PUT    /api/v1/templates/:id           // Update template
+DELETE /api/v1/templates/:id           // Delete template
+POST   /api/v1/templates/:id/use       // Create session from template
+```
+
+### 3.3 Express.js API Server Setup
 
 ```typescript
 // src/app.ts
@@ -628,6 +735,9 @@ export function initializeWebSocket(io: Server) {
   io.on('connection', (socket: AuthenticatedSocket) => {
     console.log(`User ${socket.userId} connected`);
     
+    // Join user-specific room for personal notifications
+    socket.join(`user:${socket.userId}`);
+    
     // Initialize event handlers
     initializeSessionEvents(io, socket);
     initializeMatchEvents(io, socket);
@@ -658,6 +768,17 @@ export function initializeMatchEvents(io: Server, socket: AuthenticatedSocket) {
   // Leave match room
   socket.on('match:leave', async ({ matchId }) => {
     await socket.leave(`match:${matchId}`);
+  });
+  
+  // Join session room
+  socket.on('session:join', async ({ sessionId }) => {
+    await socket.join(`session:${sessionId}`);
+    console.log(`User ${socket.userId} joined session ${sessionId}`);
+  });
+  
+  // Leave session room
+  socket.on('session:leave', async ({ sessionId }) => {
+    await socket.leave(`session:${sessionId}`);
   });
   
   // Update match score (real-time)
@@ -703,6 +824,538 @@ export function initializeMatchEvents(io: Server, socket: AuthenticatedSocket) {
       socket.emit('match:error', { message: error.message });
     }
   });
+}
+```
+
+### 3.5 Match Notification Implementation
+
+#### Backend: Match Start Notifications
+
+```typescript
+// src/services/match.service.ts
+import { getSocketIOInstance } from '../websocket/socket.handler';
+import { FCMService } from './fcm.service';
+
+export class MatchService {
+  private fcmService: FCMService;
+  
+  constructor() {
+    this.fcmService = new FCMService();
+  }
+  
+  async scheduleMatch(sessionId: string, matchData: CreateMatchDto) {
+    const match = await this.matchRepository.create(matchData);
+    
+    // Get all player IDs
+    const playerIds = [
+      match.team1Player1Id,
+      match.team1Player2Id,
+      match.team2Player1Id,
+      match.team2Player2Id,
+    ];
+    
+    // Get player details
+    const players = await this.userRepository.findByIds(playerIds);
+    
+    // Send real-time notification via WebSocket to connected users
+    const io = getSocketIOInstance();
+    playerIds.forEach(playerId => {
+      io.to(`user:${playerId}`).emit('match:scheduled', {
+        matchId: match.id,
+        sessionId: sessionId,
+        courtNumber: match.courtNumber,
+        scheduledTime: match.scheduledStartTime,
+        teammates: this.getTeammates(playerId, match),
+        opponents: this.getOpponents(playerId, match),
+      });
+    });
+    
+    // Send push notification via FCM for offline/disconnected users
+    await this.fcmService.sendMatchScheduledNotification(players, match);
+    
+    return match;
+  }
+  
+  async startMatch(matchId: string) {
+    const match = await this.matchRepository.findById(matchId);
+    
+    // Update match status
+    await this.matchRepository.update(matchId, {
+      status: 'in_progress',
+      actualStartTime: new Date(),
+    });
+    
+    const playerIds = [
+      match.team1Player1Id,
+      match.team1Player2Id,
+      match.team2Player1Id,
+      match.team2Player2Id,
+    ];
+    
+    const players = await this.userRepository.findByIds(playerIds);
+    
+    // Send real-time notification via WebSocket
+    const io = getSocketIOInstance();
+    playerIds.forEach(playerId => {
+      io.to(`user:${playerId}`).emit('match:started', {
+        matchId: match.id,
+        courtNumber: match.courtNumber,
+        startedAt: new Date(),
+      });
+    });
+    
+    // Send FCM push notification
+    await this.fcmService.sendMatchStartedNotification(players, match);
+    
+    return match;
+  }
+  
+  private getTeammates(playerId: string, match: Match): string[] {
+    if (playerId === match.team1Player1Id) return [match.team1Player2Id];
+    if (playerId === match.team1Player2Id) return [match.team1Player1Id];
+    if (playerId === match.team2Player1Id) return [match.team2Player2Id];
+    if (playerId === match.team2Player2Id) return [match.team2Player1Id];
+    return [];
+  }
+  
+  private getOpponents(playerId: string, match: Match): string[] {
+    if (playerId === match.team1Player1Id || playerId === match.team1Player2Id) {
+      return [match.team2Player1Id, match.team2Player2Id];
+    }
+    return [match.team1Player1Id, match.team1Player2Id];
+  }
+}
+```
+
+#### Backend: FCM Service
+
+```typescript
+// src/config/firebase.ts
+import admin from 'firebase-admin';
+
+const serviceAccount = require('../../firebase-service-account.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+export const messaging = admin.messaging();
+
+// src/services/fcm.service.ts
+import { messaging } from '../config/firebase';
+import { UserRepository } from '../repositories/user.repository';
+
+export class FCMService {
+  private userRepository: UserRepository;
+  
+  constructor() {
+    this.userRepository = new UserRepository();
+  }
+  
+  async sendMatchScheduledNotification(players: User[], match: Match) {
+    const notifications = players.map(async (player) => {
+      const fcmTokens = await this.userRepository.getFCMTokens(player.id);
+      
+      if (fcmTokens.length === 0) return;
+      
+      const message = {
+        notification: {
+          title: 'Match Scheduled ⚡',
+          body: `Your match on Court ${match.courtNumber} starts soon!`,
+        },
+        data: {
+          type: 'match_scheduled',
+          matchId: match.id,
+          courtNumber: match.courtNumber.toString(),
+          sessionId: match.sessionId,
+        },
+        tokens: fcmTokens,
+      };
+      
+      try {
+        const response = await messaging.sendMulticast(message);
+        console.log(`Sent ${response.successCount} notifications to ${player.playerName}`);
+        
+        // Clean up invalid tokens
+        if (response.failureCount > 0) {
+          await this.cleanupInvalidTokens(player.id, response, fcmTokens);
+        }
+      } catch (error) {
+        console.error(`Error sending FCM to ${player.playerName}:`, error);
+      }
+    });
+    
+    await Promise.all(notifications);
+  }
+  
+  async sendMatchStartedNotification(players: User[], match: Match) {
+    const notifications = players.map(async (player) => {
+      const fcmTokens = await this.userRepository.getFCMTokens(player.id);
+      
+      if (fcmTokens.length === 0) return;
+      
+      const message = {
+        notification: {
+          title: 'Match Started! 🏸',
+          body: `Your match on Court ${match.courtNumber} has begun. Good luck!`,
+        },
+        data: {
+          type: 'match_started',
+          matchId: match.id,
+          courtNumber: match.courtNumber.toString(),
+          navigate: 'match_detail', // Tell app to navigate to match page
+        },
+        tokens: fcmTokens,
+      };
+      
+      try {
+        await messaging.sendMulticast(message);
+      } catch (error) {
+        console.error(`Error sending FCM to ${player.playerName}:`, error);
+      }
+    });
+    
+    await Promise.all(notifications);
+  }
+  
+  private async cleanupInvalidTokens(
+    userId: string,
+    response: any,
+    tokens: string[]
+  ) {
+    const invalidTokens: string[] = [];
+    
+    response.responses.forEach((resp: any, idx: number) => {
+      if (!resp.success) {
+        invalidTokens.push(tokens[idx]);
+      }
+    });
+    
+    if (invalidTokens.length > 0) {
+      await this.userRepository.removeInvalidFCMTokens(userId, invalidTokens);
+    }
+  }
+}
+```
+
+#### Flutter: WebSocket Client
+
+```dart
+// lib/core/network/websocket_client.dart
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class WebSocketClient {
+  IO.Socket? _socket;
+  final String baseUrl;
+  final FlutterLocalNotificationsPlugin _localNotifications;
+  
+  WebSocketClient(this.baseUrl) 
+    : _localNotifications = FlutterLocalNotificationsPlugin();
+  
+  Future<void> connect(String token) async {
+    _socket = IO.io(baseUrl, 
+      IO.OptionBuilder()
+        .setTransports(['websocket'])
+        .setAuth({'token': token})
+        .enableAutoConnect()
+        .build()
+    );
+    
+    _socket!.onConnect((_) {
+      print('Connected to WebSocket');
+      _setupNotificationListeners();
+    });
+    
+    _socket!.onDisconnect((_) {
+      print('Disconnected from WebSocket');
+    });
+  }
+  
+  void _setupNotificationListeners() {
+    // Listen for match scheduled
+    _socket?.on('match:scheduled', (data) {
+      final notification = MatchScheduledNotification.fromJson(data);
+      
+      // Fire app event
+      AppEventBus.fire(MatchScheduledEvent(
+        matchId: notification.matchId,
+        sessionId: notification.sessionId,
+        courtNumber: notification.courtNumber,
+        scheduledTime: notification.scheduledTime,
+      ));
+      
+      // Show local notification
+      _showLocalNotification(
+        title: 'Match Scheduled ⚡',
+        body: 'Your match on Court ${notification.courtNumber} starts soon!',
+        payload: 'match:${notification.matchId}',
+      );
+    });
+    
+    // Listen for match started
+    _socket?.on('match:started', (data) {
+      final notification = MatchStartedNotification.fromJson(data);
+      
+      // Fire app event
+      AppEventBus.fire(MatchStartedEvent(
+        matchId: notification.matchId,
+        courtNumber: notification.courtNumber,
+        startedAt: notification.startedAt,
+      ));
+      
+      // Show local notification with action
+      _showLocalNotification(
+        title: 'Match Started! 🏸',
+        body: 'Your match on Court ${notification.courtNumber} has begun. Good luck!',
+        payload: 'match:${notification.matchId}',
+      );
+      
+      // Auto-navigate if app is in foreground
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => LiveMatchPage(matchId: notification.matchId),
+        ),
+      );
+    });
+    
+    // Listen for score updates
+    _socket?.on('match:scoreUpdated', (data) {
+      AppEventBus.fire(MatchScoreUpdatedEvent(
+        matchId: data['matchId'],
+        team1Score: data['team1Score'],
+        team2Score: data['team2Score'],
+      ));
+    });
+    
+    // Listen for match completed
+    _socket?.on('match:completed', (data) {
+      AppEventBus.fire(MatchCompletedEvent(
+        matchId: data['matchId'],
+        winningTeam: data['winningTeam'],
+        ratingChanges: Map<String, double>.from(data['ratingUpdates']),
+      ));
+      
+      _showLocalNotification(
+        title: 'Match Completed',
+        body: 'Check your rating changes!',
+        payload: 'rating:${data['matchId']}',
+      );
+    });
+  }
+  
+  Future<void> _showLocalNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'badminton_matches',
+      'Match Notifications',
+      channelDescription: 'Notifications for match updates',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    
+    const iosDetails = DarwinNotificationDetails();
+    
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+  }
+  
+  void joinSession(String sessionId) {
+    _socket?.emit('session:join', {'sessionId': sessionId});
+  }
+  
+  void leaveSession(String sessionId) {
+    _socket?.emit('session:leave', {'sessionId': sessionId});
+  }
+  
+  void joinMatch(String matchId) {
+    _socket?.emit('match:join', {'matchId': matchId});
+  }
+  
+  void disconnect() {
+    _socket?.disconnect();
+  }
+}
+```
+
+#### Flutter: FCM Setup
+
+```dart
+// lib/core/services/fcm_service.dart
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class FCMService {
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications;
+  
+  FCMService() : _localNotifications = FlutterLocalNotificationsPlugin();
+  
+  Future<void> initialize() async {
+    // Request permission (iOS)
+    final settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('User granted permission');
+    }
+    
+    // Get FCM token
+    final token = await _messaging.getToken();
+    if (token != null) {
+      await _sendTokenToBackend(token);
+    }
+    
+    // Listen for token refresh
+    _messaging.onTokenRefresh.listen(_sendTokenToBackend);
+    
+    // Initialize local notifications
+    await _initializeLocalNotifications();
+    
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    
+    // Handle background messages
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    
+    // Handle notification taps
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+  }
+  
+  Future<void> _initializeLocalNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    
+    await _localNotifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (details) {
+        if (details.payload != null) {
+          _navigateFromPayload(details.payload!);
+        }
+      },
+    );
+  }
+  
+  Future<void> _sendTokenToBackend(String token) async {
+    final dio = getIt<Dio>();
+    await dio.post('/api/v1/auth/fcm-token', data: {'token': token});
+  }
+  
+  void _handleForegroundMessage(RemoteMessage message) {
+    final notification = message.notification;
+    final data = message.data;
+    
+    if (notification != null) {
+      _showLocalNotification(
+        title: notification.title ?? 'Badminton App',
+        body: notification.body ?? '',
+        payload: data['type'],
+      );
+    }
+  }
+  
+  void _handleNotificationTap(RemoteMessage message) {
+    final data = message.data;
+    final type = data['type'];
+    
+    switch (type) {
+      case 'match_scheduled':
+      case 'match_started':
+        final matchId = data['matchId'];
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => LiveMatchPage(matchId: matchId),
+          ),
+        );
+        break;
+      case 'rating_updated':
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => ProfilePage()),
+        );
+        break;
+    }
+  }
+  
+  void _navigateFromPayload(String payload) {
+    final parts = payload.split(':');
+    if (parts.length != 2) return;
+    
+    final type = parts[0];
+    final id = parts[1];
+    
+    switch (type) {
+      case 'match':
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => LiveMatchPage(matchId: id),
+          ),
+        );
+        break;
+      case 'session':
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => SessionDetailPage(sessionId: id),
+          ),
+        );
+        break;
+    }
+  }
+  
+  Future<void> _showLocalNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'badminton_matches',
+      'Match Notifications',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    
+    const iosDetails = DarwinNotificationDetails();
+    
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      details,
+      payload: payload,
+    );
+  }
+}
+
+// Background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('Background message: ${message.messageId}');
 }
 ```
 
@@ -1449,6 +2102,10 @@ dependencies:
   qr_flutter: ^4.1.0
   google_maps_flutter: ^2.5.0
   
+  # Push Notifications
+  firebase_messaging: ^14.7.9
+  flutter_local_notifications: ^16.3.0
+  
   # Utilities
   intl: ^0.18.1
   uuid: ^4.3.3
@@ -1472,7 +2129,12 @@ dev_dependencies:
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "socket.io": "^4.7.2",
-    "dotenv": "^16.3.1"
+    "firebase-admin": "^12.0.0",
+    "dotenv": "^16.3.1",
+    "ioredis": "^5.3.2",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4"
   }
 }
 ```

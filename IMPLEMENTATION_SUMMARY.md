@@ -23,24 +23,28 @@ This summary tracks all architectural documents and changes made for the Badmint
 
 **Key Sections:**
 - High-Level Architecture (Flutter → API → Database)
+- **API Architecture Decision: REST + WebSocket (Not GraphQL/gRPC)**
 - Flutter Frontend Architecture (Clean Architecture)
 - Backend API Architecture (Node.js + Express)
+- **Complete REST API Endpoints Specification**
 - Database Layer (PostgreSQL with connection pooling)
 - Clerk + Line Authentication Flow
 - Real-Time Features (Socket.IO)
+- **Match Notification System (WebSocket + FCM)**
 - Deployment Architecture (AWS/DigitalOcean)
 - Monitoring & Best Practices
 
 ---
 
 ### 2. `DATABASE_DESIGN_DOCUMENT.md` ✅
-**Status:** Updated to remove Google OAuth references
+**Status:** Updated with FCM tokens table
 
 **Changes Made:**
 - ✅ Changed frontend from React to Flutter
 - ✅ Updated authentication from Google OAuth to Clerk + Line
 - ✅ Added `clerk_id` column to users table
 - ✅ Added `clerk_created_at` timestamp
+- ✅ **Added `fcm_tokens` table for push notifications**
 - ✅ Updated all sample data to use Line authentication
 - ✅ Updated indexes to include clerk_id
 - ✅ Updated authentication flow diagrams
@@ -52,11 +56,17 @@ ALTER TABLE users
 ADD COLUMN clerk_id VARCHAR(255) UNIQUE NOT NULL,
 ADD COLUMN clerk_created_at TIMESTAMP WITH TIME ZONE;
 
--- Updated constraint
-UNIQUE(clerk_id);
-
--- New index
-CREATE INDEX idx_users_clerk_id ON users(clerk_id);
+-- New table for FCM push notifications
+CREATE TABLE fcm_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    device_type VARCHAR(20) CHECK (device_type IN ('ios', 'android', 'web')),
+    device_id VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_user_device UNIQUE(user_id, device_id)
+);
 
 -- OAuth provider now defaults to 'line'
 oauth_provider VARCHAR(50) NOT NULL DEFAULT 'line'
@@ -149,6 +159,13 @@ badminton-pair-infra         (DevOps)
 
 ## 🏗️ Architecture Patterns Applied
 
+### ✅ API Architecture
+- **REST API:** Standard CRUD operations (sessions, matches, users)
+- **WebSocket (Socket.IO):** Real-time updates (live scores, notifications)
+- **FCM Push Notifications:** Offline user notifications
+- **Why NOT GraphQL:** Over-engineering for predictable mobile needs
+- **Why NOT gRPC:** Limited browser/Flutter support, binary protocol harder to debug
+
 ### ✅ Clean Architecture
 - **Presentation Layer:** UI, Widgets, Providers
 - **Domain Layer:** Entities, Use Cases, Repository Interfaces
@@ -184,6 +201,12 @@ badminton-pair-infra         (DevOps)
 - **Purpose:** Gradual rollouts, kill switches, A/B testing
 - **Benefits:** No deployments needed for feature toggles
 
+### ✅ Notification System
+- **Real-time (Connected):** WebSocket via Socket.IO (<100ms latency)
+- **Push (Offline/Disconnected):** Firebase Cloud Messaging
+- **Local Notifications:** flutter_local_notifications for in-app display
+- **Strategy:** Dual delivery ensures users never miss match updates
+
 ---
 
 ## 🔐 Authentication Flow
@@ -217,16 +240,19 @@ Flutter App → Backend API (verify Clerk token)
 
 ### Flutter (Mobile)
 ```yaml
-flutter_riverpod: ^2.4.0       # State management
-clerk_flutter: ^1.0.0          # Authentication
-dio: ^5.4.0                    # HTTP client
-socket_io_client: ^2.0.3+1     # WebSocket
-go_router: ^13.0.0             # Navigation
-get_it: ^7.6.0                 # Dependency injection
-firebase_remote_config: ^4.3.8 # Feature flags
-google_maps_flutter: ^2.5.0    # Maps
-qr_code_scanner: ^1.0.1        # QR scanning
-flutter_secure_storage: ^9.0.0 # Secure storage
+flutter_riverpod: ^2.4.0            # State management
+clerk_flutter: ^1.0.0               # Authentication
+dio: ^5.4.0                         # HTTP client
+socket_io_client: ^2.0.3+1          # WebSocket
+go_router: ^13.0.0                  # Navigation
+get_it: ^7.6.0                      # Dependency injection
+firebase_core: ^2.24.2              # Firebase core
+firebase_remote_config: ^4.3.8      # Feature flags
+firebase_messaging: ^14.7.9         # Push notifications (FCM)
+flutter_local_notifications: ^16.3.0 # Local notifications
+google_maps_flutter: ^2.5.0         # Maps
+qr_code_scanner: ^1.0.1             # QR scanning
+flutter_secure_storage: ^9.0.0      # Secure storage
 ```
 
 ### Backend (Node.js)
@@ -237,6 +263,11 @@ flutter_secure_storage: ^9.0.0 # Secure storage
   "socket.io": "^4.7.2",
   "pg": "^8.11.3",
   "jsonwebtoken": "^9.0.2",
+  "firebase-admin": "^12.0.0",
+  "ioredis": "^5.3.2",
+  "helmet": "^7.1.0",
+  "cors": "^2.8.5",
+  "compression": "^1.7.4",
   "dotenv": "^16.3.1"
 }
 ```
@@ -380,6 +411,54 @@ TBD
 ---
 
 **Last Updated:** October 2, 2025  
-**Architecture Version:** 1.0  
+**Architecture Version:** 1.1  
 **Target Platform:** Flutter 3.x + Node.js 20.x + PostgreSQL 17.x
+
+---
+
+## 🎯 API Architecture Decision Summary
+
+### Chosen: REST API + WebSocket + FCM
+
+**REST API for:**
+- Session management (CRUD)
+- User profiles
+- Match creation and retrieval
+- Rating queries
+- Organization management
+
+**WebSocket (Socket.IO) for:**
+- Real-time match score updates
+- Live match notifications
+- Session participant updates
+- Instant matchmaking updates
+
+**Firebase Cloud Messaging (FCM) for:**
+- Push notifications when app is closed
+- Offline user notifications
+- Fallback for disconnected WebSocket
+
+### Why NOT GraphQL?
+- ❌ Over-engineering for predictable mobile data needs
+- ❌ Additional complexity (schema, resolvers, learning curve)
+- ❌ Harder to cache than REST
+- ❌ Still needs WebSocket for real-time features
+- ✅ Best for: Complex nested queries with many optional fields
+
+### Why NOT gRPC?
+- ❌ Limited browser/web support (requires gRPC-Web proxy)
+- ❌ Binary protocol harder to debug
+- ❌ Less mature Flutter support
+- ❌ HTTP/2 requirement adds infrastructure complexity
+- ✅ Best for: Backend-to-backend microservices
+
+### Benefits of Our Choice
+- ✅ Simple, well-understood, proven at scale
+- ✅ Easy to debug with standard HTTP tools
+- ✅ Excellent caching support (Redis, CDN)
+- ✅ Great Flutter support
+- ✅ WebSocket handles all real-time needs
+- ✅ FCM ensures reliable notifications
+- ✅ Lower infrastructure complexity
+- ✅ Perfect for regional-scale app (10K users)
 
